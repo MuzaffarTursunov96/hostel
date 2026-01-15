@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}{{t("customers")}}{% endblock %}
+
+{% block content %}
+
+<script>
+  let CURRENT_BRANCH = {{ current_branch_id }};
+</script>
+
+<div class="p-4 space-y-4">
+
+  <!-- HEADER -->
+  <h1 class="text-xl font-semibold">👤 {{t("customers")}}</h1>
+
+  <!-- SEARCH -->
+  <div class="bg-card rounded-2xl p-4 shadow">
+    <input
+      type="text"
+      id="searchCustomer"
+      placeholder='{{t("search_by_name_passport_or_phone")}}'
+      class="w-full px-4 py-3 rounded-xl border bg-transparent"
+    />
+  </div>
+
+  <!-- CUSTOMERS LIST -->
+  <div class="bg-card rounded-2xl shadow overflow-hidden">
+    <div class="px-4 py-3 border-b text-sm text-tgHint">
+      {{t("customers")}}
+    </div>
+
+    <div id="customersTable" class="divide-y"></div>
+  </div>
+
+</div>
+
+<!-- ================= PASSPORT MODAL ================= -->
+<div id="passportModal" class="fixed inset-0 z-50 hidden">
+
+  <div class="absolute inset-0 bg-black/50"
+       onclick="closePassportModal()"></div>
+
+  <div class="absolute bottom-0 left-0 right-0 bg-card rounded-t-2xl max-h-[85vh]">
+
+    <div class="flex items-center justify-between p-4 border-b">
+      <h3 class="font-semibold">🪪 {{t("passport_images")}}</h3>
+      <button onclick="closePassportModal()">✕</button>
+    </div>
+
+    <div id="passportImages"
+         class="p-4 grid grid-cols-2 gap-3">
+    </div>
+
+    <div class="p-4 border-t">
+      <input type="file"
+             id="passportUploadInput"
+             multiple
+             accept="image/*"
+             class="hidden">
+
+      <button
+        type="button"
+        id="passportUploadBtn"
+        onclick="triggerPassportUpload()"
+        class="w-full py-3 rounded-xl bg-tgButton text-white font-semibold flex items-center justify-center gap-2">
+
+        <span id="uploadBtnIcon">⬆️</span>
+        <span id="uploadBtnText">{{t("upload_images")}}</span>
+
+        <!-- spinner (hidden by default) -->
+        <svg id="uploadSpinner"
+            class="hidden w-5 h-5 animate-spin"
+            viewBox="0 0 24 24" fill="none">
+          <circle class="opacity-25" cx="12" cy="12" r="10"
+                  stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor"
+                d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+        </svg>
+      </button>
+
+    </div>
+
+  </div>
+</div>
+
+<script src="/static/js/customers.js"></script>
+{% endblock %}

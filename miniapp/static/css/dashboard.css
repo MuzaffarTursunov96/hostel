@@ -1,0 +1,563 @@
+.rooms-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+}
+
+/* ROOM CARD */
+.room-card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.room-title {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+/* BED FLOW (FlowLayout replacement) */
+.beds-flow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* BED CARD (CalendarBedCell) */
+.bed-card {
+  width: 120px;
+  height: 145px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.bed-header {
+  padding: 4px 6px;
+  font-size: 9px;
+  font-weight: 600;
+  background: #f9fafb;
+}
+
+.bed-header.busy {
+  background: #fee2e2;
+}
+
+.bed-header.free {
+  background: #dcfce7;
+}
+
+.bed-body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  font-size: 11px;
+  text-align: center;
+  padding: 4px;
+}
+
+.bed-body strong {
+  font-size: 13px;
+}
+
+/* STATUS BAR */
+.bed-status.busy {
+  height: 2px;
+  background: #ef4444;
+}
+
+.bed-status.free {
+  height: 2px;
+  background: #22c55e;
+}
+
+/* ===== DASHBOARD HEADER ===== */
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+/* LEFT */
+.header-left h2 {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.header-left span {
+  font-size: 14px;
+  font-weight: 500;
+  color: #6b7280;
+}
+
+/* RIGHT */
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* DATE GROUP */
+.date-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.date-group input {
+  border: none;
+  outline: none;
+  font-size: 13px;
+  padding: 4px;
+}
+
+.date-group span {
+  color: #9ca3af;
+}
+
+/* BUTTONS */
+.btn {
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-primary {
+  background: #3b82f6;
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: #2563eb;
+}
+
+.btn-outline {
+  background: #fff;
+  border-color: #d1d5db;
+  color: #374151;
+}
+
+.btn-outline:hover {
+  background: #f3f4f6;
+}
+
+.btn-danger {
+  background: #ef4444;
+  color: #fff;
+}
+
+.btn-danger:hover {
+  background: #dc2626;
+}
+
+/* ===== MOBILE ===== */
+@media (max-width: 768px) {
+  .header-right {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .date-group {
+    flex: 1;
+  }
+}
+
+/* ===== GLOBAL HEADER OFFSET FOR HAMBURGER ===== */
+.dashboard-header,
+.page-header,
+.header {
+  padding-left: 56px; /* space for hamburger */
+}
+
+
+.room-card {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
+  margin-bottom: 20px;
+}
+
+.room-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  color: #111827;
+}
+
+/* Checkout text – modern & readable */
+.bed-footer {
+  margin-top: 6px;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Busy checkout */
+.bed-card.busy .checkout-label {
+  color: #991b1b;
+  font-weight: 600;
+}
+
+.bed-card.busy .checkout-date {
+  color: #b91c1c;
+  font-weight: 700;
+}
+
+/* Free state */
+.free-text {
+  color: #15803d;
+  font-weight: 700;
+}
+
+/* =========================
+   TELEGRAM / MOBILE COMPACT
+   ========================= */
+@media (max-width: 600px) {
+
+  /* HEADER */
+  .dashboard-header {
+    padding-left: 52px; /* space for hamburger */
+    gap: 8px;
+  }
+
+  .header-left h2 {
+    font-size: 16px;
+    line-height: 1.2;
+  }
+
+  .header-left span {
+    display: none; /* hide (Hozir) on mobile */
+  }
+
+  /* ACTIONS STACK FIX */
+  .header-right {
+    gap: 6px;
+  }
+
+  /* ACTIVE BOOKINGS BUTTON */
+  .btn-primary {
+    width: 100%;
+    justify-content: center;
+    font-size: 13px;
+    padding: 8px;
+  }
+
+  /* DATE RANGE INLINE */
+  .date-group {
+    width: 100%;
+    padding: 4px 6px;
+  }
+
+  .date-group input {
+    font-size: 12px;
+    padding: 2px;
+  }
+
+  /* SEARCH + RESET INLINE */
+  .btn-outline {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .btn-danger {
+    width: 38px;
+    height: 34px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  /* ROOM CARDS */
+  .room-card {
+    padding: 12px;
+  }
+
+  .room-title {
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+
+  /* BED CARDS */
+  .beds-flow {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .bed-card {
+    padding: 8px 6px;
+    padding-left: 10%;
+  }
+
+  .bed-header {
+    font-size: 12px;
+    margin-bottom: 4px;
+  }
+
+  .bed-body strong {
+    font-size: 13px;
+  }
+
+  .bed-footer {
+    font-size: 10px;
+    margin-top: 4px;
+  }
+
+  .bed-status {
+    margin-top: 4px;
+  }
+}
+
+/* ================= MODAL ================= */
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+}
+
+.modal.hidden {
+  display: none;
+}
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+}
+
+.modal-content {
+  position: relative;
+  background: #fff;
+  width: 95%;
+  max-width: 1100px;
+  max-height: 90vh;
+  margin: 5vh auto;
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.modal-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-body {
+  padding: 12px;
+  overflow-y: auto;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+/* TABLE */
+.table-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr 1.5fr 1.5fr 1fr;
+  gap: 8px;
+  padding: 8px;
+  border-bottom: 1px solid #eee;
+  font-size: 13px;
+}
+
+.table-header {
+  font-weight: 700;
+  background: #f9fafb;
+}
+
+.modal-body {
+  max-height: calc(90vh - 60px); /* header space */
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ===== TABLE ACTIONS ===== */
+.table-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+}
+
+.btn-edit {
+  background: #3b82f6;
+  color: #fff;
+  border: none;
+  padding: 4px 6px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.btn-cancel {
+  background: #ef4444;
+  color: #fff;
+  border: none;
+  padding: 4px 6px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.edit-modal {
+  max-width: 420px;
+}
+
+.edit-form {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Form groups */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.form-group label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.form-group input,
+.form-group select {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  font-size: 14px;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+/* Row layout */
+.form-row {
+  display: flex;
+  gap: 10px;
+}
+
+.form-row .form-group {
+  flex: 1;
+}
+
+/* Actions */
+.form-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.form-actions .btn {
+  flex: 1;
+}
+
+@media (max-width: 600px) {
+
+  .modal-content {
+    width: 96%;
+    height: 92vh;
+    border-radius: 14px;
+  }
+
+  .modal-header h3 {
+    font-size: 15px;
+  }
+
+  /* TABLE STACKING */
+  .table-row {
+    grid-template-columns: 1fr 1fr;
+    row-gap: 6px;
+    font-size: 12px;
+  }
+
+  /* Hide less important columns */
+  .table-row > div:nth-child(2), /* passport */
+  .table-row > div:nth-child(7) { /* total */
+    display: none;
+  }
+
+  /* Actions row */
+  .table-actions {
+    grid-column: span 2;
+    justify-content: flex-end;
+    margin-top: 4px;
+  }
+  .edit-modal {
+    width: 95%;
+  }
+
+  .form-row {
+    flex-direction: column;
+  }
+}
+.modal-content {
+  position: relative;
+  background: #fff;
+
+  width: 95%;
+  max-width: 1000px;
+
+  height: 90vh;
+  max-height: 90vh;
+
+  margin: auto;
+  border-radius: 16px;
+
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#activeBookingsTable {
+  width: 100%;
+  max-width: 900px;          /* 🔥 keeps table centered */
+}
+
+
+.bed-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.future-icon {
+  cursor: pointer;
+  font-size: 14px;
+  color: #2563eb;
+}
+
+.future-icon:hover {
+  transform: scale(1.1);
+}

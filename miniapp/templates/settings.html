@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}{{t("settings")}}{% endblock %}
+
+{% block content %}
+
+<style>
+  .lang-btn.active {
+    background-color: #2563eb;
+    color: white;
+    border-color: #2563eb;
+  }
+</style>
+
+
+
+<div class="p-4 space-y-5">
+
+  <!-- TITLE -->
+  <h1 class="text-xl font-semibold">⚙ {{t("settings")}}</h1>
+
+  <!-- ================= BRANCH MANAGEMENT ================= -->
+  <div class="bg-card rounded-2xl shadow p-4 space-y-4">
+
+    <h3 class="font-semibold">🏢 {{t("branch_management")}}</h3>
+
+    <select id="branchSelect"
+            class="w-full px-3 py-2 rounded-lg border bg-transparent">
+    </select>
+
+    <div class="flex gap-2">
+      <input id="newBranchName"
+             class="flex-1 px-3 py-2 rounded-lg border bg-transparent"
+             placeholder='{{t("new_branch_name")}}'>
+      <button onclick="addBranch()"
+              class="px-4 py-2 rounded-xl bg-tgButton text-white font-medium">
+        {{t("add")}}
+      </button>
+    </div>
+
+    <div class="flex gap-2">
+      <input id="renameBranchName"
+             class="flex-1 px-3 py-2 rounded-lg border bg-transparent"
+             placeholder='{{t("rename_selected_branch")}}'>
+      <button onclick="renameBranch()"
+              class="px-4 py-2 rounded-xl border font-medium">
+        {{t("update")}}
+      </button>
+    </div>
+
+  </div>
+
+  <!-- ================= PASSWORD ================= -->
+  <div class="bg-card rounded-2xl shadow p-4 space-y-3">
+
+    <h3 class="font-semibold">🔐 {{t("change_password")}}</h3>
+
+    <input id="oldPassword"
+           type="password"
+           class="w-full px-3 py-2 rounded-lg border bg-transparent"
+           placeholder='{{t("current_password")}}'>
+
+    <input id="newPassword"
+           type="password"
+           class="w-full px-3 py-2 rounded-lg border bg-transparent"
+           placeholder='{{t("new_password")}}'>
+
+    <input id="confirmPassword"
+           type="password"
+           class="w-full px-3 py-2 rounded-lg border bg-transparent"
+           placeholder='{{t("confirm_password")}}'>
+
+    <button onclick="changePassword()"
+            class="w-full py-3 rounded-xl bg-red-500 text-white font-semibold">
+      {{t("save")}}
+    </button>
+
+  </div>
+
+  <!-- ================= LANGUAGE ================= -->
+  <div class="bg-card rounded-2xl shadow p-4 space-y-3">
+
+    <h3 class="font-semibold">🌐 {{t("language")}}</h3>
+
+    <div class="flex gap-3">
+      <button id="lang-ru"
+              onclick="setLanguage('ru')"
+              class="lang-btn flex-1 py-3 rounded-xl border font-medium">
+        🇷🇺 {{t("russian")}}
+      </button>
+
+      <button id="lang-uz"
+              onclick="setLanguage('uz')"
+              class="lang-btn flex-1 py-3 rounded-xl border font-medium">
+        🇺🇿 {{t("uzbek")}}
+      </button>
+    </div>
+
+
+  </div>
+
+</div>
+
+<script src="/static/js/settings.js"></script>
+
+{% endblock %}

@@ -1,0 +1,9 @@
+.page-offset {
+  padding-left: 70px; /* sidebar space */
+}
+
+@media (max-width: 768px) {
+  .page-offset {
+    padding-left: 0;
+  }
+}

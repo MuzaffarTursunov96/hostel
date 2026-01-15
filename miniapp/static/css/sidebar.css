@@ -1,0 +1,105 @@
+/* HAMBURGER */
+.burger {
+  position: fixed;
+  top: 14px;
+  left: 14px;
+  font-size: 22px;
+  background: #2aabee;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  width: 42px;
+  height: 42px;
+  z-index: 1001;
+}
+
+/* OVERLAY */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  opacity: 0;
+  pointer-events: none;
+  transition: 0.3s;
+  z-index: 1000;
+}
+
+.overlay.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* SIDEBAR */
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: -280px;
+  width: 260px;
+  height: 100vh;
+  background: #ffffff;
+  box-shadow: 4px 0 20px rgba(0,0,0,0.15);
+  transition: 0.3s;
+  z-index: 1002;
+  display: flex;
+  flex-direction: column;
+}
+
+/* OPEN */
+.sidebar.open {
+  left: 0;
+}
+
+/* HEADER */
+.sidebar-header {
+  padding: 20px;
+  font-weight: 700;
+  font-size: 18px;
+  background: #2aabee;
+  color: white;
+}
+
+/* MENU */
+.sidebar-menu {
+  flex: 1;
+  padding: 12px;
+}
+
+.sidebar-menu .item {
+  display: block;
+  padding: 12px;
+  margin-bottom: 6px;
+  border-radius: 8px;
+  text-decoration: none;
+  color: #111;
+  font-weight: 500;
+}
+
+.sidebar-menu .item:hover {
+  background: #f1f5f9;
+}
+
+/* FOOTER */
+.sidebar-footer {
+  padding: 12px;
+  border-top: 1px solid #eee;
+}
+
+.logout {
+  color: #ef4444;
+  text-decoration: none;
+  font-weight: 600;
+}
+.page-content img {
+  max-width: 100%;
+  height: auto;
+}
+.sidebar-menu .icon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+.sidebar-footer .icon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}

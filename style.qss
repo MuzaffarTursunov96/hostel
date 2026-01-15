@@ -1,0 +1,334 @@
+/* ================= GLOBAL ================= */
+* {
+    font-family: "Segoe UI", "Inter", Arial;
+    font-size: 14px;
+}
+
+QMainWindow {
+    background-color: #f5f7fb;
+}
+
+QWidget {
+    color: #111827;
+}
+
+/* ================= GENERIC FRAMES ================= */
+QFrame {
+    background: white;
+    border-radius: 14px;
+}
+
+/* ================= LOGIN / LIST ================= */
+QFrame#LoginCard {
+    padding: 24px;
+}
+
+QFrame#ListRow {
+    padding: 8px;
+    border-radius: 10px;
+}
+
+QFrame#ListRow:hover {
+    background: #f1f5f9;
+}
+
+/* ================= LABELS ================= */
+QLabel#PageTitle {
+    font-size: 26px;
+    font-weight: 600;
+}
+
+QLabel#LoginTitle {
+    font-size: 24px;
+    font-weight: 600;
+}
+
+QLabel#LoginSubtitle {
+    color: #6b7280;
+}
+
+QLabel#LoginError {
+    color: #dc2626;
+}
+
+/* ================= INPUTS ================= */
+QLineEdit,
+QComboBox,
+QDateEdit {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 8px 10px;
+}
+
+QLineEdit:focus,
+QComboBox:focus,
+QDateEdit:focus {
+    border: 1px solid #2563eb;
+    background: white;
+}
+
+/* ================= BUTTONS ================= */
+QPushButton:disabled {
+    background: #9ca3af;
+}
+
+/* Secondary */
+QPushButton.secondary {
+    background: #e5e7eb;
+    color: #111827;
+}
+
+QPushButton.secondary:hover {
+    background: #d1d5db;
+}
+
+/* Danger */
+QPushButton.danger {
+    background: #dc2626;
+}
+
+QPushButton.danger:hover {
+    background: #b91c1c;
+}
+
+/* ================= SCROLL ================= */
+QScrollArea {
+    border: none;
+}
+
+QScrollBar:vertical {
+    background: transparent;
+    width: 8px;
+}
+
+QScrollBar::handle:vertical {
+    background: #cbd5f5;
+    border-radius: 4px;
+}
+
+QScrollBar::handle:vertical:hover {
+    background: #a5b4fc;
+}
+
+/* ================= DASHBOARD ================= */
+QFrame#RoomCard {
+    background: white;
+    border-radius: 18px;
+    padding: 16px;
+}
+
+/* =================================================
+   ✅ MODERN BED CARD (CLEAN & FUNCTIONAL)
+   ================================================= */
+
+QFrame#CalendarBed {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+}
+
+QFrame#CalendarBed:hover {
+    border-color: #2563eb;
+}
+
+/* ===== HEADER ===== */
+QFrame#BedHeaderBusy,
+QFrame#BedHeaderFree {
+    padding: 8px;
+    border-top-left-radius: 14px;
+    border-top-right-radius: 14px;
+}
+
+QFrame#BedHeaderBusy {
+    background: #ef4444;
+}
+
+QFrame#BedHeaderFree {
+    background: #22c55e;
+}
+
+QFrame#BedHeaderBusy QLabel,
+QFrame#BedHeaderFree QLabel {
+    color: white;
+    font-weight: 600;
+}
+
+/* ===== BODY ===== */
+QFrame#BedBody {
+    background: #f9fafb;
+    padding: 12px;
+    border-bottom-left-radius: 14px;
+    border-bottom-right-radius: 14px;
+}
+
+/* ===== TEXT FIX (NO FADE) ===== */
+QFrame#CalendarBed QLabel {
+    background: transparent;
+    color: #111827;
+    font-weight: 700;
+}
+
+/* Muted labels */
+QFrame#CalendarBed QLabel[role="muted"] {
+    color: #6b7280;
+    font-weight: 500;
+}
+
+/* ===== TITLE ===== */
+QLabel#BedTitle {
+    font-size: 14px;
+    font-weight: 600;
+    color: #111827;
+}
+
+/* ===== CHECKOUT ===== */
+QLabel#BedCheckout {
+    color: #1f2937;
+    font-weight: 500;
+}
+
+/* ===== STATUS STRIP ===== */
+QFrame#BedStatusFree {
+    background: #22c55e;
+    border-radius: 2px;
+}
+
+QFrame#BedStatusBusy {
+    background: #ef4444;
+    border-radius: 2px;
+}
+
+/* ================= FILTER BAR ================= */
+QFrame#FilterBar {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+}
+
+
+/* =====================================================
+   SIDEBAR MENU – ALIGN LEFT + USER FRIENDLY COLORS
+   ===================================================== */
+
+/* Base sidebar buttons */
+QPushButton[nav="true"] {
+    text-align: left;          /* 🔥 start, not center */
+    padding: 10px 14px;
+    padding-left: 14px;
+    color: #374151;            /* soft dark gray */
+}
+
+/* Icon + text spacing */
+QPushButton[nav="true"]::icon {
+    margin-right: 10px;
+}
+
+/* Hover (soft) */
+QPushButton[nav="true"]:hover {
+    background: #f1f5f9;
+}
+
+/* ACTIVE menu item (friendly blue) */
+QPushButton[nav="true"][active="true"] {
+    background: #eef2ff;
+    color: #1e40af;
+    font-weight: 600;
+}
+
+/* Keep active visible on hover */
+QPushButton[nav="true"][active="true"]:hover {
+    background: #e0e7ff;
+}
+
+/* =====================================================
+   ROOMS PAGE – USER FRIENDLY ACTIVE STATES
+   ===================================================== */
+
+/* ---------- ROOMS LIST ---------- */
+QPushButton[room="true"] {
+    text-align: left;
+    padding: 8px 12px;
+    background: #f8fafc;
+    color: #374151;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+}
+
+/* Hover (soft) */
+QPushButton[room="true"]:hover {
+    background: #f1f5f9;
+}
+
+/* ACTIVE room (calm blue, not loud) */
+QPushButton[room="true"][active="true"] {
+    background: #eef2ff;
+    border-color: #c7d2fe;
+    color: #1e3a8a;
+    font-weight: 600;
+}
+
+/* Keep active on hover */
+QPushButton[room="true"][active="true"]:hover {
+    background: #e0e7ff;
+}
+
+
+/* ---------- BEDS LIST ---------- */
+QPushButton[busy="false"] {
+    text-align: left;
+    padding: 8px 12px;
+    background: #f9fafb;
+    color: #374151;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+}
+
+/* Busy bed – calm red */
+QPushButton[busy="true"] {
+    text-align: left;
+    padding: 8px 12px;
+    background: #fef2f2;
+    color: #7f1d1d;
+    border: 1px solid #fecaca;
+    border-radius: 10px;
+}
+
+/* Hover */
+QPushButton[busy="true"]:hover,
+QPushButton[busy="false"]:hover {
+    background: #f1f5f9;
+}
+
+/* SELECTED bed (clear but friendly) */
+QPushButton[selected="true"] {
+    background: #eff6ff;
+    border: 2px solid #60a5fa;
+    color: #1e40af;
+    font-weight: 600;
+}
+
+/* Keep selected on hover */
+QPushButton[selected="true"]:hover {
+    background: #e0f2fe;
+}
+
+
+/* ================= LOGIN BUTTON (SCOPED) ================= */
+QPushButton#LoginButton {
+    background-color: #2563EB;
+    color: white;
+    font-weight: 700;
+    border-radius: 10px;
+    min-height: 46px;
+}
+
+QPushButton#LoginButton:hover {
+    background-color: #1D4ED8;
+}
+
+QPushButton#LoginButton:disabled {
+    background-color: #94A3B8;
+    color: white;
+}
+  

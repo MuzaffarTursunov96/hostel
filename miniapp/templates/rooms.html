@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}{{t("rooms_and_beds")}}{% endblock %}
+
+{% block content %}
+<script>
+  let CURRENT_BRANCH = {{ current_branch_id }};
+</script>
+
+<div class="p-4 space-y-6">
+
+  <!-- TITLE -->
+  <h1 class="text-lg font-semibold flex items-center gap-2">
+    🏠 {{t("rooms_and_beds")}}
+  </h1>
+
+  <!-- ROOMS CARD -->
+  <div class="bg-card rounded-2xl shadow p-4 space-y-3">
+
+    <div class="flex justify-between items-center">
+      <span class="font-semibold">{{t("rooms")}}</span>
+      <button onclick="addRoom()" id="addRoomBtn"
+              class="w-9 h-9 flex items-center justify-center rounded-full bg-tgButton text-white text-lg">
+        +
+      </button>
+    </div>
+
+    <!-- ROOMS LIST -->
+    <div id="roomsList"
+         class="flex gap-2 overflow-x-auto pb-2">
+      <!-- injected -->
+    </div>
+
+    <button onclick="deleteRoom()"
+            class="w-full mt-2 py-3 rounded-xl bg-red-500 text-white font-medium">
+      🗑 {{t("delete_room")}}
+    </button>
+  </div>
+
+  <!-- BEDS CARD -->
+  <div class="bg-card rounded-2xl shadow p-4 space-y-3">
+
+    <div class="flex justify-between items-center">
+      <span class="font-semibold" id="bedsTitle">{{t("beds")}}</span>
+      <button onclick="addBed()" id="addBedBtn"
+              class="w-9 h-9 flex items-center justify-center rounded-full bg-tgButton text-white text-lg">
+        +
+      </button>
+    </div>
+
+    <!-- BEDS GRID -->
+    <div id="bedsList"
+         class="grid grid-cols-2 gap-3">
+      <!-- injected -->
+    </div>
+
+    <!-- ACTIONS -->
+    <div class="pt-2">
+      <button onclick="deleteBed()"
+              class="w-full py-3 rounded-xl bg-red-500 text-white font-medium">
+        🗑 {{t("delete_bed")}}
+      </button>
+    </div>
+
+
+  </div>
+
+</div>
+
+<script src="/static/js/rooms.js"></script>
+{% endblock %}

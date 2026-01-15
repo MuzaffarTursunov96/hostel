@@ -1,0 +1,31 @@
+.page-offset {
+  padding-left: 70px; /* sidebar space */
+}
+
+.card {
+  border-radius: 14px;
+}
+
+.card-header {
+  background: #f8fafc;
+  font-weight: 600;
+}
+
+.room-item.active {
+  background-color: #3b82f6 !important;
+  color: #fff;
+}
+
+.bed-item.active {
+  outline: 2px solid #3b82f6;
+}
+
+.bed-item {
+  cursor: pointer;
+}
+
+@media (max-width: 768px) {
+  .page-offset {
+    padding-left: 0;
+  }
+}

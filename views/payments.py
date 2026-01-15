@@ -1,0 +1,229 @@
+from PySide6.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel,
+    QPushButton, QScrollArea, QFrame,
+    QComboBox, QLineEdit, QMessageBox
+)
+from PySide6.QtCore import Qt, QDate
+from PySide6.QtGui import QPainter
+
+from PySide6.QtCharts import (
+    QChart, QChartView, QPieSeries
+)
+
+from datetime import date
+from i18n import t
+from .api_client import api_get, api_post
+from .payment_history import PaymentHistoryDialog
+from .expenses_table import ExpensesTableDialog
+
+
+class PaymentsPage(QWidget):
+    def __init__(self, app, branch_id):
+        super().__init__()
+
+        self.app = app
+        self.branch_id = branch_id
+
+        self.main = QVBoxLayout(self)
+        self.main.setSpacing(16)
+
+        self.build_ui()
+        self.refresh()
+
+    # ================= UI =================
+    def build_ui(self):
+        # ===== TITLE =====
+        title = QLabel(t("monthly_finance"))
+        title.setStyleSheet("font-size:22px;font-weight:600;")
+        self.main.addWidget(title)
+
+        # ===== FILTER BAR =====
+        filter_bar = QHBoxLayout()
+
+        self.month = QComboBox()
+        self.month.addItems(
+            [
+                t("january"), t("february"), t("march"),
+                t("april"), t("may"), t("june"),
+                t("july"), t("august"), t("september"),
+                t("october"), t("november"), t("december")
+            ]
+        )
+
+        self.year = QComboBox()
+        current_year = date.today().year
+        for y in range(current_year, current_year + 5):
+            self.year.addItem(str(y))
+
+        filter_btn = QPushButton(t("filter"))
+        filter_btn.clicked.connect(self.refresh)
+
+        filter_bar.addWidget(self.month)
+        filter_bar.addWidget(self.year)
+        filter_bar.addWidget(filter_btn)
+        filter_bar.addStretch()
+
+        self.main.addLayout(filter_bar)
+
+        
+        # ===== PIE CHART =====
+        self.chart = QChart()
+        self.chart.legend().setVisible(True)
+        self.chart.setAnimationOptions(QChart.SeriesAnimations)
+
+        self.chart_view = QChartView(self.chart)
+        self.chart_view.setRenderHint(QPainter.Antialiasing)
+        self.chart_view.setMinimumHeight(300)
+
+        self.main.addWidget(self.chart_view)
+
+        # ===== SUMMARY =====
+        self.summary = QLabel()
+        self.summary.setStyleSheet("font-size:14px;font-weight:600;")
+        self.main.addWidget(self.summary)
+
+        
+        
+
+        # ===== ADD EXPENSE =====
+        form = QHBoxLayout()
+
+        self.title_inp = QLineEdit()
+        self.title_inp.setPlaceholderText(t("title"))
+
+        self.amount_inp = QLineEdit()
+        self.amount_inp.setPlaceholderText(t("amount"))
+
+        add_btn = QPushButton(t("add"))
+        add_btn.clicked.connect(self.add_expense)
+
+        form.addWidget(self.title_inp)
+        form.addWidget(self.amount_inp)
+        form.addWidget(add_btn)
+
+        self.main.addLayout(form)
+
+        # ===== HISTORY =====
+        history_btn = QPushButton(t("payment_history"))
+        history_btn.clicked.connect(self.open_history)
+        self.main.addWidget(history_btn)
+
+        table_btn = QPushButton(t("view_expenses_table"))
+        table_btn.clicked.connect(self.open_expenses_table)
+        self.main.addWidget(table_btn)
+
+
+        # ===== DEFAULT CURRENT MONTH/YEAR =====
+        today = date.today()
+
+        self.month.setCurrentIndex(today.month - 1)
+
+        year_index = self.year.findText(str(today.year))
+        if year_index >= 0:
+            self.year.setCurrentIndex(year_index)
+
+
+    # ================= DATA =================
+    def refresh(self):
+        month = self.month.currentIndex() + 1
+        year = int(self.year.currentText())
+
+        # -------- MONTHLY FINANCE (PIE) --------
+        finance = api_get(
+            self.app,
+            "/payments/monthly-finance",
+            {
+                "branch_id": self.branch_id,
+                "year": year,
+                "month": month
+            }
+        )
+
+        self.draw_pie(finance)
+
+       
+
+    def fmt(self, value: float) -> str:
+        return f"{value:,.0f}".replace(",", " ")
+    
+
+    def open_expenses_table(self):
+        month = self.month.currentIndex() + 1
+        year = int(self.year.currentText())
+
+        dlg = ExpensesTableDialog(
+            self,
+            self.app,
+            self.branch_id,
+            year,
+            month
+        )
+        dlg.exec()
+
+
+
+    # ================= PIE =================
+    def draw_pie(self, finance: dict):
+        self.chart.removeAllSeries()
+
+        series = QPieSeries()
+
+        income = finance.get("income", 0)
+        expenses = finance.get("expenses", 0)
+        debt = finance.get("debt", 0)
+
+        if income:
+            series.append(t("income"), income)
+        if expenses:
+            series.append(t("expenses"), expenses)
+        if debt:
+            series.append(t("debt"), debt)
+
+        self.chart.addSeries(series)
+        self.chart.setTitle(t("monthly_finance"))
+
+        profit = income - expenses
+
+
+        self.summary.setText(
+            f"{t('profit')}: {self.fmt(profit)} | "
+            f"{t('income')}: {self.fmt(income)} | "
+            f"{t('expenses')}: {self.fmt(expenses)} | "
+            f"{t('debt')}: {self.fmt(debt)}"
+        )
+
+    # ================= ACTIONS =================
+    def add_expense(self):
+        try:
+            title = self.title_inp.text().strip()
+            amount = float(self.amount_inp.text())
+
+            if not title or amount <= 0:
+                raise ValueError(t("invalid_data"))
+
+            api_post(
+                self.app,
+                "/payments/expense",
+                {
+                    "branch_id": self.branch_id,
+                    "title": title,
+                    "category": "other",
+                    "amount": amount,
+                    "expense_date": QDate.currentDate().toString("yyyy-MM-dd")
+                }
+            )
+
+            self.title_inp.clear()
+            self.amount_inp.clear()
+            self.refresh()
+
+        except Exception as e:
+            QMessageBox.critical(self, t("error"), str(e))
+
+    def open_history(self):
+        dlg = PaymentHistoryDialog(self, self.app, self.branch_id)
+        dlg.exec()
+
+    def set_branch(self, branch_id):
+        self.branch_id = branch_id
+        self.refresh()

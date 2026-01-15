@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block title %}{{t("monthly_finance")}}{% endblock %}
+
+{% block content %}
+
+<script>
+  let CURRENT_BRANCH = {{ current_branch_id }};
+</script>
+
+<div class="p-4 space-y-5">
+
+  <!-- TITLE -->
+  <h1 class="text-xl font-semibold">💰 {{t("monthly_finance")}}</h1>
+
+  <!-- FILTER -->
+  <div class="bg-card rounded-2xl p-4 shadow flex flex-wrap gap-3 items-center">
+    <select id="filterMonth"
+            class="px-3 py-2 rounded-lg border bg-transparent"></select>
+
+    <select id="filterYear"
+            class="px-3 py-2 rounded-lg border bg-transparent"></select>
+
+    <button onclick="loadFinance()"
+            class="px-5 py-2 rounded-xl bg-tgButton text-white font-medium">
+      {{t("filter")}}
+    </button>
+  </div>
+
+  <!-- SUMMARY -->
+  <div class="grid grid-cols-2 gap-3">
+
+    <div class="bg-green-100 dark:bg-green-900/30 rounded-2xl p-4">
+      <div class="text-sm text-tgHint">{{t("income")}}</div>
+      <div id="sumIncome" class="text-2xl font-semibold">0</div>
+    </div>
+
+    <div class="bg-red-100 dark:bg-red-900/30 rounded-2xl p-4">
+      <div class="text-sm text-tgHint">{{t("expenses")}}</div>
+      <div id="sumExpenses" class="text-2xl font-semibold">0</div>
+    </div>
+
+    <div class="bg-yellow-100 dark:bg-yellow-900/30 rounded-2xl p-4">
+      <div class="text-sm text-tgHint">{{t("debt")}}</div>
+      <div id="sumDebt" class="text-2xl font-semibold">0</div>
+    </div>
+
+    <div class="bg-blue-100 dark:bg-blue-900/30 rounded-2xl p-4">
+      <div class="text-sm text-tgHint">{{t("profit")}}</div>
+      <div id="sumProfit" class="text-2xl font-semibold">0</div>
+    </div>
+
+  </div>
+
+  <!-- ADD EXPENSE -->
+  <div class="bg-card rounded-2xl p-4 shadow space-y-3">
+    <h3 class="font-semibold">➕ {{t("add_extra_expense")}}</h3>
+
+    <input id="expenseTitle"
+           class="w-full px-3 py-2 rounded-lg border bg-transparent"
+           placeholder='{{t("title")}}'>
+    <div class="flex gap-2">
+      <input id="expenseAmount" type="number"
+             class="flex-1 px-3 py-2 rounded-lg border bg-transparent"
+             placeholder='{{t("amount")}}'>
+      <button onclick="addExpense()"
+              class="px-4 py-2 rounded-xl bg-red-500 text-white font-medium">
+        {{t("add")}}
+      </button>
+    </div>
+  </div>
+
+  <!-- HISTORY BUTTONS -->
+  <div class="grid grid-cols-2 gap-4">
+
+    <button onclick="openPaymentHistory()"
+            class="rounded-2xl border p-4 flex flex-col items-center gap-2">
+      📜
+      <span class="font-medium">{{t("payment_history")}}</span>
+    </button>
+
+    <button onclick="openExpenseHistory()"
+            class="rounded-2xl border p-4 flex flex-col items-center gap-2">
+      💸
+      <span class="font-medium">{{t("expense_history")}}</span>
+    </button>
+
+    <button onclick="openDebtPage()"
+            class="rounded-2xl border p-4 flex flex-col items-center gap-2">
+      💳
+      <span class="font-medium">{{t("debt_history")}}</span>
+    </button>
+
+    <button onclick="openCustomersPage()"
+            class="rounded-2xl border p-4 flex flex-col items-center gap-2">
+      👤
+      <span class="font-medium">{{t("customers")}}</span>
+    </button>
+
+  </div>
+
+
+
+</div>
+
+<!-- ================= EXPENSE HISTORY MODAL ================= -->
+<div id="expenseHistoryModal"
+     class="fixed inset-0 z-50 hidden">
+
+  <!-- OVERLAY -->
+  <div class="absolute inset-0 bg-black/50"
+       onclick="closeExpenseHistory()"></div>
+
+  <!-- MODAL PANEL -->
+  <div class="absolute bottom-0 left-0 right-0 bg-card rounded-t-2xl max-h-[85vh] overflow-hidden">
+
+    <!-- HEADER -->
+    <div class="flex items-center justify-between p-4 border-b">
+      <h3 class="font-semibold">💸 {{t("expense_history")}}</h3>
+      <button onclick="closeExpenseHistory()">✕</button>
+    </div>
+
+    <!-- ✅ FILTERS (NOW VISIBLE) -->
+    <div class="flex gap-2 p-3 border-b">
+      <select id="expenseFilterMonth"
+              class="px-3 py-2 rounded-lg border bg-transparent"></select>
+
+      <select id="expenseFilterYear"
+              class="px-3 py-2 rounded-lg border bg-transparent"></select>
+    </div>
+
+    <!-- LIST -->
+    <div id="expenseHistoryTable"
+         class="p-4 space-y-3 overflow-y-auto max-h-[65vh]">
+    </div>
+
+  </div>
+</div>
+
+
+<script src="/static/js/payments.js"></script>
+<script src="/static/js/expense_history.js"></script>
+
+{% endblock %}

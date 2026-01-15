@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8">
+
+  <script>
+    // 🔒 Prevent rendering with wrong language
+    if (!sessionStorage.getItem("lang_ready")) {
+      sessionStorage.setItem("lang_ready", "1");
+      const url = window.location.pathname + "?init=1&t=" + Date.now();
+      window.location.replace(url);
+    }
+  </script>
+
+
+  <title>{% block title %}App{% endblock %}</title>
+
+  <script>
+    window.TRANSLATIONS = {{ TRANSLATIONS | tojson | safe }};
+    window.CURRENT_LANG = "{{ session.get('language', 'ru') }}";
+  </script>
+
+
+  <!-- Tailwind CDN (OK for MVP / selling demo) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Telegram Mini App -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+  <!-- jQuery (your JS depends on it) -->
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
+  <!-- Global colors -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            card: '#ffffff',
+            tgButton: '#248bda',
+            tgHint: '#6b7280'
+          }
+        }
+      }
+    }
+  </script>
+
+<script src="/static/ws.js"></script>
+  <script src="/static/app.js"></script>
+</head>
+
+<body class="bg-gray-100 min-h-full">
+
+  {% include "_sidebar.html" %}
+
+  <!-- MAIN CONTENT -->
+  <main class="px-0 md:pl-[240px] pb-[88px]">
+    {% block content %}{% endblock %}
+  </main>
+
+</body>
+</html>
