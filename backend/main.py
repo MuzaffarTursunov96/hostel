@@ -31,12 +31,17 @@ WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 
 
 
-app = FastAPI(title="Hostel Backend API")
+app = FastAPI(
+    title="Hostel Backend API",
+    root_path="/api"
+)
+
 
 
 setup_routers(dp)
 
 # ================= STARTUP =================
+
 
 
 
@@ -67,8 +72,8 @@ def health():
 
 
 
-init_db()
-create_admin_if_not_exists()
+# init_db()
+# create_admin_if_not_exists()
 
 app.include_router(auth.router)
 app.include_router(branches.router)
