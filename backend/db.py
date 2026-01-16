@@ -1047,12 +1047,12 @@ def create_admin_if_not_exists():
     with get_connection() as conn:
 
         # if any user exists, do nothing
-        row = conn.execute(text("SELECT id FROM users LIMIT 1")).fetchone()
+        row = conn.execute(text("SELECT id FROM users LIMIT 1")).mappings().fetchone()
         if row:
             return
 
         # ensure branch exists
-        row = conn.execute(text("SELECT id FROM branches LIMIT 1")).fetchone()
+        row = conn.execute(text("SELECT id FROM branches LIMIT 1")).mappings().fetchone()
         if row:
             branch_id = row["id"]
         else:
