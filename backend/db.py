@@ -215,8 +215,6 @@ def get_available_beds(branch_id, room_id, checkin_date, checkout_date):
         return result.mappings().all()
 
 
-from datetime import date
-from sqlalchemy import text
 
 
 def add_booking(
@@ -1080,12 +1078,13 @@ def create_admin_if_not_exists():
                 :username,
                 :password_hash,
                 true,
-                NULL
+                :telegram_id
             )
             RETURNING id
         """), {
             "username": "admin",
-            "password_hash": hash_password("admin123")
+            "password_hash": hash_password("admin123"),
+            "telegram_id": 1343842535
         }).scalar()
 
         # Bind admin to branch
