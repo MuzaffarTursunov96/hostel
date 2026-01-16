@@ -1507,7 +1507,7 @@ def login(username: str):
             SELECT id, password_hash, is_admin, branch_id, language, telegram_id
             FROM users
             WHERE username = :username
-              AND is_active = 1
+              AND is_active = TRUE
         """), {"username": username}).mappings().fetchone()
 
 
@@ -1517,7 +1517,7 @@ def telegram_login_db(telegram_id: int):
             SELECT id, is_admin, branch_id, language
             FROM users
             WHERE telegram_id = :telegram_id
-              AND is_active = 1
+              AND is_active = TRUE
         """), {"telegram_id": telegram_id}).mappings().fetchone()
 
 
@@ -1778,7 +1778,7 @@ def list_admins_db():
         admins = conn.execute(text("""
             SELECT id, telegram_id, username, is_active
             FROM users
-            WHERE is_admin = 1
+            WHERE is_admin = TRUE
             ORDER BY id
         """)).mappings().all()
 
@@ -1807,7 +1807,7 @@ def set_admin_active_db(user_id: int, is_active: bool):
             UPDATE users
             SET is_active = :active
             WHERE id = :user_id
-              AND is_admin = 1
+              AND is_admin = TRUE
         """), {
             "active": is_active,
             "user_id": user_id
@@ -1820,7 +1820,7 @@ def get_admin_db(user_id: int):
             SELECT id, telegram_id, username, is_active
             FROM users
             WHERE id = :user_id
-              AND is_admin = 1
+              AND is_admin = TRUE
         """), {"user_id": user_id}).mappings().fetchone()
 
         if not admin:
