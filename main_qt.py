@@ -90,16 +90,25 @@ class App(QMainWindow):
         self.stack.setCurrentWidget(login)
 
     def after_login(self):
+        # 🔥 SYNC BRANCH FROM LOGIN (VERY IMPORTANT)
+        self.current_branch_id = self.branch_id   # ← branch_id from login response
+
+        # persist for next app start (optional)
+        config = load_config()
+        config["branch_id"] = self.current_branch_id
+        save_config(config)
+
         self.current_user = {
             "user_id": self.user_id,
             "is_admin": self.is_admin,
-            "telegram_id": self.telegram_id,   # ← must exist
+            "telegram_id": self.telegram_id,
             "is_root": self.is_admin and self.telegram_id == ROOT_TELEGRAM_ID
         }
-        # pages must be created AFTER token exists
+
         self.build_main_layout()
         self.show_page("dashboard")
         self.start_ws()
+
 
         
 

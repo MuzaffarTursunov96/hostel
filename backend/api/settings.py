@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from backend.api.deps import get_current_user
+from api.deps import get_current_user
 from db import change_password_db, set_lang_db
 from security import create_token
 

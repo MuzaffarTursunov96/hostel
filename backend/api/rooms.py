@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from backend.api.deps import get_current_user
+from api.deps import get_current_user
 from db import get_rooms_with_beds, delete_room_db,check_room_had_booked,create_room_db
-from backend.api.ws_manager import ws_manager
+from api.ws_manager import ws_manager
 
 router = APIRouter(prefix="/rooms", tags=["Rooms"])
 

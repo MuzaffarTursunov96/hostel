@@ -2,9 +2,9 @@ from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 from typing import List
 import os
 import uuid
-from backend.api.ws_manager import ws_manager
+from api.ws_manager import ws_manager
 
-from backend.api.deps import get_current_user
+from api.deps import get_current_user
 from db import get_customers, delete_passport_image_db, image_path, get_image_paths, select_passport_image, upload_passport_image_db
 
 PASSPORT_DIR = os.path.abspath(

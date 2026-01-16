@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends,HTTPException
 from pydantic import BaseModel
-from backend.api.deps import get_current_user
+from api.deps import get_current_user
 from datetime import date
-from backend.api.ws_manager import ws_manager
+from api.ws_manager import ws_manager
 from db import (
     get_beds,
     add_bed,

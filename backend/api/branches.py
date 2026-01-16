@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
-from backend.api.deps import get_current_user
+from api.deps import get_current_user
 from db import get_branches, add_branch, update_branch
-from backend.api.ws_manager import ws_manager
+from api.ws_manager import ws_manager
 
 router = APIRouter(prefix="/branches", tags=["Branches"])
 

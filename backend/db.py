@@ -342,6 +342,31 @@ def add_booking(
     conn.close()
 
 
+def get_default_branch_id(user_id: int):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    # 1️⃣ try user default
+    cur.execute("SELECT branch_id FROM users WHERE id=?", (user_id,))
+    row = cur.fetchone()
+
+    if row and row["branch_id"]:
+        conn.close()
+        return row["branch_id"]
+
+    # 2️⃣ fallback to first assigned branch
+    cur.execute("""
+        SELECT branch_id
+        FROM user_branches
+        WHERE user_id=?
+        ORDER BY branch_id
+        LIMIT 1
+    """, (user_id,))
+
+    row = cur.fetchone()
+    conn.close()
+    return row["branch_id"] if row else None
+
 
 def is_bed_busy_today(branch_id, bed_id):
     today = date.today()

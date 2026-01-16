@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends
-from backend.api.deps import get_current_user
+from api.deps import get_current_user
 from db import export_monthly_data_db
 
 router = APIRouter(prefix="/exports", tags=["Exports"])

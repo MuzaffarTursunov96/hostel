@@ -215,6 +215,8 @@ class LoginPage(QWidget):
         self.app.user_id = data["user_id"]
         self.app.is_admin = data["is_admin"]
 
+        self.app.branch_id = data["branch_id"]
+
         self.app.telegram_id = data.get("telegram_id")
 
         self.login_btn.setEnabled(True)

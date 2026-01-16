@@ -275,8 +275,9 @@ class PasswordDialog:
             parent,
             "New Password",
             "Enter new password",
-            QInputDialog.Password
+            QLineEdit.Password
         )
+
 
 
 # =========================

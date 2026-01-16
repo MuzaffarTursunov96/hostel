@@ -1,25 +1,25 @@
 from fastapi import FastAPI,WebSocket,Request
 from db import init_db, create_admin_if_not_exists
 
-from backend.api import auth, branches, rooms, bookings, debts
-from backend.api.dashboard import router as dashboard_router
-from backend.api.beds import router as beds_router
-from backend.api.payments import router as payments_router
-from backend.api.payment_history import router as payment_history_router
-from backend.api.active_bookings import router as active_bookings_router
-from backend.api.exports import router as exports_router
-from backend.api.ws_manager import ws_manager
-from backend.api.settings import router as settings_router
-from backend.api.customers import router as customer_router
-from backend.api.booking_history import router as booking_history_router
-from backend.api.root_admin import router as root_admin_router
+from api import auth, branches, rooms, bookings, debts
+from api.dashboard import router as dashboard_router
+from api.beds import router as beds_router
+from api.payments import router as payments_router
+from api.payment_history import router as payment_history_router
+from api.active_bookings import router as active_bookings_router
+from api.exports import router as exports_router
+from api.ws_manager import ws_manager
+from api.settings import router as settings_router
+from api.customers import router as customer_router
+from api.booking_history import router as booking_history_router
+from api.root_admin import router as root_admin_router
 
 
 from aiogram.types import Update
 
-from backend.bot.bot import bot
-from backend.bot.dispatcher import dp
-from backend.bot.handlers import setup_routers
+from bot.bot import bot
+from bot.dispatcher import dp
+from bot.handlers import setup_routers
 
 
 

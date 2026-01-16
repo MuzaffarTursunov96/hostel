@@ -9,7 +9,10 @@ import jwt
 
 
 # API_URL = os.getenv("API_BASE_URL")
-API_URL = "http://127.0.0.1:8000"
+# API_URL = "http://127.0.0.1:8000"
+
+API_URL = "http://backend:8000"
+
 
 load_dotenv()
 
@@ -119,6 +122,7 @@ def do_login():
         session["access_token"] = payload["access_token"]
         session["user_id"] = payload["user_id"]
         session["is_admin"] = payload["is_admin"]
+        session["branch_id"] = payload["branch_id"]
 
     return jsonify(r.json()), r.status_code
 

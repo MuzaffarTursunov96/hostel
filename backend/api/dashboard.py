@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Query
-from backend.api.deps import get_current_user
+from api.deps import get_current_user
 from db import get_active_booking_now,bed_future_exists,get_future_bookings,is_bed_free_in_range,get_dashboard_rooms,get_dashboard_beds
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from backend.api.deps import get_current_user, is_root_admin
+from api.deps import get_current_user, is_root_admin
 from db import set_admin_branches_db,create_admin_from_root,reset_password_db,list_admins_db,set_admin_active_db,get_admin_db,delete_admin_db,create_branch_db,delete_branch_db,list_branches_db_root,list_branches_db
 
 
@@ -94,7 +94,7 @@ def get_admin(user_id: int, current_user=Depends(get_current_user)):
 
     admin_stat = get_admin_db(user_id)
 
-    if not admin_stat['status'] =='error':
+    if admin_stat['status'] =='error':
         raise HTTPException(404, "Admin not found")
 
     

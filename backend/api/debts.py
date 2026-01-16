@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from datetime import date
-from backend.api.deps import get_current_user
-from backend.api.ws_manager import ws_manager
+from api.deps import get_current_user
+from api.ws_manager import ws_manager
 
 from db import (
     get_debt_summary,
