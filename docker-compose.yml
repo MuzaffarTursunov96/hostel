@@ -62,10 +62,11 @@ services:
       - "443:443"
     volumes:
       - ./nginx:/etc/nginx/conf.d
-      - ./certbot:/etc/letsencrypt
+      - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:
       - backend
       - miniapp
+
 
 # ===================== PERSISTENT VOLUMES =====================
 volumes:
