@@ -249,7 +249,7 @@ def add_booking(
             "bed_id": bed_id,
             "checkin_date": checkin_date,
             "checkout_date": checkout_date
-        }).fetchone()
+        }).mappings().fetchone()
 
         if res["cnt"] > 0:
             raise Exception("❌ Bed is already booked for this period")
@@ -349,7 +349,7 @@ def get_default_branch_id(user_id: int):
             SELECT branch_id
             FROM users
             WHERE id = :user_id
-        """), {"user_id": user_id}).fetchone()
+        """), {"user_id": user_id}).mappings().fetchone()
 
         if row and row["branch_id"]:
             return row["branch_id"]
@@ -361,7 +361,7 @@ def get_default_branch_id(user_id: int):
             WHERE user_id = :user_id
             ORDER BY branch_id
             LIMIT 1
-        """), {"user_id": user_id}).fetchone()
+        """), {"user_id": user_id}).mappings().fetchone()
 
         return row["branch_id"] if row else None
 
@@ -383,7 +383,7 @@ def is_bed_busy_today(branch_id, bed_id):
             "branch_id": branch_id,
             "bed_id": bed_id,
             "today": today
-        }).fetchone()
+        }).mappings().fetchone()
 
         return row is not None
 
@@ -402,7 +402,7 @@ def get_active_booking_now(branch_id, bed_id):
         """), {
             "branch_id": branch_id,
             "bed_id": bed_id
-        }).fetchone()
+        }).mappings().fetchone()
 
         return row
 
@@ -435,7 +435,7 @@ def get_debt_summary(branch_id, from_date, to_date):
             "branch_id": branch_id,
             "from_date": from_date,
             "to_date": to_date
-        }).fetchone()
+        }).mappings().fetchone()
 
         return {
             "paid": row["paid"],
@@ -493,7 +493,7 @@ def pay_booking_amount(branch_id, booking_id, pay_amount, paid_by="customer"):
         """), {
             "booking_id": booking_id,
             "branch_id": branch_id
-        }).fetchone()
+        }).mappings().fetchone()
 
         if not row:
             raise ValueError("Booking not found")
@@ -607,7 +607,7 @@ def get_monthly_finance(branch_id, year, month):
             "branch_id": branch_id,
             "year": year,
             "month": month
-        }).fetchone()
+        }).mappings().fetchone()
 
         income = row["income"]
         debt = row["debt"]
@@ -645,7 +645,7 @@ def get_yearly_finance(branch_id, year):
         """), {
             "branch_id": branch_id,
             "year": year
-        }).fetchone()
+        }).mappings().fetchone()
 
         income = row["income"]
         debt = row["debt"]
@@ -717,7 +717,7 @@ def pay_booking_debt(branch_id, booking_id, pay_amount):
         """), {
             "booking_id": booking_id,
             "branch_id": branch_id
-        }).fetchone()
+        }).mappings().fetchone()
 
         if not row:
             raise ValueError("Booking not found")
@@ -920,7 +920,7 @@ def update_booking(booking_id, bed_id, checkin, checkout, total_amount):
             "booking_id": booking_id,
             "checkout": checkout,
             "checkin": checkin
-        }).fetchone()
+        }).mappings().fetchone()
 
         if row:
             raise Exception("Selected bed is not available for these dates")
@@ -1262,7 +1262,7 @@ def bed_future_exists(branch_id, bed_id):
         """), {
             "branch_id": branch_id,
             "bed_id": bed_id
-        }).fetchone()
+        }).mappings().fetchone()
 
         return row is not None
 
@@ -1330,7 +1330,7 @@ def is_bed_free_in_range(branch_id, bed_id, start_date, end_date):
             "bed_id": bed_id,
             "end_date": end_date,
             "start_date": start_date
-        }).fetchone()
+        }).mappings().fetchone()
 
         return row is None
 
@@ -1345,7 +1345,7 @@ def add_or_get_customer(branch_id, name, passport_id, contact):
         """), {
             "branch_id": branch_id,
             "passport_id": passport_id
-        }).fetchone()
+        }).mappings().fetchone()
 
         if row:
             return row["id"]
@@ -1399,7 +1399,7 @@ def recalc_booking_finance(booking_id):
             GROUP BY b.total_amount
         """), {
             "booking_id": booking_id
-        }).fetchone()
+        }).mappings().fetchone()
 
         if not row:
             return
@@ -1479,7 +1479,7 @@ def check_room_had_booked(room_id: int, branch_id: int):
         """), {
             "room_id": room_id,
             "branch_id": branch_id
-        }).fetchone()
+        }).mappings().fetchone()
 
     return {"has_booking": row is not None}
 
@@ -1496,7 +1496,7 @@ def check_bed_has_booked(bed_id: int, branch_id: int):
         """), {
             "bed_id": bed_id,
             "branch_id": branch_id
-        }).fetchone()
+        }).mappings().fetchone()
 
     return {"has_booking": row is not None}
 
@@ -1525,7 +1525,7 @@ def user_auto_create(telegram_id: int, username: str):
     with get_connection() as conn:
         user_id = conn.execute(text("""
             INSERT INTO users (telegram_id, username, is_admin, is_active)
-            VALUES (:telegram_id, :username, 0, 1)
+            VALUES (:telegram_id, :username, FALSE, TRUE)
             RETURNING id
         """), {
             "telegram_id": telegram_id,
@@ -1590,7 +1590,7 @@ def select_passport_image(image_id: int):
             SELECT image_path
             FROM customer_passport_images
             WHERE id = :id
-        """), {"id": image_id}).fetchone()
+        """), {"id": image_id}).mappings().fetchone()
 
 
 def delete_passport_image_db(image_id: int):
@@ -1689,7 +1689,7 @@ def delete_room_db(room_id: int, branch_id: int):
         """), {
             "room_id": room_id,
             "branch_id": branch_id
-        }).fetchone()
+        }).mappings().fetchone()
 
         if row:
             return {
@@ -1724,7 +1724,7 @@ def create_admin_from_root(telegram_id: int, username: str, password: str):
             SELECT id
             FROM users
             WHERE telegram_id = :telegram_id
-        """), {"telegram_id": telegram_id}).fetchone()
+        """), {"telegram_id": telegram_id}).mappings().fetchone()
 
         if exists:
             return {
@@ -1884,7 +1884,7 @@ def delete_branch_db(branch_id: int):
             FROM bookings
             WHERE branch_id = :branch_id
             LIMIT 1
-        """), {"branch_id": branch_id}).fetchone()
+        """), {"branch_id": branch_id}).mappings().fetchone()
 
         if exists:
             raise {
@@ -1931,7 +1931,7 @@ def change_password_db(user_id: int, old_password: str, new_password: str):
             SELECT password_hash
             FROM users
             WHERE id = :user_id
-        """), {"user_id": user_id}).fetchone()
+        """), {"user_id": user_id}).mappings().fetchone()
 
         if not row:
             return {"status": "error", "message": "User not found"}
