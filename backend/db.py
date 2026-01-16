@@ -5,7 +5,7 @@ from sqlalchemy import text
 
 
 def get_connection():
-    return engine.connect()
+    return engine.begin()
 
 
 def init_db():
@@ -1046,15 +1046,15 @@ def get_active_bookings(branch_id):
 def create_admin_if_not_exists():
     with get_connection() as conn:
 
-        # 1️⃣ If any user exists → do nothing
+        # If admin already exists → exit
         row = conn.execute(
-            text("SELECT id FROM users LIMIT 1")
+            text("SELECT id FROM users WHERE is_admin = true LIMIT 1")
         ).mappings().fetchone()
 
         if row:
             return
 
-        # 2️⃣ Ensure branch exists
+        # Ensure branch exists
         row = conn.execute(
             text("SELECT id FROM branches LIMIT 1")
         ).mappings().fetchone()
@@ -1062,40 +1062,43 @@ def create_admin_if_not_exists():
         if row:
             branch_id = row["id"]
         else:
-            branch_id = conn.execute(
-                text("""
-                    INSERT INTO branches (name)
-                    VALUES ('Main Branch')
-                    RETURNING id
-                """)
-            ).scalar()
-
-        # 3️⃣ Create admin user
-        user_id = conn.execute(
-            text("""
-                INSERT INTO users (username, password_hash, is_admin)
-                VALUES (:username, :password_hash, true)
+            branch_id = conn.execute(text("""
+                INSERT INTO branches (name)
+                VALUES ('Main Branch')
                 RETURNING id
-            """),
-            {
-                "username": "admin",
-                "password_hash": hash_password("admin123")
-            }
-        ).scalar()
+            """)).scalar()
 
-        # 4️⃣ Bind admin to branch
-        conn.execute(
-            text("""
-                INSERT INTO user_branches (user_id, branch_id)
-                VALUES (:user_id, :branch_id)
-            """),
-            {
-                "user_id": user_id,
-                "branch_id": branch_id
-            }
-        )
+        # Create admin (telegram_id = NULL)
+        user_id = conn.execute(text("""
+            INSERT INTO users (
+                username,
+                password_hash,
+                is_admin,
+                telegram_id
+            )
+            VALUES (
+                :username,
+                :password_hash,
+                true,
+                NULL
+            )
+            RETURNING id
+        """), {
+            "username": "admin",
+            "password_hash": hash_password("admin123")
+        }).scalar()
+
+        # Bind admin to branch
+        conn.execute(text("""
+            INSERT INTO user_branches (user_id, branch_id)
+            VALUES (:user_id, :branch_id)
+        """), {
+            "user_id": user_id,
+            "branch_id": branch_id
+        })
 
         print("✅ Admin created successfully")
+
 
 
 
