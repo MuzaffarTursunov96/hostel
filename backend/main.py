@@ -1,5 +1,5 @@
 from fastapi import FastAPI,WebSocket,Request
-from db import init_db
+from db import init_db,create_admin_if_not_exists
 
 from api import auth, branches, rooms, bookings, debts
 from api.dashboard import router as dashboard_router
@@ -68,7 +68,7 @@ def health():
 
 
 init_db()
-# create_admin_if_not_exists()
+create_admin_if_not_exists()
 
 app.include_router(auth.router)
 app.include_router(branches.router)
