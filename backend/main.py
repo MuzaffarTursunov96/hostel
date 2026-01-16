@@ -1,5 +1,5 @@
 from fastapi import FastAPI,WebSocket,Request
-from db import init_db, create_admin_if_not_exists
+from db import init_db
 
 from api import auth, branches, rooms, bookings, debts
 from api.dashboard import router as dashboard_router
@@ -27,8 +27,7 @@ from bot.handlers import setup_routers
 import os
 from dotenv import load_dotenv
 load_dotenv()
-# WEBHOOK_URL = os.getenv("WEBHOOK_URL")
-WEBHOOK_URL = 'https://57430a7a9920.ngrok-free.app'
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 
 
 
@@ -38,11 +37,7 @@ app = FastAPI(title="Hostel Backend API")
 setup_routers(dp)
 
 # ================= STARTUP =================
-@app.on_event("startup")
-async def on_startup():
-    # always reset webhook (safe)
-    await bot.delete_webhook(drop_pending_updates=True)
-    await bot.set_webhook(WEBHOOK_URL)
+
 
 
 # ================= WEBSOCKET =================
@@ -73,7 +68,7 @@ def health():
 
 
 init_db()
-create_admin_if_not_exists()
+# create_admin_if_not_exists()
 
 app.include_router(auth.router)
 app.include_router(branches.router)
