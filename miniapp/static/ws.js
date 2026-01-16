@@ -3,13 +3,10 @@ let WS = null;
 function startWebSocket() {
   if (WS) return;
 
-  // alert("Starting WebSocket connection...");
-  // const proto = location.protocol === "https:" ? "wss://" : "ws://";
-  const proto = "wss://";
+  const proto = location.protocol === "https:" ? "wss://" : "ws://";
+  const WS_HOST = location.host;
 
-  // 🔥 BACKEND HOST (FastAPI), NOT Flask
-  const WS_HOST = "400dccc363ed.ngrok-free.app"; // or your backend domain
-  console.log("Connecting to WS at " + proto + WS_HOST + "/ws");
+  console.log("Connecting to WS:", proto + WS_HOST + "/ws");
 
   WS = new WebSocket(proto + WS_HOST + "/ws");
 
