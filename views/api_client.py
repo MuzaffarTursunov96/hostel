@@ -1,6 +1,6 @@
 import requests
 
-API_URL = "http://127.0.0.1:8000"
+API_URL = "https://hmsuz.com/api"
 
 def api_get(app, path, params=None):
     return requests.get(
