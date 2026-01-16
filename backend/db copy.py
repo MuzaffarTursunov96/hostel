@@ -7,113 +7,156 @@ def get_connection():
     return engine.connect()
 
 
-
-
-
 def init_db():
-    """
-    Initialize database schema (PostgreSQL-safe).
-    This function is idempotent: safe to run multiple times.
-    """
+    conn = get_connection()
+    cur = conn.cursor()
 
-    with engine.begin() as conn:
+    # ---------- BRANCHES ----------
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS branches (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE
+    )
+    """)
+    
 
-        # ================= BRANCHES =================
-        conn.execute(text("""
-        CREATE TABLE IF NOT EXISTS branches (
-            id SERIAL PRIMARY KEY,
-            name TEXT NOT NULL UNIQUE
-        );
-        """))
+    # ---------- ROOMS ----------
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS rooms (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        number TEXT NOT NULL,
+        description TEXT,
+        branch_id INTEGER NOT NULL,
+        UNIQUE(number, branch_id),
+        FOREIGN KEY(branch_id) REFERENCES branches(id) ON DELETE CASCADE
+    )
+    """)
 
-        # ================= USERS =================
-        conn.execute(text("""
+    cur.execute("""
+                CREATE TABLE IF NOT EXISTS customer_passport_images (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                customer_id INTEGER NOT NULL,
+                image_path TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE
+            );
+            """)
+
+    # ---------- BEDS ----------
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS beds (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        room_id INTEGER NOT NULL,
+        status TEXT DEFAULT 'free',
+        branch_id INTEGER NOT NULL,
+        bed_number INTEGER,
+        FOREIGN KEY(room_id) REFERENCES rooms(id) ON DELETE CASCADE,
+        FOREIGN KEY(branch_id) REFERENCES branches(id) ON DELETE CASCADE
+    )
+    """)
+
+    # ---------- BOOKINGS ----------
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS bookings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        branch_id INTEGER NOT NULL,
+        customer_name TEXT NOT NULL,
+        contact TEXT,
+        passport_id TEXT,
+        room_id INTEGER NOT NULL,
+        bed_id INTEGER NOT NULL,
+
+        total_amount REAL NOT NULL,
+        paid_amount REAL NOT NULL DEFAULT 0,
+        remaining_amount REAL NOT NULL,
+        payment_status TEXT NOT NULL,
+
+        checkin_date DATE NOT NULL,
+        checkout_date DATE NOT NULL,
+        status TEXT DEFAULT 'active',
+        booking_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+        FOREIGN KEY(branch_id) REFERENCES branches(id),
+        FOREIGN KEY(room_id) REFERENCES rooms(id),
+        FOREIGN KEY(bed_id) REFERENCES beds(id)
+    )
+    """)
+
+    # ---------- EXPENSES ----------
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS expenses (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        branch_id INTEGER NOT NULL,
+        title TEXT NOT NULL,
+        category TEXT NOT NULL,
+        amount REAL NOT NULL,
+        expense_date DATE NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(branch_id) REFERENCES branches(id)
+    )
+    """)
+
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS booking_payments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        booking_id INTEGER NOT NULL,
+        branch_id INTEGER NOT NULL,
+        paid_amount REAL NOT NULL,
+        paid_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        paid_by TEXT DEFAULT 'customer',
+
+        FOREIGN KEY(booking_id) REFERENCES bookings(id) ON DELETE CASCADE,
+        FOREIGN KEY(branch_id) REFERENCES branches(id)
+    )
+    """)
+
+    # ---------- DEFAULT BRANCH ----------
+    cur.execute("""
+        INSERT INTO branches (name)
+        SELECT 'Main Branch'
+        WHERE NOT EXISTS (SELECT 1 FROM branches)
+    """)
+
+    # ---------- USERS (ADMIN AUTH) ----------
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS users (
-            id SERIAL PRIMARY KEY,
-            telegram_id BIGINT UNIQUE NOT NULL,
-            is_admin BOOLEAN DEFAULT FALSE,
-            is_active BOOLEAN DEFAULT TRUE,
-            branch_id INTEGER REFERENCES branches(id) ON DELETE SET NULL,
-            language VARCHAR(10) DEFAULT 'ru',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-        """))
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        telegram_id INTEGER UNIQUE,
+        is_admin INTEGER DEFAULT 0,
+        is_active INTEGER DEFAULT 1,
+        branch_id INTEGER,
+        language TEXT DEFAULT 'ru',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """)
 
-        # ================= ROOMS =================
-        conn.execute(text("""
-        CREATE TABLE IF NOT EXISTS rooms (
-            id SERIAL PRIMARY KEY,
-            number TEXT NOT NULL,
-            description TEXT,
-            branch_id INTEGER NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
-            UNIQUE (number, branch_id)
-        );
-        """))
+    # ------------ CUSTOMER ---------------
 
-        # ================= BEDS =================
-        conn.execute(text("""
-        CREATE TABLE IF NOT EXISTS beds (
-            id SERIAL PRIMARY KEY,
-            room_id INTEGER NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
-            status TEXT DEFAULT 'free',
-            branch_id INTEGER NOT NULL REFERENCES branches(id) ON DELETE CASCADE
-        );
-        """))
-
-        # ================= CUSTOMERS =================
-        conn.execute(text("""
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS customers (
-            id SERIAL PRIMARY KEY,
-            full_name TEXT,
-            passport TEXT,
-            phone TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-        """))
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        branch_id INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        passport_id TEXT,
+        contact TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """)
+    
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS user_branches (
+        user_id INTEGER NOT NULL,
+        branch_id INTEGER NOT NULL,
+        PRIMARY KEY (user_id, branch_id),
+        FOREIGN KEY (user_id) REFERENCES users(id),
+        FOREIGN KEY (branch_id) REFERENCES branches(id)
+    )
+    """)
 
-        # ================= BOOKINGS =================
-        conn.execute(text("""
-        CREATE TABLE IF NOT EXISTS bookings (
-            id SERIAL PRIMARY KEY,
-            customer_id INTEGER REFERENCES customers(id),
-            bed_id INTEGER REFERENCES beds(id),
-            branch_id INTEGER REFERENCES branches(id),
-            checkin_date DATE NOT NULL,
-            checkout_date DATE,
-            total_amount NUMERIC DEFAULT 0,
-            paid_amount NUMERIC DEFAULT 0,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-        """))
-
-        # ================= PAYMENTS =================
-        conn.execute(text("""
-        CREATE TABLE IF NOT EXISTS payments (
-            id SERIAL PRIMARY KEY,
-            booking_id INTEGER REFERENCES bookings(id) ON DELETE CASCADE,
-            amount NUMERIC NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-        """))
-
-        # ================= EXPENSES =================
-        conn.execute(text("""
-        CREATE TABLE IF NOT EXISTS expenses (
-            id SERIAL PRIMARY KEY,
-            branch_id INTEGER REFERENCES branches(id),
-            title TEXT,
-            amount NUMERIC NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-        """))
-
-    print("✅ Database schema initialized successfully")
-
-
-
-
-
-
+    conn.commit()
+    conn.close()
 
 def get_rooms_with_beds(branch_id):
     conn = get_connection()

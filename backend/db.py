@@ -155,7 +155,7 @@ def init_db():
         SELECT 'Main Branch'
         WHERE NOT EXISTS (SELECT 1 FROM branches)
         """))
-
+    print("✅ Database initialized successfully.")
 
 def get_rooms_with_beds(branch_id):
     with get_connection() as conn:
