@@ -8,9 +8,6 @@ import jwt
 
 
 
-# API_URL = os.getenv("API_BASE_URL")
-# API_URL = "http://127.0.0.1:8000"
-
 API_URL = "http://backend:8000"
 
 
@@ -82,7 +79,7 @@ def telegram_auth():
         return jsonify({"error": "Invalid Telegram auth"}), 401
 
     r = requests.post(
-        f"{API_URL}/auth/telegram",
+        f"{API_URL}/api/auth/telegram",
         json={
             "telegram_id": user["id"],
             "username": user.get("username")
@@ -109,7 +106,7 @@ def do_login():
     data = request.json
 
     r = requests.post(
-        f"{API_URL}/auth/login",
+        f"{API_URL}/api/auth/login",
         json={
             "username": data.get("username"),
             "password": data.get("password")
@@ -131,7 +128,7 @@ def do_login():
 @app.route("/static/<path:filename>")
 def proxy_static(filename):
     resp = requests.get(
-        f"{API_URL}/static/{filename}",
+        f"{API_URL}/api/static/{filename}",
         stream=True
     )
     return Response(
@@ -145,7 +142,7 @@ def proxy_static(filename):
 @app.route("/api/<path:path>", methods=["GET", "POST", "PUT", "DELETE"])
 @login_required
 def api_proxy(path):
-    url = f"{API_URL}/{path}"
+    url = f"{API_URL}/api/{path}"
 
     headers = {
         "Authorization": f"Bearer {session['access_token']}"
