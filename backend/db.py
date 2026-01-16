@@ -1046,40 +1046,57 @@ def get_active_bookings(branch_id):
 def create_admin_if_not_exists():
     with get_connection() as conn:
 
-        # if any user exists, do nothing
-        row = conn.execute(text("SELECT id FROM users LIMIT 1")).mappings().fetchone()
+        # 1️⃣ If any user exists → do nothing
+        row = conn.execute(
+            text("SELECT id FROM users LIMIT 1")
+        ).mappings().fetchone()
+
         if row:
             return
 
-        # ensure branch exists
-        row = conn.execute(text("SELECT id FROM branches LIMIT 1")).mappings().fetchone()
+        # 2️⃣ Ensure branch exists
+        row = conn.execute(
+            text("SELECT id FROM branches LIMIT 1")
+        ).mappings().fetchone()
+
         if row:
             branch_id = row["id"]
         else:
-            branch_id = conn.execute(text("""
-                INSERT INTO branches (name)
-                VALUES ('Main Branch')
+            branch_id = conn.execute(
+                text("""
+                    INSERT INTO branches (name)
+                    VALUES ('Main Branch')
+                    RETURNING id
+                """)
+            ).scalar()
+
+        # 3️⃣ Create admin user
+        user_id = conn.execute(
+            text("""
+                INSERT INTO users (username, password_hash, is_admin)
+                VALUES (:username, :password_hash, true)
                 RETURNING id
-            """)).scalar()
+            """),
+            {
+                "username": "admin",
+                "password_hash": hash_password("admin123")
+            }
+        ).scalar()
 
-        # create admin user
-        user_id = conn.execute(text("""
-            INSERT INTO users (username, password_hash, is_admin)
-            VALUES (:username, :password_hash, true)
-            RETURNING id
-        """), {
-            "username": "admin",
-            "password_hash": hash_password("admin123")
-        }).scalar()
+        # 4️⃣ Bind admin to branch
+        conn.execute(
+            text("""
+                INSERT INTO user_branches (user_id, branch_id)
+                VALUES (:user_id, :branch_id)
+            """),
+            {
+                "user_id": user_id,
+                "branch_id": branch_id
+            }
+        )
 
-        # bind admin to branch
-        conn.execute(text("""
-            INSERT INTO user_branches (user_id, branch_id)
-            VALUES (:user_id, :branch_id)
-        """), {
-            "user_id": user_id,
-            "branch_id": branch_id
-        })
+        print("✅ Admin created successfully")
+
 
 
 # ================= BEDS CRUD =================
