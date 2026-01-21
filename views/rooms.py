@@ -218,7 +218,7 @@ class RoomsPage(QWidget):
         # 1️⃣ get all beds
         beds = api_get(
             self.app,
-            "/beds",
+            "/beds/",
             {
                 "branch_id": self.branch_id,
                 "room_id": self.current_room_id
@@ -267,7 +267,7 @@ class RoomsPage(QWidget):
 
         api_post(
             self.app,
-            "/beds",
+            "/beds/",
             {"branch_id": self.branch_id, "room_id": self.current_room_id}
         )
         self.load_beds()

@@ -127,7 +127,7 @@ class SettingsPage(QWidget):
         try:
             self.branches = api_get(
                 self.app,
-                "/branches"
+                "/branches/"
             )
         except Exception:
             QMessageBox.critical(self, t("error"), t("cannot_load_branches"))
@@ -180,7 +180,7 @@ class SettingsPage(QWidget):
         try:
             api_post(
                 self.app,
-                "/branches",
+                "/branches/",
                 {"name": name}
             )
         except Exception:

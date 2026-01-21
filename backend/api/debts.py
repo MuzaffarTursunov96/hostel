@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from datetime import date
 from api.deps import get_current_user
 from api.ws_manager import ws_manager
+from decimal import Decimal
 
 from db import (
     get_debt_summary,
@@ -39,7 +40,7 @@ def debts_by_range(
 class DebtPay(BaseModel):
     branch_id: int
     booking_id: int
-    amount: float
+    amount: Decimal 
     paid_by: str
 
 

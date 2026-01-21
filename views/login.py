@@ -17,27 +17,36 @@ API_URL = "https://hmsuz.com/api"
 # =========================
 class LoginWorker(QObject):
     success = Signal(dict)
-    error = Signal()
+    # error = Signal()
+    error = Signal(str)
+
 
     def __init__(self, username, password):
         super().__init__()
         self.username = username
         self.password = password
+        self.session = requests.Session()
 
     def run(self):
         try:
-            r = requests.post(
+            r = self.session.post(
                 f"{API_URL}/auth/login",
                 json={
                     "username": self.username,
                     "password": self.password
                 },
-                timeout=5
+                timeout=(10, 30)  # ✅ longer handshake + read
             )
-            r.raise_for_status()
+
+            if r.status_code != 200:
+                self.error.emit(r.text)
+                return
+
             self.success.emit(r.json())
-        except Exception:
-            self.error.emit()
+
+        except Exception as e:
+            self.error.emit(str(e))
+
 
 
 # =========================
@@ -222,6 +231,6 @@ class LoginPage(QWidget):
         self.login_btn.setEnabled(True)
         self.on_success()
 
-    def login_failed(self):
+    def login_failed(self, msg):
         self.login_btn.setEnabled(True)
-        self.msg_label.setText(t("invalid_username_or_password"))
+        self.msg_label.setText(msg)
