@@ -8,6 +8,8 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
 
 @router.get("/me")
 def me(user=Depends(get_current_user)):
+    with open("/tmp/backend_auth_me.log", "a") as f:
+        f.write(f"[ /auth/me CALLED | user={user}\n")
     default_branch = get_default_branch_id(user["user_id"])
     return {
         "id": user["user_id"],
