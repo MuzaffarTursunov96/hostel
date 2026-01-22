@@ -84,7 +84,7 @@ def telegram_auth():
             "telegram_id": user["id"],
             "username": user.get("username")
         },
-        timeout=5
+        timeout=(10,20)
     )
 
     if r.status_code != 200:
@@ -111,7 +111,7 @@ def do_login():
             "username": data.get("username"),
             "password": data.get("password")
         },
-        timeout=5
+        timeout=(10,20)
     )
 
     if r.status_code == 200:
@@ -142,7 +142,7 @@ def proxy_static(filename):
 @app.route("/api/<path:path>", methods=["GET", "POST", "PUT", "DELETE"])
 @login_required
 def api_proxy(path):
-    url = f"{API_URL}/api/{path}"
+    url = f"{API_URL}/{path}"
 
     headers = {
         "Authorization": f"Bearer {session['access_token']}"
