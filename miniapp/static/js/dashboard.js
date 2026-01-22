@@ -564,25 +564,25 @@ function formatDate(d) {
 $(document).ready(function () {
   setTodayDefault();
 
-  apiGet("/auth/me").done(function (me) {
-    CURRENT_BRANCH = me.branch_id;
+  // apiGet("/auth/me").done(function (me) {
+  //   CURRENT_BRANCH = me.branch_id;
 
-    // 🔐 SAVE TO FLASK SESSION
-    fetch("/api2/auth/save-context", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        branch_id: CURRENT_BRANCH
-      })
-    }).then(() => {
-      loadDashboard();
-      startWebSocket();
-    });
+  //   // 🔐 SAVE TO FLASK SESSION
+  //   fetch("/api2/auth/save-context", {
+  //     method: "POST",
+  //     headers: { "Content-Type": "application/json" },
+  //     body: JSON.stringify({
+  //       branch_id: CURRENT_BRANCH
+  //     })
+  //   }).then(() => {
+  //     loadDashboard();
+  //     startWebSocket();
+  //   });
 
-  }).fail(function () {
-    // fallback
-    loadDashboard();
-  });
+  // }).fail(function () {
+  //   // fallback
+  //   loadDashboard();
+  // });
 });
 
 
