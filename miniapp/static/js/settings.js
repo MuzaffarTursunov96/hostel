@@ -4,7 +4,9 @@ let CURRENT_LANG = "ru";
 
 $(document).ready(function () {
 
+
   apiGet("/auth/me").done(function (me) {
+    alert(me)
     CURRENT_BRANCH = me.branch_id;
     CURRENT_LANG = me.language || "ru";
 
