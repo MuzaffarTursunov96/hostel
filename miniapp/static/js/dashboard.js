@@ -561,29 +561,62 @@ function formatDate(d) {
 /* ===============================
    INIT
 ================================ */
+// $(document).ready(function () {
+//   setTodayDefault();
+
+//   apiGet("/auth/me").done(function (me) {
+//     CURRENT_BRANCH = me.branch_id;
+
+//     // 🔐 SAVE TO FLASK SESSION
+//     fetch("/api/auth/save-context", {
+//       method: "POST",
+//       headers: { "Content-Type": "application/json" },
+//       body: JSON.stringify({
+//         branch_id: CURRENT_BRANCH
+//       })
+//     }).then(() => {
+//       loadDashboard();
+//       startWebSocket();
+//     });
+
+//   }).fail(function () {
+//     // fallback
+//     loadDashboard();
+//   });
+// });
+
 $(document).ready(function () {
   setTodayDefault();
 
-  apiGet("/auth/me").done(function (me) {
-    CURRENT_BRANCH = me.branch_id;
+  fetch("/api/auth/me", {
+    method: "GET",
+    credentials: "include"   // 🔥 IMPORTANT: send Flask session cookie
+  })
+    .then(r => {
+      if (!r.ok) throw new Error("Not logged in");
+      return r.json();
+    })
+    .then(me => {
+      CURRENT_BRANCH = me.branch_id;
 
-    // 🔐 SAVE TO FLASK SESSION
-    fetch("/api/auth/save-context", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        branch_id: CURRENT_BRANCH
-      })
-    }).then(() => {
+      // 🔐 SAVE TO FLASK SESSION
+      return fetch("/api/auth/save-context", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          branch_id: CURRENT_BRANCH
+        })
+      });
+    })
+    .then(() => {
       loadDashboard();
       startWebSocket();
+    })
+    .catch(() => {
+      // fallback if auth/me fails
+      loadDashboard();
     });
-
-  }).fail(function () {
-    // fallback
-    loadDashboard();
-  });
 });
-
 
 
