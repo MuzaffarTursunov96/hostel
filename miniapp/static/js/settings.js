@@ -5,28 +5,28 @@ let CURRENT_LANG = "ru";
 $(document).ready(function () {
 
 
-  // apiGet("/auth/me").done(function (me) {
-  //   alert(me)
-  //   CURRENT_BRANCH = me.branch_id;
-  //   CURRENT_LANG = me.language || "ru";
+  apiGet("/auth/me").done(function (me) {
+    alert(me)
+    CURRENT_BRANCH = me.branch_id;
+    CURRENT_LANG = me.language || "ru";
 
-  //   setActiveLangUI(CURRENT_LANG);
+    setActiveLangUI(CURRENT_LANG);
 
-  //   // 🔐 SAVE TO FLASK SESSION
-  //   fetch("/auth/save-context", {
-  //     method: "POST",
-  //     headers: { "Content-Type": "application/json" },
-  //     body: JSON.stringify({
-  //       branch_id: CURRENT_BRANCH
-  //     })
-  //   }).then(() => {
-  //     loadBranches();
-  //     startWebSocket();
-  //   });
+    // 🔐 SAVE TO FLASK SESSION
+    fetch("/auth/save-context", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        branch_id: CURRENT_BRANCH
+      })
+    }).then(() => {
+      loadBranches();
+      startWebSocket();
+    });
 
-  // }).fail(function () {
-  //   loadBranches();
-  // });
+  }).fail(function () {
+    loadBranches();
+  });
 
 });
 
