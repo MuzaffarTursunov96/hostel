@@ -40,7 +40,7 @@ function normalizePath(path) {
 function apiGet(path, params = {}) {
   path = normalizePath(path);
   return $.ajax({
-    url: "/api" + path,          // 🔥 Flask proxy
+    url: "/api111" + path,          // 🔥 Flask proxy
     method: "GET",
     data: params,
     dataType: "json"
@@ -62,7 +62,7 @@ function apiPost(path, body = {}) {
 /* ---------- DELETE ---------- */
 function apiDelete(path, params = {}) {
   path = normalizePath(path);
-  
+
   const query = $.param(params);   // 🔥 convert to query string
   const url = query
     ? `/api${path}?${query}`
