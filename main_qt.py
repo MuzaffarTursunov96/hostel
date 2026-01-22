@@ -186,7 +186,7 @@ class App(QMainWindow):
     # ================= WS =================
     def start_ws(self):
         self.ws_client = WSClient(
-            url="ws://127.0.0.1:8000/ws",
+            url="wss://hmsuz.com/ws",
             on_event=self.on_ws_event
         )
         self.ws_client.start()

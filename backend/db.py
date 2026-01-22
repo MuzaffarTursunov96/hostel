@@ -1734,7 +1734,7 @@ def create_admin_from_root(telegram_id: int, username: str, password: str):
 
         conn.execute(text("""
             INSERT INTO users (telegram_id, username, password_hash, is_admin)
-            VALUES (:telegram_id, :username, :password_hash, 1)
+            VALUES (:telegram_id, :username, :password_hash, TRUE)
         """), {
             "telegram_id": telegram_id,
             "username": username,
@@ -1852,7 +1852,7 @@ def delete_admin_db(user_id: int):
         conn.execute(text("""
             DELETE FROM users
             WHERE id = :user_id
-              AND is_admin = 1
+              AND is_admin = TRUE
         """), {"user_id": user_id})
 
     return {"status": "success"}

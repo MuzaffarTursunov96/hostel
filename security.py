@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 # ================= JWT CONFIG =================
 SECRET_KEY = "CHANGE_THIS_SECRET_IN_PRODUCTION"
 ALGORITHM = "HS256"
-TOKEN_EXPIRE_HOURS = 8
+TOKEN_EXPIRE_HOURS = 16
 
 # ================= PASSWORD (NO bcrypt) =================
 pwd_context = CryptContext(

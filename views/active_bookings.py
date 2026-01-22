@@ -166,13 +166,14 @@ class ActiveBookingsDialog(QDialog):
         self.dashboard.refresh()
 
     def edit_booking(self, booking):
-        EditBookingDialog(
+        self.edit_dialog = EditBookingDialog(
             self,
             self.app,
             booking,
-            self.branch_id,   # 👈 PASS IT
+            self.branch_id,
             self.on_edit_done
         )
+        self.edit_dialog.show()
 
 
     def on_edit_done(self):
@@ -256,7 +257,7 @@ class EditBookingDialog(QDialog):
     def load_rooms(self):
         rooms = api_get(
             self.app,
-            "/rooms",
+            "/rooms/",
             {"branch_id": self.branch_id}
         )
 
@@ -326,7 +327,7 @@ class EditBookingDialog(QDialog):
 
         beds = api_get(
             self.app,
-            "/beds",
+            "/beds/",
             {
                 "branch_id": self.branch_id,
                 "room_id": room_id

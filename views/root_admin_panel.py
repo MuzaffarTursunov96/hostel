@@ -232,7 +232,7 @@ class AssignBranchesDialog(QDialog):
 
         self.list = QListWidget()
 
-        branches = api_get(app, "/branches")
+        branches = api_get(app, "/branches/")
         admin = api_get(app, f"/root/admins/{user_id}")
         current = set(admin["branches"])
 
@@ -309,7 +309,7 @@ class BranchesTab(QWidget):
 
     def load(self):
         self.table.setRowCount(0)
-        for b in api_get(self.app, "/branches"):
+        for b in api_get(self.app, "/branches/"):
             r = self.table.rowCount()
             self.table.insertRow(r)
             self.table.setItem(r, 0, QTableWidgetItem(str(b["id"])))
