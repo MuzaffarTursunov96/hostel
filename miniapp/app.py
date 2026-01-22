@@ -80,7 +80,7 @@ def telegram_auth():
         return jsonify({"error": "Invalid Telegram auth"}), 401
 
     r = requests.post(
-        f"{API_URL}/api/auth/telegram",
+        f"{API_URL}/auth/telegram",
         json={
             "telegram_id": user["id"],
             "username": user.get("username")
