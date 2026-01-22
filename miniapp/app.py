@@ -81,7 +81,7 @@ def telegram_auth():
     with open("/tmp/telegram_flask.log", "a") as f:
         f.write("CALLING BACKEND /api/auth/telegram\n")
         f.write(f"user={user}\n")
-        
+
     r = requests.post(
         f"{API_URL}/auth/telegram",
         json={
@@ -100,6 +100,10 @@ def telegram_auth():
     session["access_token"] = payload["access_token"]
     session["user_id"] = payload["user_id"]
     session["is_admin"] = payload["is_admin"]
+
+    with open("/tmp/telegram_payload.log", "a") as f:
+        f.write("CALLING BACKEND /api/auth/telegram\n")
+        f.write(f"user={payload}\n")
 
     return jsonify({"ok": True})
 
