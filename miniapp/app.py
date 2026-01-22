@@ -142,7 +142,7 @@ def proxy_static(filename):
 @app.route("/api/<path:path>", methods=["GET", "POST", "PUT", "DELETE"])
 @login_required
 def api_proxy(path):
-    url = f"{API_URL}/{path}"
+    url = f"{API_URL}/api/{path}"
 
     headers = {
         "Authorization": f"Bearer {session['access_token']}"
