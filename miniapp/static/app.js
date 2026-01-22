@@ -40,7 +40,7 @@ function normalizePath(path) {
 function apiGet(path, params = {}) {
   path = normalizePath(path);
   return $.ajax({
-    url: "/api111" + path,          // 🔥 Flask proxy
+    url: "/api" + path,          // 🔥 Flask proxy
     method: "GET",
     data: params,
     dataType: "json"
@@ -51,7 +51,7 @@ function apiGet(path, params = {}) {
 function apiPost(path, body = {}) {
   path = normalizePath(path);
   return $.ajax({
-    url: "/api22111" + path,          // 🔥 Flask proxy
+    url: "/api" + path,          // 🔥 Flask proxy
     method: "POST",
     contentType: "application/json",
     data: JSON.stringify(body),
