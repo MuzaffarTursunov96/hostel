@@ -153,6 +153,11 @@ def proxy_static(filename):
     )
 
 
+@app.get("/api2/__ping")
+def api2_ping():
+    return {"pong": True}
+
+
 
 @app.route("/api2/<path:path>", methods=["GET", "POST", "PUT", "DELETE"])
 def api_proxy(path):
