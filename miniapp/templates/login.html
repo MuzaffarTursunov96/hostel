@@ -79,7 +79,7 @@ if (!tg.initData) {
       // smooth fade out
       loader.style.opacity = "0";
       setTimeout(() => {
-        window.location.href = "/dashboard";
+        window.location.href = "/dashboard?v=" + Date.now();
       }, 250);
     } else {
       showError("❌ Telegram authentication failed");
