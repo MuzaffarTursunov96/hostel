@@ -143,7 +143,7 @@ def proxy_static(filename):
 @login_required
 def api_proxy(path):
     print(path)
-    url = f"{API_URL}/api/{path}"
+    url = f"{API_URL}/{path}"
 
     headers = {
         "Authorization": f"Bearer {session['access_token']}"
