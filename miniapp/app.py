@@ -72,7 +72,6 @@ def replace_token():
 @app.post("/auth/telegram")
 def telegram_auth():
     init_data = request.json.get("initData")
-    print(init_data,'init data')
 
     user = verify_telegram_init_data(init_data)
 
@@ -144,7 +143,7 @@ def proxy_static(filename):
 @login_required
 def api_proxy(path):
     print(path)
-    url = f"{API_URL}/api/{path}"
+    url = f"{API_URL}/{path}"
 
     headers = {
         "Authorization": f"Bearer {session['access_token']}"
