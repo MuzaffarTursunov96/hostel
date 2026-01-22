@@ -139,50 +139,50 @@ def proxy_static(filename):
 
 
 
-@app.route("/api/<path:path>", methods=["GET", "POST", "PUT", "DELETE"])
-@login_required
-def api_proxy(path):
-    print(path)
-    url = f"{API_URL}/{path}"
+# @app.route("/api/<path:path>", methods=["GET", "POST", "PUT", "DELETE"])
+# @login_required
+# def api_proxy(path):
+#     print(path)
+#     url = f"{API_URL}/{path}"
 
-    headers = {
-        "Authorization": f"Bearer {session['access_token']}"
-    }
+#     headers = {
+#         "Authorization": f"Bearer {session['access_token']}"
+#     }
 
-    # ✅ CASE 1: multipart/form-data (FILE UPLOAD)
-    if request.files:
-        files = []
-        for name, f in request.files.items():
-            files.append(
-                (name, (f.filename, f.stream, f.mimetype))
-            )
+#     # ✅ CASE 1: multipart/form-data (FILE UPLOAD)
+#     if request.files:
+#         files = []
+#         for name, f in request.files.items():
+#             files.append(
+#                 (name, (f.filename, f.stream, f.mimetype))
+#             )
 
-        resp = requests.request(
-            method=request.method,
-            url=url,
-            headers=headers,
-            params=request.args,
-            files=files,           # 🔥 IMPORTANT
-            data=request.form,     # 🔥 IMPORTANT
-            timeout=15
-        )
+#         resp = requests.request(
+#             method=request.method,
+#             url=url,
+#             headers=headers,
+#             params=request.args,
+#             files=files,           # 🔥 IMPORTANT
+#             data=request.form,     # 🔥 IMPORTANT
+#             timeout=15
+#         )
 
-    # ✅ CASE 2: JSON or normal request
-    else:
-        resp = requests.request(
-            method=request.method,
-            url=url,
-            headers=headers,
-            params=request.args,
-            json=request.get_json(silent=True),
-            timeout=15
-        )
+#     # ✅ CASE 2: JSON or normal request
+#     else:
+#         resp = requests.request(
+#             method=request.method,
+#             url=url,
+#             headers=headers,
+#             params=request.args,
+#             json=request.get_json(silent=True),
+#             timeout=15
+#         )
 
-    # ✅ response passthrough
-    if resp.headers.get("content-type", "").startswith("application/json"):
-        return jsonify(resp.json()), resp.status_code
+#     # ✅ response passthrough
+#     if resp.headers.get("content-type", "").startswith("application/json"):
+#         return jsonify(resp.json()), resp.status_code
 
-    return resp.content, resp.status_code
+#     return resp.content, resp.status_code
 
 
 
