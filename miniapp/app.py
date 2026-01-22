@@ -78,6 +78,10 @@ def telegram_auth():
     if not user:
         return jsonify({"error": "Invalid Telegram auth"}), 401
 
+    with open("/tmp/telegram_flask.log", "a") as f:
+        f.write("CALLING BACKEND /api/auth/telegram\n")
+        f.write(f"user={user}\n")
+        
     r = requests.post(
         f"{API_URL}/auth/telegram",
         json={
