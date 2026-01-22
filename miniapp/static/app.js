@@ -28,17 +28,10 @@ if (window.Telegram && Telegram.WebApp) {
  * Uses Flask proxy: /api/...
  */
 
-function normalizePath(path) {
-  // 🔥 remove leading /api if user passed it by mistake
-  if (path.startsWith("/api/")) {
-    return path.slice(4); // remove "/api"
-  }
-  return path;
-}
+
 
 /* ---------- GET ---------- */
 function apiGet(path, params = {}) {
-  path = normalizePath(path);
   return $.ajax({
     url: "/api2" + path,          // 🔥 Flask proxy
     method: "GET",
@@ -49,7 +42,6 @@ function apiGet(path, params = {}) {
 
 /* ---------- POST ---------- */
 function apiPost(path, body = {}) {
-  path = normalizePath(path);
   return $.ajax({
     url: "/api2" + path,          // 🔥 Flask proxy
     method: "POST",
@@ -61,7 +53,6 @@ function apiPost(path, body = {}) {
 
 /* ---------- DELETE ---------- */
 function apiDelete(path, params = {}) {
-  path = normalizePath(path);
 
   const query = $.param(params);   // 🔥 convert to query string
   const url = query

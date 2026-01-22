@@ -568,7 +568,7 @@ $(document).ready(function () {
     CURRENT_BRANCH = me.branch_id;
 
     // 🔐 SAVE TO FLASK SESSION
-    fetch("/api/auth/save-context", {
+    fetch("/api2/auth/save-context", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
