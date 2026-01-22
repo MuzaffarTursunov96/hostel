@@ -142,7 +142,8 @@ def proxy_static(filename):
 @app.route("/api/<path:path>", methods=["GET", "POST", "PUT", "DELETE"])
 @login_required
 def api_proxy(path):
-    print(path)
+    with open("/tmp/api_proxy.log", "a") as f:
+        f.write(f"HIT api_proxy: {path}\n")
     url = f"{API_URL}/{path}"
 
     headers = {
