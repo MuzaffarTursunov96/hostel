@@ -144,7 +144,7 @@ def proxy_static(filename):
 def api_proxy(path):
     with open("/tmp/api_proxy.log", "a") as f:
         f.write(f"HIT api_proxy: {path}\n")
-    url = f"{API_URL}/{path}"
+    url = f"{API_URL}/api/{path}"
 
     headers = {
         "Authorization": f"Bearer {session['access_token']}"
