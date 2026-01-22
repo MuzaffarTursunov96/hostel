@@ -564,7 +564,7 @@ function formatDate(d) {
 $(document).ready(function () {
   setTodayDefault();
 
-  apiGet("/api/auth/me").done(function (me) {
+  apiGet("/auth/me").done(function (me) {
     CURRENT_BRANCH = me.branch_id;
 
     // 🔐 SAVE TO FLASK SESSION
