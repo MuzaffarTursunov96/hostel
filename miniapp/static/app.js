@@ -40,7 +40,7 @@ function normalizePath(path) {
 function apiGet(path, params = {}) {
   path = normalizePath(path);
   return $.ajax({
-    url: "/api" + path,          // 🔥 Flask proxy
+    url: "/api2" + path,          // 🔥 Flask proxy
     method: "GET",
     data: params,
     dataType: "json"
@@ -51,7 +51,7 @@ function apiGet(path, params = {}) {
 function apiPost(path, body = {}) {
   path = normalizePath(path);
   return $.ajax({
-    url: "/api" + path,          // 🔥 Flask proxy
+    url: "/api2" + path,          // 🔥 Flask proxy
     method: "POST",
     contentType: "application/json",
     data: JSON.stringify(body),
@@ -65,8 +65,8 @@ function apiDelete(path, params = {}) {
 
   const query = $.param(params);   // 🔥 convert to query string
   const url = query
-    ? `/api${path}?${query}`
-    : `/api${path}`;
+    ? `/api2${path}?${query}`
+    : `/api2${path}`;
 
   return $.ajax({
     url: url,
