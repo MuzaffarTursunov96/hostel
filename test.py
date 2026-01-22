@@ -1,20 +1,21 @@
-# import requests
+import requests
 
-# URL = "https://hmsuz.com/api/auth/login"
+URL = "https://hmsuz.com/api/auth/login"
 
-# payload = {
-#     "username": "admin",
-#     "password": "admin123"
-# }
+payload = {
+    "username": "admin",
+    "password": "admin123"
+}
 
-# headers = {
-#     "Content-Type": "application/json"
-# }
+headers = {
+    "Content-Type": "application/json"
+}
 
-# response = requests.post(URL, json=payload, headers=headers)
+response = requests.post(URL, json=payload, headers=headers)
 
-# print("Status:", response.status_code)
-# print("Response:", response.text)
+print("Status:", response.status_code)
+print("Time (seconds):", response.elapsed.total_seconds())
+print("Time (ms):", response.elapsed.total_seconds() * 1000)
 
 # import requests
 
@@ -31,9 +32,4 @@
 # print("Status:", resp.status_code)
 # print("Response:", resp.text)
 
-import websocket
 
-ws = websocket.WebSocket()
-ws.connect("wss://hmsuz.com/ws/")
-print("CONNECTED")
-print(ws.recv())
