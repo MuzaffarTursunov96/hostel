@@ -33,7 +33,7 @@ WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 
 app = FastAPI(
     title="Hostel Backend API",
-    root_path="/api"
+    # root_path="/api"
 )
 
 
