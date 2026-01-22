@@ -32,6 +32,7 @@ if (window.Telegram && Telegram.WebApp) {
 
 /* ---------- GET ---------- */
 function apiGet(path, params = {}) {
+  alert('/api2'+path)
   return $.ajax({
     url: "/api2" + path,          // 🔥 Flask proxy
     method: "GET",
