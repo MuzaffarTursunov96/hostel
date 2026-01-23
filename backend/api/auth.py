@@ -73,6 +73,7 @@ def telegram_login(data: TelegramLoginIn):
         "access_token": token,
         "user_id": user_id,
         "is_admin": is_admin,
+        "branch_id": default_branch or u["branch_id"],
         "telegram_id": data.telegram_id
     }
 
