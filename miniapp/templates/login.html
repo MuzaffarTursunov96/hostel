@@ -66,7 +66,6 @@ function showError(message) {
 
 // safety check
 if (!tg.initData) {
- 
   showError("❌ Please open this app from Telegram");
 } else {
   fetch("/auth/telegram", {
