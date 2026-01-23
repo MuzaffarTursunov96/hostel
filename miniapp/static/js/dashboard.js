@@ -32,7 +32,7 @@ function loadDashboard(filter=false) {
   $("#dashboardSkeleton").removeClass("hidden");
   $("#roomsGrid").addClass("hidden");
 
-  $.get("/api/dashboard/rooms", params, function (data) {
+  $.get("/api2/dashboard/rooms", params, function (data) {
 
     rooms = data || [];
 
@@ -196,7 +196,7 @@ function showFutureBookingsModal(bedId) {
   $("#futureBookingsModal").removeClass("hidden");
   $("#futureBookingsTable").html(t("loading")+"…");
 
-  fetch(`/api/dashboard/beds/future-bookings?branch_id=${CURRENT_BRANCH}&bed_id=${bedId}`, {
+  fetch(`/api2/dashboard/beds/future-bookings?branch_id=${CURRENT_BRANCH}&bed_id=${bedId}`, {
     credentials: "include"
   })
     .then(r => r.json())
@@ -266,7 +266,7 @@ function renderFutureBookings(rows) {
 window.cancelFutureBooking = function (bookingId) {
   if (!confirm(t("cancel_booking"))) return;
 
-  fetch("/api/active-bookings/cancel", {
+  fetch("/api2/active-bookings/cancel", {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
@@ -313,7 +313,7 @@ window.closeActiveBookings = function () {
 };
 
 function loadActiveBookings() {
-  fetch(`/api/active-bookings?branch_id=${CURRENT_BRANCH}`, {
+  fetch(`/api2/active-bookings?branch_id=${CURRENT_BRANCH}`, {
     credentials: "include"
   })
     .then(r => r.json())
@@ -444,7 +444,7 @@ window.closeEditBooking = function () {
 };
 
 function loadEditRooms(booking) {
-  fetch(`/api/rooms?branch_id=${CURRENT_BRANCH}`, {
+  fetch(`/api2/rooms?branch_id=${CURRENT_BRANCH}`, {
     credentials: "include"
   })
     .then(r => r.json())
@@ -479,7 +479,7 @@ $(document).on("change", "#editRoom", function () {
 function loadEditBeds(booking) {
   const roomId = $("#editRoom").val();
 
-  fetch(`/api/beds?branch_id=${CURRENT_BRANCH}&room_id=${roomId}`, {
+  fetch(`/api2/beds?branch_id=${CURRENT_BRANCH}&room_id=${roomId}`, {
     credentials: "include"
   })
     .then(r => r.json())
@@ -500,7 +500,7 @@ function loadEditBeds(booking) {
 $("#editBookingForm").on("submit", function (e) {
   e.preventDefault();
 
-  fetch("/api/active-bookings/update-admin", {
+  fetch("/api2/active-bookings/update-admin", {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
@@ -525,7 +525,7 @@ $("#editBookingForm").on("submit", function (e) {
 window.cancelBooking = function (id) {
   if (!confirm("Cancel booking?")) return;
 
-  fetch("/api/active-bookings/cancel", {
+  fetch("/api2/active-bookings/cancel", {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
