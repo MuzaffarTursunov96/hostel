@@ -13,16 +13,18 @@ $(document).ready(function () {
     setActiveLangUI(CURRENT_LANG);
 
     // 🔐 SAVE TO FLASK SESSION
-    fetch("/auth/save-context", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        branch_id: CURRENT_BRANCH
-      })
-    }).then(() => {
-      loadBranches();
-      startWebSocket();
-    });
+    loadBranches();
+    startWebSocket();
+    // fetch("/auth/save-context", {
+    //   method: "POST",
+    //   headers: { "Content-Type": "application/json" },
+    //   body: JSON.stringify({
+    //     branch_id: CURRENT_BRANCH
+    //   })
+    // }).then(() => {
+    //   loadBranches();
+    //   startWebSocket();
+    // });
 
   }).fail(function () {
     loadBranches();
