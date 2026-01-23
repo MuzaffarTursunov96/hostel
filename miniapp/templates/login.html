@@ -66,8 +66,8 @@ function showError(message) {
 
 // safety check
 if (!tg.initData) {
-  window.location.href = "/login";
-  // showError("❌ Please open this app from Telegram");
+ 
+  showError("❌ Please open this app from Telegram");
 } else {
   fetch("/auth/telegram", {
     method: "POST",
