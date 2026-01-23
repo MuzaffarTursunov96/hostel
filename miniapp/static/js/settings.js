@@ -185,7 +185,7 @@ function setCurrentBranch(branchId) {
         access_token: res.access_token
       })
     }).then(() => {
-      location.reload();
+      // location.reload();
     });
 
   });
