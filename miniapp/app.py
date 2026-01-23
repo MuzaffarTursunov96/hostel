@@ -107,7 +107,7 @@ def telegram_auth():
     session["access_token"] = payload["access_token"]
     session["user_id"] = payload["user_id"]
     session["is_admin"] = payload["is_admin"]
-    session["branch_id"] = payload["branch_id"]
+    # session["branch_id"] = payload["branch_id"]
 
     with open("/tmp/telegram_payload.log", "a") as f:
         f.write("CALLING BACKEND /api/auth/telegram\n")
