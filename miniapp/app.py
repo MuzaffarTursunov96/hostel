@@ -17,6 +17,8 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY")
 
+app.config["VERSION"] = "2026.01.23"
+
 
 app.config.update(
     SESSION_COOKIE_SAMESITE="None",
