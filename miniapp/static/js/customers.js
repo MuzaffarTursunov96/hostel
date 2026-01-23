@@ -149,7 +149,7 @@ function closePassportModal() {
    LOAD IMAGES
 ================================ */
 function loadPassportImages(customerId) {
-  fetch(`/api/customers/${customerId}/passport-images`, {
+  fetch(`/api2/customers/${customerId}/passport-images`, {
     credentials: "include"
   })
     .then(r => r.json())
@@ -194,7 +194,7 @@ function loadPassportImages(customerId) {
 function deletePassportImage(imageId) {
   if (!confirm("Delete this passport image?")) return;
 
-  fetch(`/api/customers/passport-images/${imageId}`, {
+  fetch(`/api2/customers/passport-images/${imageId}`, {
     method: "DELETE",
     credentials: "include"
   })
@@ -241,7 +241,7 @@ document
     // 🔥 START LOADING
     setUploadLoading(true);
 
-    fetch(`/api/customers/${CURRENT_CUSTOMER_ID}/passport-images`, {
+    fetch(`/api2/customers/${CURRENT_CUSTOMER_ID}/passport-images`, {
       method: "POST",
       credentials: "include",
       body: fd
