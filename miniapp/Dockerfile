@@ -7,8 +7,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-
 EXPOSE 8002
-
 
 CMD ["gunicorn", "app:app", "-b", "0.0.0.0:8002"]
