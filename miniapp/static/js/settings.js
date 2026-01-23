@@ -186,6 +186,8 @@ function setCurrentBranch(branchId) {
       })
     }).then(() => {
       // location.reload();
+      window.location.href = "/settings?t=" + Date.now();
+
     });
 
   });
