@@ -579,13 +579,16 @@ $(document).ready(function () {
       })
     }).then(() => {
       loadDashboard();
-      startWebSocket();
+      // startWebSocket();
     });
 
   }).fail(function () {
     // fallback
     loadDashboard();
   });
+
+  document.addEventListener("DOMContentLoaded", startWebSocket);
+
 });
 
 

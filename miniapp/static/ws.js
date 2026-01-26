@@ -10,7 +10,15 @@ function startWebSocket() {
 
   WS = new WebSocket(proto + WS_HOST + "/ws");
 
-  WS.onopen = () => console.log("✅ WS connected");
+ WS.onopen = () => {
+    console.log("✅ WS connected");
+
+    WS_PING = setInterval(() => {
+      if (WS && WS.readyState === WebSocket.OPEN) {
+        WS.send("ping");
+      }
+    }, 25000); // every 25s
+  };
 
   WS.onmessage = e => {
     const event = JSON.parse(e.data);
@@ -18,6 +26,9 @@ function startWebSocket() {
   };
 
   WS.onclose = () => {
+    console.log("❌ WS closed");
+    clearInterval(WS_PING);
+    WS_PING = null;
     WS = null;
     setTimeout(startWebSocket, 1500);
   };

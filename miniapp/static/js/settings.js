@@ -21,12 +21,15 @@ $(document).ready(function () {
       })
     }).then(() => {
       loadBranches();
-      startWebSocket();
+      // startWebSocket();
     });
 
   }).fail(function () {
     loadBranches();
   });
+
+  document.addEventListener("DOMContentLoaded", startWebSocket);
+
 
 });
 
