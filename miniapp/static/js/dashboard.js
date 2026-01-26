@@ -26,6 +26,9 @@ function loadDashboard(filter=false) {
         var params ={branch_id: CURRENT_BRANCH}
     }
 
+    Object.values(countdownTimers).forEach(t => clearInterval(t));
+     countdownTimers = {};
+
 
   $("#roomsGrid").empty();
 
