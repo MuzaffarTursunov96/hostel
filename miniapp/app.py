@@ -14,7 +14,7 @@ API_URL = "http://backend:8000"
 load_dotenv()
 
 
-app = Flask(__name__)
+app = Flask(__name__,static_folder="static", static_url_path="/static")
 app.secret_key = os.getenv("FLASK_SECRET_KEY")
 
 app.config["VERSION"] = "2026.01.23"
