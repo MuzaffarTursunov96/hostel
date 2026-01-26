@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from api.deps import get_current_user
-from db import change_password_db, set_lang_db
+from db import change_password_db, set_lang_db,set_user_branch_db
 from security import create_token
 
 router = APIRouter(prefix="/settings", tags=["Settings"])
@@ -33,6 +33,7 @@ def set_branch(
     if not branch_id:
         raise HTTPException(400, "branch_id required")
 
+    set_user_branch_db(user["user_id"], int(branch_id))
     # 🔐 issue new token with updated branch
     new_token = create_token({
         "user_id": user["user_id"],

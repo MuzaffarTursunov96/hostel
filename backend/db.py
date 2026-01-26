@@ -1967,3 +1967,15 @@ def set_lang_db(user_id: int, lang: str):
             "lang": lang,
             "user_id": user_id
         })
+
+
+def set_user_branch_db(user_id: int, branch_id: int):
+    with get_connection() as conn:
+        conn.execute(text("""
+            UPDATE users
+            SET branch_id = :branch_id
+            WHERE id = :user_id
+        """), {
+            "branch_id": branch_id,
+            "user_id": user_id
+        })
