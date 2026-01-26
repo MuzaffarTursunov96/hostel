@@ -197,6 +197,7 @@ class App(QMainWindow):
             return
 
         event_type = data.get("type")
+        print(event_type,' >>> ',data)
 
         # ---------- ROOMS / BEDS ----------
         if event_type == "beds_changed":

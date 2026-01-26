@@ -54,7 +54,10 @@ async def ws_endpoint(ws: WebSocket):
     await ws_manager.connect(ws)
     try:
         while True:
-            await ws.receive_text()  # keep-alive
+            await ws.receive_text() 
+            msg = await ws.receive_text()
+            # keep-alive
+            print("📥 WS RECEIVED:", msg)
     except Exception:
         pass
     finally:
