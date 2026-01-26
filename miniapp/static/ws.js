@@ -63,6 +63,9 @@ function handleWsEvent(event) {
       if (typeof loadDashboard === "function") {
         loadDashboard();
       }
+      if (typeof loadAvailableBeds === "function") {
+        loadAvailableBeds();
+      }
       break;
 
     /* ---------- PAYMENTS / DEBTS ---------- */

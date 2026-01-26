@@ -141,7 +141,7 @@ function confirmBooking() {
   SELECTED_BED_ID = null;
 
   // refresh current page only
-  loadAvailableBeds();
+   loadRooms();
 });
 
 }
