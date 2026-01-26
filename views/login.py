@@ -5,11 +5,29 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, QThread, Signal, QObject
 from PySide6.QtGui import QPixmap
+from PySide6.QtWidgets import QProgressBar
+
 import requests
+import threading
 
 from i18n import t
 
 API_URL = "https://hmsuz.com/api"
+
+# 🔥 Shared session (TLS will be reused)
+SESSION = requests.Session()
+SESSION.headers.update({
+    "Connection": "keep-alive"
+})
+
+
+
+def warmup_api():
+    try:
+        SESSION.get(f"{API_URL}/health", timeout=5)
+    except Exception:
+        pass  # warm-up only
+
 
 
 # =========================
@@ -25,7 +43,8 @@ class LoginWorker(QObject):
         super().__init__()
         self.username = username
         self.password = password
-        self.session = requests.Session()
+        self.session = SESSION
+        # threading.Thread(target=warmup_api, daemon=True).start()
 
     def run(self):
         try:
@@ -57,6 +76,7 @@ class LoginPage(QWidget):
         super().__init__()
         self.app = app
         self.on_success = on_success
+        threading.Thread(target=warmup_api, daemon=True).start()
 
         self.thread = None
         self.worker = None
@@ -165,6 +185,26 @@ class LoginPage(QWidget):
             """)
 
 
+        # ===== SPINNER =====
+        self.spinner = QProgressBar()
+        self.spinner.setRange(0, 0)          # indeterminate
+        self.spinner.setFixedHeight(6)
+        self.spinner.setTextVisible(False)
+        self.spinner.hide()
+
+        self.spinner.setStyleSheet("""
+        QProgressBar {
+            border: none;
+            background-color: #E5E7EB;
+            border-radius: 3px;
+        }
+        QProgressBar::chunk {
+            background-color: #2563EB;
+            border-radius: 3px;
+        }
+        """)
+
+
         # ===== ERROR LABEL =====
         self.msg_label = QLabel("")
         self.msg_label.setAlignment(Qt.AlignCenter)
@@ -178,6 +218,7 @@ class LoginPage(QWidget):
         layout.addWidget(self.password)
         layout.addSpacing(6)
         layout.addWidget(self.login_btn)
+        layout.addWidget(self.spinner)
         layout.addWidget(self.msg_label)
 
         overlay_layout.addWidget(card)
@@ -202,6 +243,8 @@ class LoginPage(QWidget):
             return
 
         self.login_btn.setEnabled(False)
+        self.spinner.show()
+
 
         self.thread = QThread(self)
         self.worker = LoginWorker(username, password)
@@ -228,9 +271,11 @@ class LoginPage(QWidget):
 
         self.app.telegram_id = data.get("telegram_id")
 
+        self.spinner.hide()
         self.login_btn.setEnabled(True)
         self.on_success()
 
     def login_failed(self, msg):
+        self.spinner.hide()
         self.login_btn.setEnabled(True)
         self.msg_label.setText(msg)

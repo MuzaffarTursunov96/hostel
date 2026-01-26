@@ -4,6 +4,7 @@ from PySide6.QtWidgets import (
     QComboBox, QLineEdit, QPushButton
 )
 from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QCursor
 from datetime import date, datetime
 
 from .api_client import api_get
@@ -46,6 +47,7 @@ class PaymentHistoryDialog(QDialog):
 
         load_btn = QPushButton(t("load"))
         load_btn.clicked.connect(self.load)
+        load_btn.setCursor(QCursor(Qt.PointingHandCursor))
 
         filter_layout.addWidget(QLabel(t("month")))
         filter_layout.addWidget(self.month)

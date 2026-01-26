@@ -3,7 +3,7 @@ from PySide6.QtWidgets import (
     QLabel, QSizePolicy
 )
 from PySide6.QtCore import Qt,QSize
-from PySide6.QtGui import QIcon,QPixmap
+from PySide6.QtGui import QIcon,QPixmap,QCursor
 import os
 
 from .brand import BrandWidget
@@ -94,6 +94,7 @@ class Sidebar(QFrame):
         logout.setFixedHeight(42)
         logout.clicked.connect(lambda: self.on_nav("logout"))
         layout.addWidget(logout)
+        logout.setCursor(QCursor(Qt.PointingHandCursor))
 
         self.set_active("dashboard")
 

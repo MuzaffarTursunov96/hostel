@@ -5,6 +5,7 @@ from PySide6.QtWidgets import (
     QDateEdit, QMessageBox
 )
 from PySide6.QtCore import Qt, QDate, QTimer
+from PySide6.QtGui import QCursor
 
 
 from datetime import date, datetime
@@ -47,6 +48,7 @@ class DebtsPage(QWidget):
 
         btn = QPushButton(t("confirm"))
         btn.clicked.connect(self.refresh)
+        btn.setCursor(QCursor(Qt.PointingHandCursor))
 
         fl.addWidget(QLabel(t("from")))
         fl.addWidget(self.from_date)
@@ -185,6 +187,7 @@ class DebtsPage(QWidget):
 
         btn = QPushButton(t("pay"))
         btn.clicked.connect(lambda: self.pay_debt(d, entry))
+        btn.setCursor(QCursor(Qt.PointingHandCursor))
         layout.addWidget(btn)
 
         self.table.addWidget(row)

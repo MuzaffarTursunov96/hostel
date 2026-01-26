@@ -9,8 +9,22 @@ LOGIN_PAYLOAD = {
     "password": "admin123"
 }
 
+CREATE_ADMIN_PAYLOAD = {
+    "telegram_id": 7080578967,
+    "username": "Asror",          # ← intentionally empty to test
+    "password": "1"
+}
+
 TIMEOUT = (10, 30)  # connect, read
 SESSION = requests.Session()
+
+
+def timed(label, fn):
+    start = time.perf_counter()
+    r = fn()
+    ms = round((time.perf_counter() - start) * 1000, 2)
+    print(f"{label}: {ms} ms (status {r.status_code})")
+    return r
 
 
 def ms(sec):
@@ -51,34 +65,57 @@ def main():
 
     print("\n=== AFTER LOGIN API CALLS ===")
 
-    branch = timed_request(
-        "/branches/",
-        lambda: SESSION.get(
-            f"{API_URL}/branches/",
-            headers=headers,
-            timeout=TIMEOUT,
+    # r = timed(
+    #     "POST /root/admins",
+    #     lambda: SESSION.post(
+    #         f"{API_URL}/root/admins",
+    #         headers=headers,
+    #         json=CREATE_ADMIN_PAYLOAD,
+    #         timeout=TIMEOUT
+    #     )
+    # )
+
+    # print("STATUS:", r.status_code)
+    # print("RESPONSE BODY:", r.text)
+
+    r = SESSION.get(
+        f"{API_URL}/root/admins",
+        headers=headers,
+        timeout=TIMEOUT
+    )
+
+    print("STATUS:", r.status_code)
+    print("RESPONSE:")
+    print(r.json())
+
+    # branch = timed_request(
+    #     "/branches/",
+    #     lambda: SESSION.get(
+    #         f"{API_URL}/branches/",
+    #         headers=headers,
+    #         timeout=TIMEOUT,
            
-        )
-    )
+    #     )
+    # )
 
-    print(branch.json())
-    timed_request(
-        "/rooms/",
-        lambda: SESSION.get(
-            f"{API_URL}/rooms/",
-            headers=headers,
-            timeout=TIMEOUT,
-            params={"branch_id":6}
-        )
-    )
+    # print(branch.json())
+    # timed_request(
+    #     "/rooms/",
+    #     lambda: SESSION.get(
+    #         f"{API_URL}/rooms/",
+    #         headers=headers,
+    #         timeout=TIMEOUT,
+    #         params={"branch_id":6}
+    #     )
+    # )
 
-    timed_request(
-        "/health",
-        lambda: SESSION.get(
-            f"{API_URL}/health",
-            timeout=TIMEOUT
-        )
-    )
+    # timed_request(
+    #     "/health",
+    #     lambda: SESSION.get(
+    #         f"{API_URL}/health",
+    #         timeout=TIMEOUT
+    #     )
+    # )
 
     print("\n✅ TEST FINISHED")
 

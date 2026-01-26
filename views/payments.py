@@ -4,7 +4,7 @@ from PySide6.QtWidgets import (
     QComboBox, QLineEdit, QMessageBox
 )
 from PySide6.QtCore import Qt, QDate
-from PySide6.QtGui import QPainter
+from PySide6.QtGui import QPainter,QCursor
 
 from PySide6.QtCharts import (
     QChart, QChartView, QPieSeries
@@ -57,6 +57,7 @@ class PaymentsPage(QWidget):
 
         filter_btn = QPushButton(t("filter"))
         filter_btn.clicked.connect(self.refresh)
+        filter_btn.setCursor(QCursor(Qt.PointingHandCursor))
 
         filter_bar.addWidget(self.month)
         filter_bar.addWidget(self.year)
@@ -96,6 +97,7 @@ class PaymentsPage(QWidget):
 
         add_btn = QPushButton(t("add"))
         add_btn.clicked.connect(self.add_expense)
+        add_btn.setCursor(QCursor(Qt.PointingHandCursor))
 
         form.addWidget(self.title_inp)
         form.addWidget(self.amount_inp)
@@ -107,10 +109,12 @@ class PaymentsPage(QWidget):
         history_btn = QPushButton(t("payment_history"))
         history_btn.clicked.connect(self.open_history)
         self.main.addWidget(history_btn)
+        history_btn.setCursor(QCursor(Qt.PointingHandCursor))
 
         table_btn = QPushButton(t("view_expenses_table"))
         table_btn.clicked.connect(self.open_expenses_table)
         self.main.addWidget(table_btn)
+        table_btn.setCursor(QCursor(Qt.PointingHandCursor))
 
 
         # ===== DEFAULT CURRENT MONTH/YEAR =====

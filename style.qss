@@ -156,7 +156,7 @@ QFrame#BedHeaderFree QLabel {
 
 /* ===== BODY ===== */
 QFrame#BedBody {
-    background: #f9fafb;
+    background: #6A89A7;
     padding: 12px;
     border-bottom-left-radius: 14px;
     border-bottom-right-radius: 14px;

@@ -4,6 +4,7 @@ from PySide6.QtWidgets import (
     QComboBox, QMessageBox, QDateEdit,QCompleter
 )
 from PySide6.QtCore import Qt, QDate
+from PySide6.QtGui import QCursor
 
 from .api_client import api_get, api_post
 from i18n import t
@@ -147,6 +148,8 @@ class BookingPage(QWidget):
         confirm = QPushButton(t("confirm_booking"))
         confirm.setFixedHeight(44)
         confirm.clicked.connect(self.confirm_booking)
+        confirm.setCursor(QCursor(Qt.PointingHandCursor))
+
         layout.addWidget(confirm)
 
     def on_customer_selected(self, index):
@@ -227,6 +230,7 @@ class BookingPage(QWidget):
             btn.setCheckable(True)
             btn.setFixedHeight(40)
             btn.clicked.connect(lambda _, bid=b["id"]: self.select_bed(bid))
+            btn.setCursor(QCursor(Qt.PointingHandCursor))
             self.beds_container.addWidget(btn)
 
     def select_bed(self, bed_id):

@@ -4,6 +4,7 @@ from PySide6.QtWidgets import (
     QMessageBox, QComboBox, QScrollArea, QFrame
 )
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QCursor
 
 from utils.config import load_config, save_config
 from i18n import set_lang, t
@@ -65,6 +66,7 @@ class SettingsPage(QWidget):
         save_btn = QPushButton(t("save_changes"))
         save_btn.clicked.connect(self.change_password)
         self.layout.addWidget(save_btn)
+        save_btn.setCursor(QCursor(Qt.PointingHandCursor))
 
         # ===== LANGUAGE =====
         lang_lbl = QLabel(t("language"))
@@ -78,6 +80,8 @@ class SettingsPage(QWidget):
 
         btn_ru.clicked.connect(lambda: self.switch_lang("ru"))
         btn_uz.clicked.connect(lambda: self.switch_lang("uz"))
+        btn_ru.setCursor(QCursor(Qt.PointingHandCursor))
+        btn_uz.setCursor(QCursor(Qt.PointingHandCursor))
 
         lang_box.addWidget(btn_ru)
         lang_box.addWidget(btn_uz)
@@ -105,6 +109,7 @@ class SettingsPage(QWidget):
         self.new_branch.setPlaceholderText(t("new_branch_name"))
         add_btn = QPushButton(t("add_branch"))
         add_btn.clicked.connect(self.add_branch_action)
+        add_btn.setCursor(QCursor(Qt.PointingHandCursor))
 
         add_row.addWidget(self.new_branch)
         add_row.addWidget(add_btn)
@@ -116,6 +121,7 @@ class SettingsPage(QWidget):
         self.rename_branch.setPlaceholderText(t("rename_selected_branch"))
         edit_btn = QPushButton(t("update"))
         edit_btn.clicked.connect(self.rename_branch_action)
+        edit_btn.setCursor(QCursor(Qt.PointingHandCursor))
 
         edit_row.addWidget(self.rename_branch)
         edit_row.addWidget(edit_btn)

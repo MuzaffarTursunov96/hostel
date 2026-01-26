@@ -3,6 +3,7 @@ from PySide6.QtWidgets import (
     QPushButton, QFrame, QScrollArea, QMessageBox
 )
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QCursor
 
 from i18n import t
 from .api_client import api_get, api_post, api_delete
@@ -51,9 +52,11 @@ class RoomsPage(QWidget):
         room_actions = QHBoxLayout()
         btn_add_room = QPushButton(t("add_room"))
         btn_add_room.clicked.connect(self.add_room)
+        btn_add_room.setCursor(QCursor(Qt.PointingHandCursor))
 
         btn_delete_room = QPushButton(t("delete_room"))
         btn_delete_room.clicked.connect(self.delete_room)
+        btn_delete_room.setCursor(QCursor(Qt.PointingHandCursor))
 
         room_actions.addWidget(btn_add_room)
         room_actions.addWidget(btn_delete_room)
@@ -84,17 +87,17 @@ class RoomsPage(QWidget):
         bed_actions = QHBoxLayout()
         btn_add_bed = QPushButton(t("add_bed"))
         btn_add_bed.clicked.connect(self.add_bed)
+        btn_add_bed.setCursor(QCursor(Qt.PointingHandCursor))
 
         btn_delete_bed = QPushButton(t("delete_bed"))
         btn_delete_bed.clicked.connect(self.delete_bed)
+        btn_delete_bed.setCursor(QCursor(Qt.PointingHandCursor))
 
-        btn_toggle = QPushButton(t("toggle_status"))
-        btn_toggle.clicked.connect(self.toggle_status)
+       
 
         bed_actions.addWidget(btn_add_bed)
         bed_actions.addWidget(btn_delete_bed)
         bed_actions.addStretch()
-        bed_actions.addWidget(btn_toggle)
 
         beds_layout.addLayout(bed_actions)
         root.addWidget(beds_panel, 1)
@@ -117,6 +120,7 @@ class RoomsPage(QWidget):
             btn = QPushButton(f"{t('room')} {room['room_number']}")
             btn.setFixedHeight(30)
             btn.setProperty("room", True)
+            btn.setCursor(QCursor(Qt.PointingHandCursor))
             btn.clicked.connect(lambda _, r=room: self.select_room(r))
             self.rooms_list.addWidget(btn)
             self.room_buttons[room["id"]] = btn
@@ -250,6 +254,7 @@ class RoomsPage(QWidget):
             btn.clicked.connect(
                 lambda _, bid=bed["id"]: self.select_bed(bid)
             )
+            btn.setCursor(QCursor(Qt.PointingHandCursor))
 
             self.beds_list.addWidget(btn)
             self.bed_buttons[bed["id"]] = btn

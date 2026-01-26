@@ -4,6 +4,7 @@ from PySide6.QtWidgets import (
     QPushButton
 )
 from PySide6.QtCore import Qt, QDate
+from PySide6.QtGui import QCursor
 from datetime import datetime
 
 from i18n import t
@@ -52,9 +53,11 @@ class BookingHistoryPage(QDialog):
 
         btn_filter = QPushButton("🔍 " + t("filter"))
         btn_filter.clicked.connect(self.load)
+        btn_filter.setCursor(QCursor(Qt.PointingHandCursor))
 
         btn_reset = QPushButton(t("reset"))
         btn_reset.clicked.connect(self.reset_filters)
+        btn_reset.setCursor(QCursor(Qt.PointingHandCursor))
 
         filters.addWidget(QLabel(t("from")))
         filters.addWidget(self.from_date)

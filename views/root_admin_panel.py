@@ -6,6 +6,8 @@ from PySide6.QtWidgets import (
     QListWidgetItem, QInputDialog
 )
 from PySide6.QtCore import Qt
+from requests.exceptions import HTTPError
+from PySide6.QtGui import QCursor
 
 from .api_client import api_get, api_post,api_delete
 
@@ -60,6 +62,7 @@ class AdminsTab(QWidget):
 
         self.add_btn = QPushButton("➕ Add Admin")
         self.add_btn.clicked.connect(self.add_admin)
+        self.add_btn.setCursor(QCursor(Qt.PointingHandCursor))
 
         layout = QVBoxLayout(self)
         layout.addWidget(self.table)
@@ -108,12 +111,15 @@ class AdminsTab(QWidget):
 
             reset_btn = QPushButton("🔑 Reset")
             reset_btn.clicked.connect(lambda _, u=uid: self.reset_password(u))
+            reset_btn.setCursor(QCursor(Qt.PointingHandCursor))
 
             branch_btn = QPushButton("🏢 Branches")
             branch_btn.clicked.connect(lambda _, u=uid: self.assign_branches(u))
+            branch_btn.setCursor(QCursor(Qt.PointingHandCursor))
 
             delete_btn = QPushButton("🗑 Delete")
             delete_btn.clicked.connect(lambda _, u=uid: self.delete_admin(u))
+            delete_btn.setCursor(QCursor(Qt.PointingHandCursor))
 
 
             hl.addWidget(reset_btn)
@@ -192,6 +198,7 @@ class AddAdminDialog(QDialog):
 
         save = QPushButton("Create")
         save.clicked.connect(self.save)
+        save.setCursor(QCursor(Qt.PointingHandCursor))
 
         layout.addWidget(QLabel("Telegram ID"))
         layout.addWidget(self.telegram)
@@ -206,12 +213,32 @@ class AddAdminDialog(QDialog):
             QMessageBox.warning(self, "Error", "Telegram ID and password required")
             return
 
-        api_post(self.app, "/root/admins", {
-            "telegram_id": int(self.telegram.text()),
-            "username": self.username.text(),
-            "password": self.password.text()
-        })
+        try:
+            api_post(self.app, "/root/admins", {
+                "telegram_id": int(self.telegram.text()),
+                "username": self.username.text(),
+                "password": self.password.text()
+            })
+        except HTTPError as e:
+            # 🔥 SHOW BACKEND ERROR MESSAGE
+            try:
+                error_json = e.response.json()
+                message = error_json.get("detail", "Unknown error")
+            except Exception:
+                message = str(e)
 
+            QMessageBox.critical(
+                self,
+                "Create admin failed",
+                message
+            )
+            return  # ❗ do NOT close dialog
+
+        QMessageBox.information(
+            self,
+            "Success",
+            "Admin created successfully"
+        )
         self.accept()
 
 
@@ -246,6 +273,7 @@ class AssignBranchesDialog(QDialog):
 
         save = QPushButton("Save")
         save.clicked.connect(self.save)
+        save.setCursor(QCursor(Qt.PointingHandCursor))
 
         layout.addWidget(self.list)
         layout.addWidget(save)
@@ -297,9 +325,11 @@ class BranchesTab(QWidget):
 
         add_btn = QPushButton("➕ Add Branch")
         add_btn.clicked.connect(self.add_branch)
+        add_btn.setCursor(QCursor(Qt.PointingHandCursor))
 
         del_btn = QPushButton("🗑 Delete Branch")
         del_btn.clicked.connect(self.delete_branch)
+        del_btn.setCursor(QCursor(Qt.PointingHandCursor))
 
         layout.addWidget(add_btn)
         layout.addWidget(del_btn)

@@ -3,6 +3,7 @@ from PySide6.QtWidgets import (
     QLabel, QScrollArea, QWidget, QFrame, QPushButton
 )
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QCursor
 
 from i18n import t
 from .api_client import api_get,api_post
@@ -122,8 +123,8 @@ class FutureBookingsDialog(QDialog):
                 btn_edit.clicked.connect(
                     lambda _, booking=r: self.edit_booking(booking)
                 )
-
-                print(r.keys())
+                btn_edit.setCursor(QCursor(Qt.PointingHandCursor))
+                # print(r.keys())
 
 
 
@@ -131,6 +132,7 @@ class FutureBookingsDialog(QDialog):
                 btn_cancel.clicked.connect(
                     lambda _, bid=r["id"]: self.cancel_booking(bid)
                 )
+                btn_cancel.setCursor(QCursor(Qt.PointingHandCursor))
 
                 actions.addWidget(btn_edit)
                 actions.addWidget(btn_cancel)

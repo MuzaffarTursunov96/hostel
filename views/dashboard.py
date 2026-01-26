@@ -4,7 +4,7 @@ from PySide6.QtWidgets import (
     QDateEdit, QDialog
 )
 from PySide6.QtCore import Qt, QDate, QTimer, QSize
-from PySide6.QtGui import QIcon,QPixmap
+from PySide6.QtGui import QIcon,QPixmap,QCursor
 
 from datetime import datetime
 
@@ -230,6 +230,7 @@ class DashboardPage(QWidget):
 
         active_btn.setIcon(QIcon("assets/icons/active_booking.png"))  # <-- your icon path
         active_btn.setIconSize(QSize(18, 18))
+        active_btn.setCursor(QCursor(Qt.PointingHandCursor))
 
         active_btn.clicked.connect(self.open_active_bookings)
 
@@ -255,10 +256,12 @@ class DashboardPage(QWidget):
         filter_btn = QPushButton(t("search"))
         filter_btn.setIcon(QIcon("assets/icons/search.png"))
         filter_btn.clicked.connect(self.apply_date_filter)
+        filter_btn.setCursor(QCursor(Qt.PointingHandCursor))
 
         reset_btn = QPushButton(t("reset"))
         reset_btn.setIcon(QIcon("assets/icons/refresh.png"))  # optional icon
         reset_btn.clicked.connect(self.reset_filter)
+        reset_btn.setCursor(QCursor(Qt.PointingHandCursor))
 
         filter_layout.addWidget(self.from_date)
         filter_layout.addWidget(self.to_date)

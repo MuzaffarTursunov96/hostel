@@ -4,7 +4,7 @@ from PySide6.QtWidgets import (
     QFrame, QPushButton, QScrollArea, QLineEdit,
     QMessageBox, QDateEdit,QComboBox
 )
-
+from PySide6.QtGui import QCursor
 from PySide6.QtCore import Qt, QTimer, QDate
 from datetime import datetime, date
 
@@ -132,11 +132,13 @@ class ActiveBookingsDialog(QDialog):
 
         btn_edit = QPushButton(t("edit"))
         btn_edit.clicked.connect(lambda: self.edit_booking(r))
+        btn_edit.setCursor(QCursor(Qt.PointingHandCursor))
 
         btn_cancel = QPushButton(t("cancel"))
         btn_cancel.clicked.connect(
             lambda: self.cancel_booking_action(r["id"])
         )
+        btn_cancel.setCursor(QCursor(Qt.PointingHandCursor))
 
         actions.addWidget(btn_edit)
         actions.addWidget(btn_cancel)
@@ -242,6 +244,7 @@ class EditBookingDialog(QDialog):
 
         save_btn = QPushButton(t("save"))
         save_btn.clicked.connect(self.save)
+        save_btn.setCursor(QCursor(Qt.PointingHandCursor))
 
         layout.addWidget(self.checkout)
         layout.addWidget(self.amount)
