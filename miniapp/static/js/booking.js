@@ -113,6 +113,8 @@ function confirmBooking() {
     return;
   }
 
+  
+
   const name = $("#customerName").val().trim();
   const passport = $("#passport").val().trim();
   const contact = $("#contact").val().trim();
@@ -123,6 +125,12 @@ function confirmBooking() {
     alert(t("fill_all_required_fields"));
     return;
   }
+
+  const btn = document.getElementById("confirmBookingBtn");
+
+  // 🔒 disable immediately
+  btn.disabled = true;
+  btn.classList.add("opacity-60", "cursor-not-allowed");
 
   apiPost("/booking/", {
     branch_id: CURRENT_BRANCH,
@@ -143,6 +151,8 @@ function confirmBooking() {
 
   // refresh current page only
   //  loadRooms();
+  btn.disabled = false;
+  btn.classList.remove("opacity-60", "cursor-not-allowed");
   window.location.href = window.location.href;
 });
 
