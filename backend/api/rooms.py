@@ -29,7 +29,8 @@ async def create_room(data: RoomCreate, user=Depends(get_current_user)):
     if create_stat['status'] =='success':
         await ws_manager.broadcast({
             "type": "rooms_changed",
-            "branch_id": data.branch_id
+            "branch_id": data.branch_id,
+            "number":data.number
         })
     elif create_stat['status'] =='error':
         raise HTTPException(status_code=400, detail="Room already exists")
@@ -53,7 +54,8 @@ async def delete_room(room_id: int, branch_id: int, user=Depends(get_current_use
 
     await ws_manager.broadcast({
         "type": "rooms_changed",
-        "branch_id": branch_id
+        "branch_id": branch_id,
+        "room_id":room_id
     })
 
     await ws_manager.broadcast({

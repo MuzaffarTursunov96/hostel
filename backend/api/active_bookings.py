@@ -38,16 +38,19 @@ async def api_cancel_booking(
 
     await ws_manager.broadcast({
         "type": "beds_changed",
+        "booking_id": data.booking_id,
         "branch_id": data.branch_id
     })
 
     await ws_manager.broadcast({
         "type": "booking_changed",
+        "booking_id": data.booking_id,
         "branch_id": data.branch_id
     })
 
     await ws_manager.broadcast({
         "type": "dashboard_changed",
+        "booking_id": data.booking_id,
         "branch_id": data.branch_id
     })
 
@@ -79,17 +82,20 @@ async def api_update_booking(
     )
     await ws_manager.broadcast({
         "type": "beds_changed",
-        "branch_id": user["branch_id"]
+        "branch_id": user["branch_id"],
+        "booking_id": data.booking_id
     })
 
     await ws_manager.broadcast({
         "type": "booking_changed",
-        "branch_id": user["branch_id"]
+        "branch_id": user["branch_id"],
+        "booking_id": data.booking_id
     })
 
     await ws_manager.broadcast({
         "type": "dashboard_changed",
-        "branch_id": user["branch_id"]
+        "branch_id": user["branch_id"],
+        "booking_id": data.booking_id
     })
 
     return {"status": "ok"}
@@ -116,16 +122,19 @@ async def admin_update_booking(
     )
     await ws_manager.broadcast({
         "type": "beds_changed",
+        "booking_id": data.booking_id,
         "branch_id": user["branch_id"]
     })
 
     await ws_manager.broadcast({
         "type": "booking_changed",
+        "booking_id": data.booking_id,
         "branch_id": user["branch_id"]
     })
 
     await ws_manager.broadcast({
         "type": "dashboard_changed",
+        "booking_id": data.booking_id,
         "branch_id": user["branch_id"]
     })
 

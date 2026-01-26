@@ -77,17 +77,19 @@ async def create_booking(data: BookingCreate, user=Depends(get_current_user)):
     await ws_manager.broadcast({
         "type": "beds_changed",
         "branch_id": data.branch_id,
-        "room_id": data.room_id
+        "room_id": data.room_id,
     })
 
     await ws_manager.broadcast({
         "type": "booking_changed",
-        "branch_id": data.branch_id
+        "branch_id": data.branch_id,
+        "room_id": data.room_id,
     })
 
     await ws_manager.broadcast({
         "type": "dashboard_changed",
-        "branch_id": data.branch_id
+        "branch_id": data.branch_id,
+        "room_id": data.room_id,
     })
 
         

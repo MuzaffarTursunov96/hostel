@@ -34,12 +34,14 @@ async def api_add_expense(data: ExpenseCreate, user=Depends(get_current_user)):
     )
     await ws_manager.broadcast({
         "type": "payments_changed",
-        "branch_id": data.branch_id
+        "branch_id": data.branch_id,
+        "category": data.category
     })
 
     await ws_manager.broadcast({
         "type": "dashboard_changed",
-        "branch_id": data.branch_id
+        "branch_id": data.branch_id,
+        "category": data.category
     })
 
     return {"status": "ok"}

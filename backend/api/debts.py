@@ -55,12 +55,14 @@ async def pay_debt(data: DebtPay, user=Depends(get_current_user)):
 
     await ws_manager.broadcast({
         "type": "payments_changed",
-        "branch_id": data.branch_id
+        "branch_id": data.branch_id,
+        "booking_id": data.booking_id
     })
 
     await ws_manager.broadcast({
         "type": "dashboard_changed",
-        "branch_id": data.branch_id
+        "branch_id": data.branch_id,
+        "booking_id": data.booking_id
     })
 
     return {"status": "ok"}
