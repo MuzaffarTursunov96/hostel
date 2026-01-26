@@ -11,6 +11,7 @@ $(document).ready(function () {
   $("#checkout").val(today);
 
   loadRooms();
+  document.addEventListener("DOMContentLoaded", startWebSocket);
 
   $("#checkin, #checkout").on("change", loadAvailableBeds);
   $("#total, #paid").on("input", updateRemaining);

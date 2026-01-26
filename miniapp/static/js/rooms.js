@@ -4,6 +4,7 @@ let SELECTED_BED_ID = null;
 
 $(document).ready(function () {
   loadRooms();
+  document.addEventListener("DOMContentLoaded", startWebSocket);
 });
 
 /* ================= ROOMS ================= */
