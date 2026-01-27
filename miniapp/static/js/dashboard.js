@@ -124,7 +124,7 @@ window.openFutureBookings = function (bedId, e) {
   
   e.stopPropagation(); // 🔥 prevent bed click
   $("#futureBookingsModal").removeClass("hidden");
-  showFutureBookingsModal(bedId);
+  loadFutureBookings(bedId);
 };
 
 
@@ -219,39 +219,53 @@ function closeFutureBookings() {
 }
 
 function renderFutureBookings(rows) {
-  const c = $("#futureBookingsTable");
-  c.empty();
+  const table = $("#futureBookingsTable");
+  table.empty();
 
-  if (!rows.length) {
-    c.html(`<p class="text-center text-gray-500">
-      ${t("no_future_bookings")}
-    </p>`);
+  if (!rows || rows.length === 0) {
+    table.html(`
+      <p class="text-center text-gray-500">
+        ${t("no_future_bookings")}
+      </p>
+    `);
     return;
   }
 
   rows.forEach(b => {
-    c.append(`
-      <div class="bg-white rounded-xl border p-3 flex justify-between items-center">
+    table.append(`
+      <div class="bg-white rounded-xl border p-3 mb-3">
 
-        <div>
-          <div class="text-sm font-medium">
-            ${b.customer_name}
-          </div>
-          <div class="text-xs text-gray-500">
-            ${b.checkin_date} → ${b.checkout_date}
-          </div>
+        <div class="text-sm font-medium">
+          ${b.customer_name || ""}
         </div>
 
-        <button
-          class="px-3 py-1 text-sm rounded-lg border"
-          onclick='openCancelFutureBooking(${JSON.stringify(b)})'>
-          ${t("cancel")}
-        </button>
+        <div class="text-xs text-gray-500 mb-2">
+          ${b.checkin_date} → ${b.checkout_date}
+        </div>
 
+        <div class="flex justify-end gap-2">
+
+          <!-- EDIT BUTTON -->
+          <button
+            class="px-3 py-1.5 text-xs rounded-lg border"
+            onclick='openEditFutureBooking(${JSON.stringify(b)})'>
+            ✏️ ${t("edit")}
+          </button>
+
+          <!-- CANCEL BUTTON -->
+          <button
+            class="px-3 py-1.5 text-xs rounded-lg border text-red-600"
+            onclick='openCancelFutureBooking(${JSON.stringify(b)})'>
+            ❌ ${t("cancel")}
+          </button>
+
+        </div>
       </div>
     `);
   });
 }
+
+
 
 
 
@@ -672,18 +686,12 @@ $("#editFutureBookingForm").on("submit", function (e) {
 });
 
 
-function openFutureBookings(bedId) {
-  CURRENT_BED_ID = bedId;
-  $("#futureBookingsModal").removeClass("hidden");
-  loadFutureBookings();
-}
 
-function closeFutureBookings() {
-  $("#futureBookingsModal").addClass("hidden");
-}
+
+
 
 function loadFutureBookings() {
-  fetch(`/api/dashboard/beds/future-bookings?branch_id=${CURRENT_BRANCH}&bed_id=${CURRENT_BED_ID}`, {
+  fetch(`/api2/dashboard/beds/future-bookings?branch_id=${CURRENT_BRANCH}&bed_id=${CURRENT_BED_ID}`, {
     credentials: "include"
   })
     .then(r => r.json())
@@ -724,7 +732,7 @@ function confirmCancelFuture() {
     return alert(t("refund_title_required"));
   }
 
-  fetch("/api/booking/future-bookings/cancel", {
+  fetch("/api2/booking/future-bookings/cancel", {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
