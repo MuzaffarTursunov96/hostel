@@ -6,6 +6,10 @@ TRANSLATIONS = {
         "debts": "Долговая книга",
         "rooms": "Комнаты",
         "settings": "Настройки",
+
+        "edit_future_booking": "Редактировать будущее бронирование",
+        "refund_reason": "Причина возврата",
+        "confirm_cancel": "Подтвердить отмену",
         
         "new_booking": "Новое бронирование",
         "booking_history": "История бронирований",
@@ -226,6 +230,9 @@ TRANSLATIONS = {
         "rooms": "Honalar",
         "settings": "Sozlash",
         "lang_changing": "⏳ Til o'zgartirilmoqda",
+        "edit_future_booking": "Kelajakdagi bronni tahrirlash",
+        "refund_reason": "Qaytarish sababi",
+        "confirm_cancel": "Bekor qilishni tasdiqlash",
 
 
         "new_booking": "Yangi bron",
