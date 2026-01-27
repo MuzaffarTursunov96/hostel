@@ -196,27 +196,30 @@ function applyFilter() {
 
 
 function showFutureBookingsModal(bedId) {
+  CURRENT_BED_ID = bedId;
+
   $("#futureBookingsModal").removeClass("hidden");
-  $("#futureBookingsTable").html(t("loading")+"…");
+  $("#futureBookingsTable").html(`${t("loading")}...`);
 
   fetch(`/api2/dashboard/beds/future-bookings?branch_id=${CURRENT_BRANCH}&bed_id=${bedId}`, {
     credentials: "include"
   })
     .then(r => r.json())
-    .then(rows => renderFutureBookings(rows))
+    .then(renderFutureBookings)
     .catch(() => {
       $("#futureBookingsTable").html(
-        `<p class="text-red-500">${t("failed_to_load_future_bookings")}</p>`
+        `<p class="text-red-500 text-center">${t("request_failed")}</p>`
       );
     });
 }
+
 
 function closeFutureBookings() {
   $("#futureBookingsModal").addClass("hidden");
 }
 
 function renderFutureBookings(rows) {
-  const c = $("#futureBookingsList");
+  const c = $("#futureBookingsTable");
   c.empty();
 
   if (!rows.length) {
