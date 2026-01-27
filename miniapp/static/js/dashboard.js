@@ -736,7 +736,8 @@ function confirmCancelFuture() {
     .then(() => {
       closeCancelFuture();
       closeFutureBookings();
-      refreshDashboard(); // your existing refresh
+      loadDashboard();
+ // your existing refresh
     });
 }
 

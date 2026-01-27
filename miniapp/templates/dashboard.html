@@ -260,33 +260,7 @@
 
 
 <!-- ================= REFUNDS MODAL ================= -->
-<div id="cancelFutureModal" class="fixed inset-0 z-50 hidden">
 
-  <div class="absolute inset-0 bg-black/50"
-       onclick="closeCancelFuture()"></div>
-
-  <div class="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl p-4">
-
-    <h3 class="font-semibold mb-2">{{ t("cancel_booking") }}</h3>
-
-    <p id="paidAmountLabel" class="text-sm mb-2"></p>
-
-    <input id="refundAmount"
-           type="number"
-           class="w-full mb-2 px-3 py-2 border rounded-lg"
-           placeholder="{{ t('refund_amount') }}">
-
-    <input id="refundReason"
-           class="w-full mb-3 px-3 py-2 border rounded-lg"
-           placeholder="{{ t('refund_reason') }}">
-
-    <button onclick="confirmCancelFuture()"
-            class="w-full py-2 bg-red-600 text-white rounded-xl">
-      {{ t("confirm_cancel") }}
-    </button>
-
-  </div>
-</div>
 
 
 <div id="cancelFutureModal" class="fixed inset-0 z-50 hidden">
