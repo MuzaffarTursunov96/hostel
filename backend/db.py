@@ -1353,6 +1353,7 @@ def get_future_bookings(branch_id, bed_id):
                 bk.checkin_date,
                 bk.checkout_date,
                 bk.total_amount,
+                bk.paid_amount,                 
                 bk.customer_name,
                 bk.passport_id,
                 r.number AS room_number
@@ -1382,6 +1383,7 @@ def get_future_bookings(branch_id, bed_id):
             "checkin_date": r["checkin_date"],
             "checkout_date": r["checkout_date"],
             "total_amount": r["total_amount"],
+            "paid_amount": r["paid_amount"],
         }
         for r in rows
     ]

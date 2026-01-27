@@ -160,21 +160,17 @@ class FutureBookingsDialog(QDialog):
         )
 
     def cancel_booking(self, booking):
-        if QMessageBox.question(
-            self,
-            t("cancel_booking"),
-            t("are_you_sure_cancel_booking")
-        ) != QMessageBox.Yes:
-            return
 
         # ✅ OPEN REFUND DIALOG (NO API CALL HERE)
-        CancelFutureBookingDialog(
+        dlg = CancelFutureBookingDialog(
             self,
             self.app,
             booking,
             self.branch_id,
             self.refresh_after_action
         )
+        dlg.exec()
+
 
 
     def refresh_after_action(self):
@@ -399,6 +395,8 @@ class CancelFutureBookingDialog(QDialog):
         layout.addWidget(btn)
 
     def confirm(self):
+        
+        
         try:
             amount = float(self.refund_amount.text() or 0)
         except ValueError:
