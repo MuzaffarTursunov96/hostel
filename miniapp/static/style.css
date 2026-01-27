@@ -114,3 +114,56 @@ body {
     padding-left: 0;
   }
 }
+
+/* ================= TELEGRAM MOBILE FIX ================= */
+
+@media (max-width: 480px) {
+
+  /* Prevent horizontal scroll */
+  body {
+    overflow-x: hidden;
+  }
+
+  /* Containers */
+  .p-4 {
+    padding: 12px !important;
+  }
+
+  /* FLEX ROWS → STACK ON MOBILE */
+  .flex.gap-2,
+  .flex.gap-3 {
+    flex-direction: column;
+  }
+
+  /* Inputs & buttons full width */
+  input,
+  select,
+  button {
+    width: 100% !important;
+  }
+
+  /* Buttons spacing */
+  button {
+    min-height: 44px;
+  }
+
+  /* Cards */
+  .bg-card {
+    padding: 14px !important;
+  }
+
+  /* Language buttons */
+  .lang-btn {
+    padding: 12px !important;
+    font-size: 14px;
+  }
+
+  /* Headings */
+  h1 {
+    font-size: 18px;
+  }
+
+  h3 {
+    font-size: 15px;
+  }
+}
