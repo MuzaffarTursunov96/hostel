@@ -9,6 +9,7 @@ import jwt
 
 
 API_URL = "http://backend:8000"
+VERSION ="2026-27-01"
 
 
 load_dotenv()
@@ -215,7 +216,8 @@ def api_proxy(path):
 @login_required
 def dashboard():
     return render_template(
-        "dashboard.html"
+        "dashboard.html",
+        version = VERSION
     )
 
 @app.route("/rooms")
@@ -224,7 +226,8 @@ def rooms():
     
     return render_template(
         "rooms.html",
-        current_branch_id=session.get("branch_id", 1)
+        current_branch_id=session.get("branch_id", 1),
+        version = VERSION
         )
 
 @app.route("/bookings")
@@ -232,7 +235,8 @@ def rooms():
 def bookings():
     return render_template(
         "bookings.html",
-        current_branch_id=session.get("branch_id", 1)
+        current_branch_id=session.get("branch_id", 1),
+        version = VERSION
         )
 
 @app.route("/customers")
@@ -241,7 +245,8 @@ def customers():
    
     return render_template(
         "customers.html",
-        current_branch_id=session.get("branch_id", 1)
+        current_branch_id=session.get("branch_id", 1),
+        version = VERSION
         )
 
 
@@ -252,7 +257,8 @@ def payments_page():
    
     return render_template(
         "payments.html",
-        current_branch_id=session.get("branch_id", 1)
+        current_branch_id=session.get("branch_id", 1),
+        version = VERSION
     )
 
 @app.route("/payment-history")
@@ -260,7 +266,8 @@ def payments_page():
 def payment_history_page():
     return render_template(
         "payment_history.html",
-        current_branch_id=session.get("branch_id", 1)
+        current_branch_id=session.get("branch_id", 1),
+        version = VERSION
     )
 
 @app.route("/debts")
@@ -268,7 +275,8 @@ def payment_history_page():
 def debts():
     return render_template(
         "debts.html",
-        current_branch_id=session.get("branch_id", 1)
+        current_branch_id=session.get("branch_id", 1),
+        version = VERSION
     )
 
 @app.route("/settings")
@@ -276,7 +284,8 @@ def debts():
 def settings():
     return render_template(
         "settings.html",
-        current_branch_id=session.get("branch_id", 1)
+        current_branch_id=session.get("branch_id", 1),
+        version = VERSION
     )
 
 
