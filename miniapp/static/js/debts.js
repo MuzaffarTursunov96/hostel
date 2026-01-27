@@ -79,20 +79,22 @@ function renderDebts(query = "") {
             </div>
           </div>
 
-          <div class="flex gap-2 pt-2">
+          <div class="flex flex-wrap gap-2 pt-2">
             <input
               type="number"
-              class="flex-1 px-3 py-2 rounded-lg border"
+              class="w-full sm:flex-1 px-3 py-2 rounded-lg border"
               min="1"
               placeholder="${t("pay_amount")}"
               id="pay-${d.id}"
             >
+
             <button
-              class="px-4 py-2 rounded-lg bg-green-500 text-white"
+              class="w-full sm:w-auto px-4 py-2 rounded-lg bg-green-500 text-white font-medium"
               onclick="payDebt(${d.id})">
               ${t("pay")}
             </button>
           </div>
+
 
         </div>
       `);
