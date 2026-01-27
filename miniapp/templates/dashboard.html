@@ -270,7 +270,10 @@
 
   <div class="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl p-4">
 
-    <h3 class="font-semibold mb-2">{{ t("cancel_booking") }}</h3>
+    <div class="flex items-center justify-between mb-2">
+      <h3 class="font-semibold">{{ t("cancel_booking") }}</h3>
+      <button onclick="closeCancelFuture()" class="text-xl">✕</button>
+    </div>
 
     <p id="paidAmountLabel" class="text-sm mb-2"></p>
 

@@ -248,7 +248,7 @@ function renderFutureBookings(rows) {
           <!-- EDIT BUTTON -->
           <button
             class="px-3 py-1.5 text-xs rounded-lg border"
-            onclick='openEditFutureBooking(${JSON.stringify(b)})'>
+            onclick='openEditFromFuture(${JSON.stringify(b)})'>
             ✏️ ${t("edit")}
           </button>
 
