@@ -29,27 +29,38 @@
   <!-- SUMMARY -->
   <div class="grid grid-cols-2 gap-3">
 
+    <!-- INCOME -->
     <div class="bg-green-100 dark:bg-green-900/30 rounded-2xl p-4">
       <div class="text-sm text-tgHint">{{t("income")}}</div>
       <div id="sumIncome" class="text-2xl font-semibold">0</div>
     </div>
 
+    <!-- EXPENSES -->
     <div class="bg-red-100 dark:bg-red-900/30 rounded-2xl p-4">
       <div class="text-sm text-tgHint">{{t("expenses")}}</div>
       <div id="sumExpenses" class="text-2xl font-semibold">0</div>
     </div>
 
+    <!-- DEBT -->
     <div class="bg-yellow-100 dark:bg-yellow-900/30 rounded-2xl p-4">
       <div class="text-sm text-tgHint">{{t("debt")}}</div>
       <div id="sumDebt" class="text-2xl font-semibold">0</div>
     </div>
 
+    <!-- REFUNDS (NEW) -->
     <div class="bg-blue-100 dark:bg-blue-900/30 rounded-2xl p-4">
+      <div class="text-sm text-tgHint">{{t("refunds")}}</div>
+      <div id="sumRefunds" class="text-2xl font-semibold">0</div>
+    </div>
+
+    <!-- PROFIT (FULL WIDTH) -->
+    <div class="col-span-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-2xl p-4">
       <div class="text-sm text-tgHint">{{t("profit")}}</div>
       <div id="sumProfit" class="text-2xl font-semibold">0</div>
     </div>
 
   </div>
+
 
   <!-- ADD EXPENSE -->
   <div class="bg-card rounded-2xl p-4 shadow space-y-3">

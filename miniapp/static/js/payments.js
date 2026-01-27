@@ -28,15 +28,21 @@ function loadFinance() {
     year
   }).done(function (data) {
 
-    $("#sumIncome").text(formatNumber(data.income || 0));
-    $("#sumExpenses").text(formatNumber(data.expenses || 0));
-    $("#sumDebt").text(formatNumber(data.debt || 0));
-    $("#sumProfit").text(
-      formatNumber((data.income || 0) - (data.expenses || 0))
-    );
+    const income   = Number(data.income   || 0);
+    const expenses = Number(data.expenses || 0);
+    const debt     = Number(data.debt     || 0);
+    const refunds  = Number(data.refunds  || 0);
 
+    const profit = income - expenses - refunds;
+
+    $("#sumIncome").text(formatNumber(income));
+    $("#sumExpenses").text(formatNumber(expenses));
+    $("#sumDebt").text(formatNumber(debt));
+    $("#sumRefunds").text(formatNumber(refunds));
+    $("#sumProfit").text(formatNumber(profit));
   });
 }
+
 
 
 function addExpense() {
