@@ -43,50 +43,83 @@ function renderCustomers(customers) {
   }
 
   customers.forEach(c => {
-    const hasImages = (c.passport_image_count || 0) > 0;
-
     $list.append(`
       <div class="p-4 flex justify-between items-center gap-3">
 
         <div>
-          <div class="font-semibold text-lg">👤 ${c.name}</div>
+          <div class="font-semibold text-lg">
+            👤 ${c.name}
+          </div>
 
           <div class="text-sm text-gray-600">
-            🪪 ${c.passport_id || "—"}  <br>
+            🪪 ${c.passport_id || "—"} <br>
             📞 ${c.contact || "—"}
           </div>
-        </div>
-
-        <div class="flex gap-2">
-          ${
-            hasImages
-              ? `
-                <button
-                  class="px-3 py-1 rounded-lg border text-sm"
-                  onclick="openPassportImages(${c.id}, ${c.passport_image_count})">
-                  👁 ${t("see")}
-                </button>
-
-                <button
-                  class="px-3 py-1 rounded-lg border text-sm"
-                  onclick="editPassportImages(${c.id}, ${c.passport_image_count})">
-                  ✏️ ${t("edit")}
-                </button>
-              `
-              : `
-                <button
-                  class="px-3 py-1 rounded-lg bg-tgButton text-white text-sm"
-                  onclick="uploadPassportImages(${c.id})">
-                  ⬆️ ${t("upload_images")}
-                </button>
-              `
-          }
         </div>
 
       </div>
     `);
   });
 }
+
+
+// function renderCustomers(customers) {
+//   const $list = $("#customersTable").empty();
+
+//   if (!customers.length) {
+//     $list.html(`
+//       <div class="text-center text-tgHint py-6">
+//         ${t("no_customers_found")}
+//       </div>
+//     `);
+//     return;
+//   }
+
+//   customers.forEach(c => {
+//     const hasImages = (c.passport_image_count || 0) > 0;
+
+//     $list.append(`
+//       <div class="p-4 flex justify-between items-center gap-3">
+
+//         <div>
+//           <div class="font-semibold text-lg">👤 ${c.name}</div>
+
+//           <div class="text-sm text-gray-600">
+//             🪪 ${c.passport_id || "—"}  <br>
+//             📞 ${c.contact || "—"}
+//           </div>
+//         </div>
+
+//         <div class="flex gap-2">
+//           ${
+//             hasImages
+//               ? `
+//                 <button
+//                   class="px-3 py-1 rounded-lg border text-sm"
+//                   onclick="openPassportImages(${c.id}, ${c.passport_image_count})">
+//                   👁 ${t("see")}
+//                 </button>
+
+//                 <button
+//                   class="px-3 py-1 rounded-lg border text-sm"
+//                   onclick="editPassportImages(${c.id}, ${c.passport_image_count})">
+//                   ✏️ ${t("edit")}
+//                 </button>
+//               `
+//               : `
+//                 <button
+//                   class="px-3 py-1 rounded-lg bg-tgButton text-white text-sm"
+//                   onclick="uploadPassportImages(${c.id})">
+//                   ⬆️ ${t("upload_images")}
+//                 </button>
+//               `
+//           }
+//         </div>
+
+//       </div>
+//     `);
+//   });
+// }
 
 /* ===============================
    FILTER
