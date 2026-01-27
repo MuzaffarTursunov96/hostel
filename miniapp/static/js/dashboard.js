@@ -216,54 +216,40 @@ function closeFutureBookings() {
 }
 
 function renderFutureBookings(rows) {
-  const c = $("#futureBookingsTable");
+  const c = $("#futureBookingsList");
   c.empty();
 
-  if (!rows || rows.length === 0) {
-    c.html(`<p class="text-gray-500 text-center">${t("no_future_bookings")}</p>`);
+  if (!rows.length) {
+    c.html(`<p class="text-center text-gray-500">
+      ${t("no_future_bookings")}
+    </p>`);
     return;
   }
 
-  rows.forEach(r => {
+  rows.forEach(b => {
     c.append(`
-      <div class="bg-white rounded-xl shadow p-4 mb-3 space-y-2">
+      <div class="bg-white rounded-xl border p-3 flex justify-between items-center">
 
-        <!-- CUSTOMER -->
-        <div class="flex justify-between items-start">
-          <div>
-            <div class="font-semibold text-gray-900">
-              👤 ${r.customer_name}
-            </div>
-            <div class="text-xs text-gray-500">
-              🪪 ${r.passport_id || "—"}
-            </div>
+        <div>
+          <div class="text-sm font-medium">
+            ${b.customer_name}
+          </div>
+          <div class="text-xs text-gray-500">
+            ${b.checkin_date} → ${b.checkout_date}
           </div>
         </div>
 
-        <!-- DATES -->
-        <div class="text-sm text-gray-600">
-          📅 ${r.checkin_date} → ${r.checkout_date}
-        </div>
-
-        <!-- ACTIONS -->
-        <div class="flex gap-2 pt-2">
-          <button
-            class="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-2 rounded-lg text-sm"
-            onclick='openEditFromFuture(${JSON.stringify(r)})'>
-            ✏️ ${t("edit")}
-          </button>
-
-          <button
-            class="flex-1 bg-red-500 hover:bg-red-600 text-white py-2 rounded-lg text-sm"
-            onclick="cancelFutureBooking(${r.id})">
-            ❌ ${t("cancel")}
-          </button>
-        </div>
+        <button
+          class="px-3 py-1 text-sm rounded-lg border"
+          onclick='openCancelFutureBooking(${JSON.stringify(b)})'>
+          ${t("cancel")}
+        </button>
 
       </div>
     `);
   });
 }
+
 
 
 window.cancelFutureBooking = function (bookingId) {
@@ -681,3 +667,81 @@ $("#editFutureBookingForm").on("submit", function (e) {
     loadDashboard();
   });
 });
+
+
+function openFutureBookings(bedId) {
+  CURRENT_BED_ID = bedId;
+  $("#futureBookingsModal").removeClass("hidden");
+  loadFutureBookings();
+}
+
+function closeFutureBookings() {
+  $("#futureBookingsModal").addClass("hidden");
+}
+
+function loadFutureBookings() {
+  fetch(`/api/dashboard/beds/future-bookings?branch_id=${CURRENT_BRANCH}&bed_id=${CURRENT_BED_ID}`, {
+    credentials: "include"
+  })
+    .then(r => r.json())
+    .then(renderFutureBookings);
+}
+
+
+let CURRENT_FUTURE_BOOKING = null;
+
+function openCancelFutureBooking(booking) {
+  CURRENT_FUTURE_BOOKING = booking;
+
+  $("#paidAmountLabel").text(
+    `${t("paid_amount")}: ${booking.paid_amount}`
+  );
+
+  $("#refundAmount").val(0);
+  $("#refundReason").val("");
+
+  $("#cancelFutureModal").removeClass("hidden");
+}
+
+function confirmCancelFuture() {
+  const amount = parseFloat($("#refundAmount").val() || 0);
+  const paid = parseFloat(CURRENT_FUTURE_BOOKING.paid_amount);
+  const title = $("#refundReason").val().trim();
+
+  if (isNaN(amount)) {
+    return alert(t("invalid_amount"));
+  }
+  if (amount < 0) {
+    return alert(t("refund_cannot_be_negative"));
+  }
+  if (amount > paid) {
+    return alert(t("refund_exceeds_paid"));
+  }
+  if (amount > 0 && !title) {
+    return alert(t("refund_title_required"));
+  }
+
+  fetch("/api/booking/future-bookings/cancel", {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      booking_id: CURRENT_FUTURE_BOOKING.id,
+      branch_id: CURRENT_BRANCH,
+      refund_amount: amount,
+      refund_title: title
+    })
+  })
+    .then(r => r.json())
+    .then(() => {
+      closeCancelFuture();
+      closeFutureBookings();
+      refreshDashboard(); // your existing refresh
+    });
+}
+
+
+function closeCancelFuture() {
+  $("#cancelFutureModal").addClass("hidden");
+}
+
