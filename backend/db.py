@@ -1468,13 +1468,13 @@ def get_refund_list(branch_id: int, from_date: date, to_date: date):
                 SELECT
                     r.id,
                     r.booking_id,
-                    r.refund_amount,
-                    r.refund_reason,
-                    r.created_at
+                    r.refunded_amount AS refund_amount,
+                    r.note AS refund_reason,
+                    r.refunded_at AS created_at
                 FROM booking_refunds r
                 WHERE r.branch_id = :branch_id
-                  AND r.created_at::date BETWEEN :from_date AND :to_date
-                ORDER BY r.created_at DESC
+                  AND r.refunded_at::date BETWEEN :from_date AND :to_date
+                ORDER BY r.refunded_at DESC
             """),
             {
                 "branch_id": branch_id,
