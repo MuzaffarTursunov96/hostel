@@ -94,6 +94,22 @@ def init_db():
         )
         """))
 
+        # ---------- BOOKING REFUNDS ----------
+        conn.execute(text("""
+        CREATE TABLE IF NOT EXISTS booking_refunds (
+            id SERIAL PRIMARY KEY,
+            booking_id INTEGER NOT NULL,
+            branch_id INTEGER NOT NULL,
+            refunded_amount NUMERIC NOT NULL,
+            refunded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            refunded_by TEXT DEFAULT 'admin',
+            note TEXT,
+
+            FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE,
+            FOREIGN KEY (branch_id) REFERENCES branches(id)
+        )
+        """))
+
         # ---------- EXPENSES ----------
         conn.execute(text("""
         CREATE TABLE IF NOT EXISTS expenses (
@@ -625,11 +641,26 @@ def get_monthly_finance(branch_id, year, month):
             "month": month
         }).scalar()
 
+
+        refunds = conn.execute(text("""
+            SELECT COALESCE(SUM(refunded_amount), 0)
+            FROM booking_refunds
+            WHERE branch_id = :branch_id
+              AND EXTRACT(YEAR FROM refunded_at) = :year
+              AND EXTRACT(MONTH FROM refunded_at) = :month
+        """), {
+            "branch_id": branch_id,
+            "year": year,
+            "month": month
+        }).scalar()
+
         return {
             "income": income,
             "expenses": expenses,
+            "refunds": refunds,
             "debt": debt
         }
+
 
 
 def get_yearly_finance(branch_id, year):

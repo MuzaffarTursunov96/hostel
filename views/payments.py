@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QScrollArea, QFrame,
-    QComboBox, QLineEdit, QMessageBox
+    QComboBox, QLineEdit, QMessageBox,QGridLayout
 )
 from PySide6.QtCore import Qt, QDate
 from PySide6.QtGui import QPainter,QCursor
@@ -24,8 +24,19 @@ class PaymentsPage(QWidget):
         self.app = app
         self.branch_id = branch_id
 
-        self.main = QVBoxLayout(self)
+        self.outer = QVBoxLayout(self)
+        self.outer.setContentsMargins(0, 0, 0, 0)
+
+        self.scroll = QScrollArea()
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+
+        self.container = QWidget()
+        self.main = QVBoxLayout(self.container)
         self.main.setSpacing(16)
+
+        self.scroll.setWidget(self.container)
+        self.outer.addWidget(self.scroll)
 
         self.build_ui()
         self.refresh()
@@ -78,10 +89,22 @@ class PaymentsPage(QWidget):
 
         self.main.addWidget(self.chart_view)
 
-        # ===== SUMMARY =====
-        self.summary = QLabel()
-        self.summary.setStyleSheet("font-size:14px;font-weight:600;")
-        self.main.addWidget(self.summary)
+        cards = QGridLayout()
+        cards.setSpacing(14)
+
+        self.card_income = FinanceCard(t("income"), "#E8F7EE")
+        self.card_expenses = FinanceCard(t("expenses"), "#FDECEC")
+        self.card_debt = FinanceCard(t("debt"), "#FFF7D6")
+        self.card_refunds = FinanceCard(t("refunds"), "#EAF2FF")
+        self.card_profit = FinanceCard(t("profit"), "#EEF2FF")
+
+        cards.addWidget(self.card_income, 0, 0)
+        cards.addWidget(self.card_expenses, 0, 1)
+        cards.addWidget(self.card_debt, 1, 0)
+        cards.addWidget(self.card_refunds, 1, 1)
+        cards.addWidget(self.card_profit, 2, 0, 1, 2)  # full width
+
+        self.main.addLayout(cards)
 
         
         
@@ -144,8 +167,22 @@ class PaymentsPage(QWidget):
         )
 
         self.draw_pie(finance)
+        self.update_cards(finance)
 
-       
+    def update_cards(self, finance: dict):
+        income = finance.get("income", 0)
+        expenses = finance.get("expenses", 0)
+        debt = finance.get("debt", 0)
+        refunds = finance.get("refunds", 0)
+
+        profit = income - expenses - refunds
+
+        self.card_income.set_value(income)
+        self.card_expenses.set_value(expenses)
+        self.card_debt.set_value(debt)
+        self.card_refunds.set_value(refunds)
+        self.card_profit.set_value(profit)
+
 
     def fmt(self, value: float) -> str:
         return f"{value:,.0f}".replace(",", " ")
@@ -169,32 +206,26 @@ class PaymentsPage(QWidget):
     # ================= PIE =================
     def draw_pie(self, finance: dict):
         self.chart.removeAllSeries()
-
         series = QPieSeries()
 
         income = finance.get("income", 0)
         expenses = finance.get("expenses", 0)
         debt = finance.get("debt", 0)
+        refunds = finance.get("refunds", 0)
 
         if income:
             series.append(t("income"), income)
         if expenses:
             series.append(t("expenses"), expenses)
+        if refunds:
+            series.append(t("refunds"), refunds)
         if debt:
             series.append(t("debt"), debt)
 
         self.chart.addSeries(series)
         self.chart.setTitle(t("monthly_finance"))
 
-        profit = income - expenses
-
-
-        self.summary.setText(
-            f"{t('profit')}: {self.fmt(profit)} | "
-            f"{t('income')}: {self.fmt(income)} | "
-            f"{t('expenses')}: {self.fmt(expenses)} | "
-            f"{t('debt')}: {self.fmt(debt)}"
-        )
+        
 
     # ================= ACTIONS =================
     def add_expense(self):
@@ -231,3 +262,30 @@ class PaymentsPage(QWidget):
     def set_branch(self, branch_id):
         self.branch_id = branch_id
         self.refresh()
+
+
+class FinanceCard(QFrame):
+    def __init__(self, title: str, bg_color: str):
+        super().__init__()
+
+        self.setStyleSheet(f"""
+            QFrame {{
+                background-color: {bg_color};
+                border-radius: 16px;
+            }}
+        """)
+
+        self.title_lbl = QLabel(title)
+        self.title_lbl.setStyleSheet("font-size:14px; color:#555;")
+
+        self.value_lbl = QLabel("0")
+        self.value_lbl.setStyleSheet("font-size:22px; font-weight:700;")
+
+        layout = QVBoxLayout(self)
+        layout.setAlignment(Qt.AlignCenter)
+        layout.setSpacing(4)
+        layout.addWidget(self.title_lbl)
+        layout.addWidget(self.value_lbl)
+
+    def set_value(self, value: float):
+        self.value_lbl.setText(f"{value:,.0f}".replace(",", " "))

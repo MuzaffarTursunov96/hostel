@@ -1,8 +1,10 @@
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout,
-    QLabel, QScrollArea, QWidget, QFrame, QPushButton
+    QLabel, QScrollArea, QFrame, QPushButton, 
+    QWidget, QLineEdit,
+    QMessageBox, QDateEdit,QComboBox
 )
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt,QDate
 from PySide6.QtGui import QCursor
 
 from i18n import t
@@ -148,9 +150,7 @@ class FutureBookingsDialog(QDialog):
 
         main.addWidget(card)
     def edit_booking(self, booking):
-        from .active_bookings import EditBookingDialog
-
-        EditBookingDialog(
+        EditBookingFutureDialog(
             self,
             self.app,
             booking,
@@ -183,3 +183,186 @@ class FutureBookingsDialog(QDialog):
     def refresh_after_action(self):
         self.close()
         self.parent().refresh()   # dashboard refresh
+
+
+class EditBookingFutureDialog(QDialog):
+    def __init__(self, parent, app, booking,branch_id, on_done):
+        super().__init__(parent)
+
+        self.app = app
+        self.booking = booking
+        self.on_done = on_done
+        self.branch_id = branch_id
+
+        self.setWindowTitle(t("edit_booking"))
+        self.resize(400, 400)
+        self.setModal(True)
+
+        layout = QVBoxLayout(self)
+
+        
+
+        self.checkin = QDateEdit()
+        self.checkin.setCalendarPopup(True)
+        self.checkin.setDate(
+            QDate.fromString(booking["checkin_date"], "yyyy-MM-dd")
+        )
+
+        self.checkout = QDateEdit()
+        self.checkout.setCalendarPopup(True)
+        self.checkout.setDate(
+            QDate.fromString(booking["checkout_date"], "yyyy-MM-dd")
+        )
+
+        self.room_box = QComboBox()
+        
+
+        layout.addWidget(QLabel(t("room")))
+        layout.addWidget(self.room_box)
+
+        self.bed_box = QComboBox()
+        layout.addWidget(QLabel(t("bed")))
+        layout.addWidget(self.bed_box)
+
+
+
+        self.amount = QLineEdit(str(booking["total_amount"]))
+
+        save_btn = QPushButton(t("save"))
+        save_btn.clicked.connect(self.save)
+        save_btn.setCursor(QCursor(Qt.PointingHandCursor))
+
+        layout.addWidget(self.checkin)
+        layout.addWidget(self.checkout)
+        layout.addWidget(self.amount)
+        layout.addWidget(save_btn)
+        self.checkin.dateChanged.connect(self.load_beds)
+        self.checkout.dateChanged.connect(self.load_beds)
+        # self.room_box.currentIndexChanged.connect(self.recalc_total)
+        # self.bed_box.currentIndexChanged.connect(self.recalc_total)
+
+        self.load_rooms()
+
+        self.show()
+
+    def load_rooms(self):
+        rooms = api_get(
+            self.app,
+            "/rooms/",
+            {"branch_id": self.branch_id}
+        )
+
+        self.room_box.clear()
+
+        for r in rooms:
+            self.room_box.addItem(
+                str(r["room_number"]),  # display
+                r["id"]                 # data = room_id
+            )
+
+        # 🔥 IMPORTANT: connect ONCE
+        self.room_box.currentIndexChanged.connect(self.load_beds)
+
+        # ✅ select current room by room_id (DATA, not TEXT)
+        for i in range(self.room_box.count()):
+            if self.room_box.itemData(i) == self.booking["room_id"]:
+                self.room_box.setCurrentIndex(i)
+                break
+
+        self.load_beds()
+
+
+
+
+    def load_beds(self):
+        room_id = self.room_box.currentData()
+        if not room_id:
+            return
+
+        beds = api_get(
+            self.app,
+            "/beds/",
+            {
+                "branch_id": self.branch_id,
+                "room_id": room_id
+            }
+        )
+
+        busy = api_get(
+            self.app,
+            "/beds/busy",
+            {
+                "branch_id": self.branch_id,
+                "room_id": room_id,
+                "checkin": self.booking["checkin_date"],
+                "checkout": self.checkout.date().toString("yyyy-MM-dd"),
+                "exclude_booking_id": self.booking["id"]
+            }
+        )["busy_beds"]
+
+        self.bed_box.clear()
+
+        for b in beds:
+            bed_id = b["id"]
+
+            # ✅ show if free OR if it's the current booking bed
+            if bed_id in busy and bed_id != self.booking["bed_id"]:
+                continue
+
+            self.bed_box.addItem(
+                f"{t('bed')} {b['bed_number']}",
+                bed_id
+            )
+
+        # ✅ SELECT CURRENT BED
+        for i in range(self.bed_box.count()):
+            if self.bed_box.itemData(i) == self.booking["bed_id"]:
+                self.bed_box.setCurrentIndex(i)
+                break
+
+
+    
+    def recalc_total(self):
+        checkin = QDate.fromString(
+            self.booking["checkin_date"], "yyyy-MM-dd"
+        )
+        checkout = self.checkout.date()
+
+        days_old = checkin.daysTo(
+            QDate.fromString(
+                self.booking["checkout_date"], "yyyy-MM-dd"
+            )
+        )
+        if days_old <= 0:
+            return
+
+        price_per_day = self.booking["total_amount"] / days_old
+
+        days_new = checkin.daysTo(checkout)
+        if days_new <= 0:
+            return
+
+        new_total = round(days_new * price_per_day, 2)
+        self.amount.setText(str(new_total))
+
+
+
+    def save(self):
+        api_post(
+            self.app,
+            "/booking/update-future-booking",
+            {
+                "booking_id": self.booking["id"],
+                "room_id": self.room_box.currentData(),
+                "bed_id": self.bed_box.currentData(),
+                "checkin_date": self.checkin.date().toString("yyyy-MM-dd"),
+                "checkout_date": self.checkout.date().toString("yyyy-MM-dd"),
+                "total_amount": float(self.amount.text())
+            }
+        )
+
+
+
+        QMessageBox.information(self, t("saved"), t("booking_updated"))
+        self.on_done()
+        self.accept()

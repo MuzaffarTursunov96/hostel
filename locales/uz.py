@@ -7,6 +7,7 @@ UZ = {
     "settings": "Sozlash",
     "booking_history": "Buyurtma tarixi",
     "no_bookings": "Hozircha buyurtmalar mavjud emas.",
+    "refunds": "Qaytarishlar",
 
     "active_bookings": "Faol buyurtmalar",
     "cancel": "Bekor qilish",
