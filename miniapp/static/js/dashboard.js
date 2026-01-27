@@ -290,9 +290,75 @@ window.openEditFromFuture = function (booking) {
 
   // 2️⃣ Small delay to allow DOM repaint (important on mobile)
   setTimeout(() => {
-    openEditBooking(booking);
+    openEditFutureBooking(booking);
   }, 150);
 };
+
+
+
+/* ===============================
+   EDIT FUTURE BOOKING
+================================ */
+
+let currentFutureBooking = null;
+
+window.openEditFutureBooking = function (booking) {
+  currentFutureBooking = booking;
+
+  $("#editFutureBookingId").val(booking.id);
+  $("#editFutureCheckin").val(booking.checkin_date);
+  $("#editFutureCheckout").val(booking.checkout_date);
+  $("#editFutureTotal").val(booking.total_amount);
+
+  $("#editFutureBookingModal").removeClass("hidden");
+
+  loadFutureEditRooms(booking);
+};
+
+window.closeEditFutureBooking = function () {
+  $("#editFutureBookingModal").addClass("hidden");
+};
+
+
+function loadFutureEditRooms(booking) {
+  fetch(`/api2/rooms?branch_id=${CURRENT_BRANCH}`, {
+    credentials: "include"
+  })
+    .then(r => r.json())
+    .then(rooms => {
+      const sel = $("#editFutureRoom").empty();
+
+      rooms.forEach(r => {
+        sel.append(`<option value="${r.id}">${t("room")} ${r.room_number}</option>`);
+      });
+
+      sel.val(booking.room_id);
+      loadFutureEditBeds(booking);
+    });
+}
+
+$(document).on("change", "#editFutureRoom", function () {
+  if (!currentFutureBooking) return;
+
+  currentFutureBooking.room_id = Number($(this).val());
+  loadFutureEditBeds(currentFutureBooking);
+});
+
+function loadFutureEditBeds(booking) {
+  fetch(`/api2/beds?branch_id=${CURRENT_BRANCH}&room_id=${booking.room_id}`, {
+    credentials: "include"
+  })
+    .then(r => r.json())
+    .then(beds => {
+      const sel = $("#editFutureBed").empty();
+
+      beds.forEach(b => {
+        sel.append(`<option value="${b.id}">${t("bed")} ${b.bed_number}</option>`);
+      });
+
+      sel.val(booking.bed_id);
+    });
+}
 
 
 
@@ -594,3 +660,24 @@ $(document).ready(function () {
 
 
 
+$("#editFutureBookingForm").on("submit", function (e) {
+  e.preventDefault();
+
+  fetch("/api2/booking/update-future-booking", {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      booking_id: Number($("#editFutureBookingId").val()),
+      checkin_date: $("#editFutureCheckin").val(),
+      checkout_date: $("#editFutureCheckout").val(),
+      room_id: Number($("#editFutureRoom").val()),
+      bed_id: Number($("#editFutureBed").val()),
+      total_amount: Number($("#editFutureTotal").val())
+    })
+  })
+  .then(() => {
+    closeEditFutureBooking();
+    loadDashboard();
+  });
+});

@@ -8,7 +8,8 @@ from db import (
     get_rooms_with_beds,
     get_available_beds,
     add_booking,
-    add_or_get_customer
+    add_or_get_customer,
+    update_future_booking_admin
 )
 
 router = APIRouter(prefix="/booking", tags=["Booking"])
@@ -93,4 +94,44 @@ async def create_booking(data: BookingCreate, user=Depends(get_current_user)):
     })
 
         
+    return {"status": "ok"}
+
+
+class AdminBookingUpdateFuture(BaseModel):
+    booking_id: int
+    room_id: int
+    bed_id: int
+    checkin_date: date
+    checkout_date: date
+    total_amount: float
+
+@router.post("/update-future-booking")
+async def admin_update_booking( data: AdminBookingUpdateFuture, user=Depends(get_current_user)):
+    update_future_booking_admin(
+        data.booking_id,
+        data.room_id,
+        data.bed_id,
+        data.checkin_date,
+        data.checkout_date,
+        data.total_amount
+    )
+    
+    await ws_manager.broadcast({
+        "type": "beds_changed",
+        "booking_id": data.booking_id,
+        "branch_id": user["branch_id"]
+    })
+
+    await ws_manager.broadcast({
+        "type": "booking_changed",
+        "booking_id": data.booking_id,
+        "branch_id": user["branch_id"]
+    })
+
+    await ws_manager.broadcast({
+        "type": "dashboard_changed",
+        "booking_id": data.booking_id,
+        "branch_id": user["branch_id"]
+    })
+
     return {"status": "ok"}

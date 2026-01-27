@@ -968,6 +968,48 @@ def update_booking_admin(
     recalc_booking_finance(booking_id)
 
 
+
+def update_future_booking_admin(
+        booking_id,
+        room_id,
+        bed_id,
+        checkin_date,
+        checkout_date,
+        total_amount
+    ):
+    today = date.today()
+
+    # 🔒 HARD BUSINESS RULE
+    if checkin_date <= today:
+        raise ValueError("Check-in date can only be changed for future bookings")
+
+    if checkout_date <= checkin_date:
+        raise ValueError("Checkout must be after check-in")
+
+    with get_connection() as conn:
+        conn.execute(text("""
+            UPDATE bookings
+            SET
+                room_id = :room_id,
+                bed_id = :bed_id,
+                checkin_date = :checkin_date,
+                checkout_date = :checkout_date,
+                total_amount = :total_amount
+            WHERE id = :booking_id
+              AND checkin_date > CURRENT_DATE
+        """), {
+            "room_id": room_id,
+            "bed_id": bed_id,
+            "checkin_date": checkin_date,
+            "checkout_date": checkout_date,
+            "total_amount": total_amount,
+            "booking_id": booking_id
+        })
+
+    recalc_booking_finance(booking_id)
+
+
+
 def get_past_bookings(branch_id, from_date=None, to_date=None):
     today = date.today().isoformat()
 
