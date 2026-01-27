@@ -124,7 +124,7 @@ window.openFutureBookings = function (bedId, e) {
   
   e.stopPropagation(); // 🔥 prevent bed click
   $("#futureBookingsModal").removeClass("hidden");
-  loadFutureBookings(bedId);
+  showFutureBookingsModal(bedId);
 };
 
 
@@ -686,17 +686,6 @@ $("#editFutureBookingForm").on("submit", function (e) {
 });
 
 
-
-
-
-
-function loadFutureBookings() {
-  fetch(`/api2/dashboard/beds/future-bookings?branch_id=${CURRENT_BRANCH}&bed_id=${CURRENT_BED_ID}`, {
-    credentials: "include"
-  })
-    .then(r => r.json())
-    .then(renderFutureBookings);
-}
 
 
 let CURRENT_FUTURE_BOOKING = null;
