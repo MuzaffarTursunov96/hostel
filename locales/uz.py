@@ -18,6 +18,8 @@ UZ = {
     "refund_cannot_be_negative": "Qaytariladigan summa manfiy bo‘lishi mumkin emas",
     "refund_exceeds_paid": "Qaytariladigan summa to‘langan summadan oshib ketdi",
     "refund_title_required": "Qaytarish sababini kiriting",
+    "booking_id":"Id",
+    "no_refunds_in_selected_range": "Tanlangan davrda qaytarishlar mavjud emas",
 
 
     "active_bookings": "Faol buyurtmalar",

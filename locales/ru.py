@@ -17,6 +17,8 @@ RU = {
     "refund_cannot_be_negative": "Сумма возврата не может быть отрицательной",
     "refund_exceeds_paid": "Сумма возврата превышает оплаченную сумму",
     "refund_title_required": "Укажите причину возврата",
+    "booking_id":"Ид",
+    "no_refunds_in_selected_range": "За выбранный период возвраты отсутствуют",
 
 
     "active_bookings": "Активные бронирования",

@@ -50,6 +50,23 @@ class PaymentsPage(QWidget):
         title.setStyleSheet("font-size:22px;font-weight:600;")
         self.main.addWidget(title)
 
+        ACTION_BTN_STYLE = """
+            QPushButton {
+                padding: 4px 14px;
+                font-size: 13px;
+                border-radius: 8px;
+                background-color: #F9FAFB;
+                border: 1px solid #E5E7EB;
+            }
+            QPushButton:hover {
+                background-color: #EEF2FF;
+                border-color: #C7D2FE;
+            }
+            QPushButton:pressed {
+                background-color: #E0E7FF;
+            }
+            """
+
         # ===== FILTER BAR =====
         filter_bar = QHBoxLayout()
 
@@ -140,20 +157,28 @@ class PaymentsPage(QWidget):
         self.main.addLayout(form)
 
         # ===== HISTORY =====
-        history_btn = QPushButton(t("payment_history"))
-        history_btn.clicked.connect(self.open_history)
-        self.main.addWidget(history_btn)
-        history_btn.setCursor(QCursor(Qt.PointingHandCursor))
+        actions = QHBoxLayout()
+        actions.setSpacing(8)
 
-        table_btn = QPushButton(t("view_expenses_table"))
-        table_btn.clicked.connect(self.open_expenses_table)
-        self.main.addWidget(table_btn)
-        table_btn.setCursor(QCursor(Qt.PointingHandCursor))
+        def make_small_btn(text, handler):
+            btn = QPushButton(text)
+            btn.setFixedHeight(32)
+            btn.setCursor(QCursor(Qt.PointingHandCursor))
+            btn.setStyleSheet(ACTION_BTN_STYLE)
+            btn.clicked.connect(handler)
+            return btn
 
-        refunds_btn = QPushButton(t("refunds"))
-        refunds_btn.setCursor(QCursor(Qt.PointingHandCursor))
-        refunds_btn.clicked.connect(self.open_refunds)
-        self.main.addWidget(refunds_btn)
+
+        history_btn = make_small_btn(t("payment_history"), self.open_history)
+        expenses_btn = make_small_btn(t("view_expenses_table"), self.open_expenses_table)
+        refunds_btn = make_small_btn(t("refunds"), self.open_refunds)
+
+        actions.addWidget(history_btn)
+        actions.addWidget(expenses_btn)
+        actions.addWidget(refunds_btn)
+        actions.addStretch()
+
+        self.main.addLayout(actions)
 
 
 
@@ -165,6 +190,8 @@ class PaymentsPage(QWidget):
         year_index = self.year.findText(str(today.year))
         if year_index >= 0:
             self.year.setCurrentIndex(year_index)
+
+        self.main.addSpacing(24)
 
 
     # ================= DATA =================
@@ -188,9 +215,10 @@ class PaymentsPage(QWidget):
 
     def open_refunds(self):
         dlg = RefundsPage(self.app, self.branch_id)
-        dlg.setWindowModality(Qt.ApplicationModal)
         dlg.setMinimumSize(900, 600)
-        dlg.show()
+        dlg.exec()
+
+
 
 
     def update_cards(self, finance: dict):

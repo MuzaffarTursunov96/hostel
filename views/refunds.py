@@ -9,9 +9,10 @@ from datetime import date, datetime
 
 from i18n import t
 from .api_client import api_get
+from PySide6.QtWidgets import QDialog
 
 
-class RefundsPage(QWidget):
+class RefundsPage(QDialog):
     def __init__(self, app, branch_id):
         super().__init__()
 
