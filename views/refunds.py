@@ -103,7 +103,7 @@ class RefundsPage(QWidget):
 
         refunds = api_get(
             self.app,
-            "/refunds",
+            "/refunds/list",
             {
                 "branch_id": self.branch_id,
                 "from_date": f.isoformat(),
