@@ -1461,6 +1461,30 @@ def get_customers(branch_id):
 
         return rows
 
+def get_refund_list(branch_id: int, from_date: date, to_date: date):
+    with get_connection() as conn:
+        rows = conn.execute(
+            text("""
+                SELECT
+                    r.id,
+                    r.booking_id,
+                    r.refund_amount,
+                    r.refund_reason,
+                    r.created_at
+                FROM refunds r
+                WHERE r.branch_id = :branch_id
+                  AND r.created_at::date BETWEEN :from_date AND :to_date
+                ORDER BY r.created_at DESC
+            """),
+            {
+                "branch_id": branch_id,
+                "from_date": from_date,
+                "to_date": to_date
+            }
+        ).mappings().all()
+
+        return rows
+
 
 def recalc_booking_finance(booking_id):
     with get_connection() as conn:

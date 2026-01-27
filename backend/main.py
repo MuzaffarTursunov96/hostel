@@ -13,6 +13,7 @@ from api.settings import router as settings_router
 from api.customers import router as customer_router
 from api.booking_history import router as booking_history_router
 from api.root_admin import router as root_admin_router
+from api.refunds import router as refund_router
 
 
 from aiogram.types import Update
@@ -96,3 +97,4 @@ app.include_router(settings_router)
 app.include_router(customer_router)
 app.include_router(booking_history_router)
 app.include_router(root_admin_router)
+app.include_router(refund_router)

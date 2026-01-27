@@ -404,7 +404,6 @@ class CancelFutureBookingDialog(QDialog):
             return QMessageBox.warning(
                 self, t("error"), t("invalid_amount")
             )
-        print(self.booking,'*******')
         paid = float(self.booking["paid_amount"])
         title = self.refund_title.text().strip()
 

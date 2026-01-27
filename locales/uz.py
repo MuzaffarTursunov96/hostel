@@ -8,6 +8,17 @@ UZ = {
     "booking_history": "Buyurtma tarixi",
     "no_bookings": "Hozircha buyurtmalar mavjud emas.",
     "refunds": "Qaytarishlar",
+    "booking_canceled":"Bron bekor qilindi",
+
+
+    "refund_amount": "Qaytariladigan summa",
+    "refund_reason": "Qaytarish sababi",
+    "confirm_cancel": "Bronni bekor qilishni tasdiqlaysizmi?",
+    "invalid_amount": "Noto‘g‘ri summa kiritildi",
+    "refund_cannot_be_negative": "Qaytariladigan summa manfiy bo‘lishi mumkin emas",
+    "refund_exceeds_paid": "Qaytariladigan summa to‘langan summadan oshib ketdi",
+    "refund_title_required": "Qaytarish sababini kiriting",
+
 
     "active_bookings": "Faol buyurtmalar",
     "cancel": "Bekor qilish",
