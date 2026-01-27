@@ -6,9 +6,9 @@ from api.deps import get_current_user
 
 from db import get_refund_list
 
-router = APIRouter(prefix="/payments", tags=["Payments"])
+router = APIRouter(prefix="/refunds", tags=["Payments"])
 
-@router.get("/refunds")
+@router.get("/")
 def get_refunds(
     branch_id: int,
     from_date: date,

@@ -15,6 +15,8 @@ from i18n import t
 from .api_client import api_get, api_post
 from .payment_history import PaymentHistoryDialog
 from .expenses_table import ExpensesTableDialog
+from .refunds import RefundsPage
+
 
 
 class PaymentsPage(QWidget):
@@ -111,14 +113,23 @@ class PaymentsPage(QWidget):
 
         # ===== ADD EXPENSE =====
         form = QHBoxLayout()
+        form.setSpacing(8)
 
         self.title_inp = QLineEdit()
         self.title_inp.setPlaceholderText(t("title"))
+        self.title_inp.setFixedHeight(32)
 
         self.amount_inp = QLineEdit()
         self.amount_inp.setPlaceholderText(t("amount"))
+        self.amount_inp.setFixedWidth(120)
+        self.amount_inp.setFixedHeight(32)
 
         add_btn = QPushButton(t("add"))
+        add_btn.setFixedHeight(32)
+        add_btn.setCursor(QCursor(Qt.PointingHandCursor))
+
+
+
         add_btn.clicked.connect(self.add_expense)
         add_btn.setCursor(QCursor(Qt.PointingHandCursor))
 
@@ -138,6 +149,12 @@ class PaymentsPage(QWidget):
         table_btn.clicked.connect(self.open_expenses_table)
         self.main.addWidget(table_btn)
         table_btn.setCursor(QCursor(Qt.PointingHandCursor))
+
+        refunds_btn = QPushButton(t("refunds"))
+        refunds_btn.setCursor(QCursor(Qt.PointingHandCursor))
+        refunds_btn.clicked.connect(self.open_refunds)
+        self.main.addWidget(refunds_btn)
+
 
 
         # ===== DEFAULT CURRENT MONTH/YEAR =====
@@ -168,6 +185,13 @@ class PaymentsPage(QWidget):
 
         self.draw_pie(finance)
         self.update_cards(finance)
+
+    def open_refunds(self):
+        dlg = RefundsPage(self.app, self.branch_id)
+        dlg.setWindowModality(Qt.ApplicationModal)
+        dlg.setMinimumSize(900, 600)
+        dlg.show()
+
 
     def update_cards(self, finance: dict):
         income = finance.get("income", 0)
