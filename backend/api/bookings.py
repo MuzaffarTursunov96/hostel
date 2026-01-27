@@ -149,11 +149,12 @@ class BookingCancelFuture(BaseModel):
 @router.post("/future-bookings/cancel")
 async def cancel_future_booking_api( data: BookingCancelFuture, user=Depends(get_current_user)):
     cancel_future_booking(
-        booking_id=data["booking_id"],
-        branch_id=data["branch_id"],
-        refund_amount=float(data.get("refund_amount", 0)),
-        refund_title=data.get("refund_title", "")
+        booking_id=data.booking_id,
+        branch_id=data.branch_id,
+        refund_amount=float(data.refund_amount),
+        refund_title=data.refund_title
     )
+
     
     await ws_manager.broadcast({
         "type": "beds_changed",

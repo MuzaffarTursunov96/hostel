@@ -378,6 +378,7 @@ class CancelFutureBookingDialog(QDialog):
 
         layout = QVBoxLayout(self)
 
+
         layout.addWidget(QLabel(
             f"{t('paid_amount')}: {booking['paid_amount']}"
         ))
@@ -403,7 +404,7 @@ class CancelFutureBookingDialog(QDialog):
             return QMessageBox.warning(
                 self, t("error"), t("invalid_amount")
             )
-
+        print(self.booking,'*******')
         paid = float(self.booking["paid_amount"])
         title = self.refund_title.text().strip()
 
