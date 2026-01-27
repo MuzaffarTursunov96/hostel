@@ -9,7 +9,8 @@ from db import (
     get_available_beds,
     add_booking,
     add_or_get_customer,
-    update_future_booking_admin
+    update_future_booking_admin,
+    cancel_future_booking
 )
 
 router = APIRouter(prefix="/booking", tags=["Booking"])
@@ -135,3 +136,43 @@ async def admin_update_booking( data: AdminBookingUpdateFuture, user=Depends(get
     })
 
     return {"status": "ok"}
+
+
+
+class BookingCancelFuture(BaseModel):
+    booking_id: int
+    branch_id: int
+    refund_amount: int
+    refund_title: str
+    
+
+@router.post("/future-bookings/cancel")
+async def cancel_future_booking_api( data: BookingCancelFuture, user=Depends(get_current_user)):
+    cancel_future_booking(
+        booking_id=data["booking_id"],
+        branch_id=data["branch_id"],
+        refund_amount=float(data.get("refund_amount", 0)),
+        refund_title=data.get("refund_title", "")
+    )
+    
+    await ws_manager.broadcast({
+        "type": "beds_changed",
+        "booking_id": data.booking_id,
+        "branch_id": user["branch_id"]
+    })
+
+    await ws_manager.broadcast({
+        "type": "booking_changed",
+        "booking_id": data.booking_id,
+        "branch_id": user["branch_id"]
+    })
+
+    await ws_manager.broadcast({
+        "type": "dashboard_changed",
+        "booking_id": data.booking_id,
+        "branch_id": user["branch_id"]
+    })
+
+    return {"status": "ok"}
+
+

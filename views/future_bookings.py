@@ -132,8 +132,9 @@ class FutureBookingsDialog(QDialog):
 
                 btn_cancel = QPushButton(t("cancel"))
                 btn_cancel.clicked.connect(
-                    lambda _, bid=r["id"]: self.cancel_booking(bid)
+                    lambda _, booking=r: self.cancel_booking(booking)
                 )
+
                 btn_cancel.setCursor(QCursor(Qt.PointingHandCursor))
 
                 actions.addWidget(btn_edit)
@@ -158,9 +159,7 @@ class FutureBookingsDialog(QDialog):
             self.refresh_after_action
         )
 
-    def cancel_booking(self, booking_id):
-        from PySide6.QtWidgets import QMessageBox
-
+    def cancel_booking(self, booking):
         if QMessageBox.question(
             self,
             t("cancel_booking"),
@@ -168,17 +167,15 @@ class FutureBookingsDialog(QDialog):
         ) != QMessageBox.Yes:
             return
 
-        api_post(
+        # ✅ OPEN REFUND DIALOG (NO API CALL HERE)
+        CancelFutureBookingDialog(
+            self,
             self.app,
-            "/active-bookings/cancel",
-            {
-                "booking_id": booking_id,
-                "branch_id": self.branch_id
-            }
+            booking,
+            self.branch_id,
+            self.refresh_after_action
         )
 
-        QMessageBox.information(self, t("canceled"), t("canceled_text"))
-        self.refresh_after_action()
 
     def refresh_after_action(self):
         self.close()
@@ -366,3 +363,79 @@ class EditBookingFutureDialog(QDialog):
         QMessageBox.information(self, t("saved"), t("booking_updated"))
         self.on_done()
         self.accept()
+
+
+
+
+class CancelFutureBookingDialog(QDialog):
+    def __init__(self, parent, app, booking, branch_id, on_done):
+        super().__init__(parent)
+
+        self.app = app
+        self.booking = booking
+        self.branch_id = branch_id
+        self.on_done = on_done
+
+        self.setWindowTitle(t("cancel_booking"))
+        self.resize(420, 320)
+        self.setModal(True)
+
+        layout = QVBoxLayout(self)
+
+        layout.addWidget(QLabel(
+            f"{t('paid_amount')}: {booking['paid_amount']}"
+        ))
+
+        self.refund_amount = QLineEdit("0")
+        self.refund_amount.setPlaceholderText(t("refund_amount"))
+        layout.addWidget(self.refund_amount)
+
+        self.refund_title = QLineEdit()
+        self.refund_title.setPlaceholderText(t("refund_reason"))
+        layout.addWidget(self.refund_title)
+
+        btn = QPushButton(t("confirm_cancel"))
+        btn.clicked.connect(self.confirm)
+        layout.addWidget(btn)
+
+    def confirm(self):
+        try:
+            amount = float(self.refund_amount.text() or 0)
+        except ValueError:
+            return QMessageBox.warning(
+                self, t("error"), t("invalid_amount")
+            )
+
+        paid = float(self.booking["paid_amount"])
+        title = self.refund_title.text().strip()
+
+        if amount < 0:
+            return QMessageBox.warning(
+                self, t("error"), t("refund_cannot_be_negative")
+            )
+
+        if amount > paid:
+            return QMessageBox.warning(
+                self, t("error"), t("refund_exceeds_paid")
+            )
+
+        if amount > 0 and not title:
+            return QMessageBox.warning(
+                self, t("error"), t("refund_title_required")
+            )
+
+        api_post(
+            self.app,
+            "/booking/future-bookings/cancel",
+            {
+                "booking_id": self.booking["id"],
+                "branch_id": self.branch_id,
+                "refund_amount": amount,
+                "refund_title": title
+            }
+        )
+
+        QMessageBox.information(self, t("success"), t("booking_canceled"))
+        self.on_done()
+        self.accept()
+

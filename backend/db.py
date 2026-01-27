@@ -2052,3 +2052,71 @@ def set_user_branch_db(user_id: int, branch_id: int):
             "branch_id": branch_id,
             "user_id": user_id
         })
+
+
+def cancel_future_booking(
+    booking_id,
+    branch_id,
+    refund_amount: float,
+    refund_title: str,
+    refunded_by="admin"
+):
+    with get_connection() as conn:
+
+        booking = conn.execute(text("""
+            SELECT paid_amount
+            FROM bookings
+            WHERE id = :id
+              AND branch_id = :branch_id
+              AND checkin_date > CURRENT_DATE
+              AND status != 'cancelled'
+        """), {
+            "id": booking_id,
+            "branch_id": branch_id
+        }).mappings().fetchone()
+
+        if not booking:
+            raise ValueError("Only future bookings can be cancelled")
+
+        paid = booking.paid_amount or 0
+
+        if refund_amount < 0 or refund_amount > paid:
+            raise ValueError("Invalid refund amount")
+
+        # 🔄 create refund only if > 0
+        if refund_amount > 0:
+            if not refund_title:
+                raise ValueError("Refund title is required")
+
+            conn.execute(text("""
+                INSERT INTO booking_refunds (
+                    booking_id,
+                    branch_id,
+                    refunded_amount,
+                    refunded_by,
+                    note
+                )
+                VALUES (
+                    :booking_id,
+                    :branch_id,
+                    :amount,
+                    :by,
+                    :note
+                )
+            """), {
+                "booking_id": booking_id,
+                "branch_id": branch_id,
+                "amount": refund_amount,
+                "by": refunded_by,
+                "note": refund_title
+            })
+
+        # ❌ cancel booking
+        conn.execute(text("""
+            UPDATE bookings
+            SET
+                status = 'cancelled',
+                remaining_amount = 0,
+                payment_status = 'cancelled'
+            WHERE id = :id
+        """), {"id": booking_id})
