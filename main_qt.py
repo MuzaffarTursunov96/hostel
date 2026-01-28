@@ -1,7 +1,7 @@
 import sys
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget,
-    QHBoxLayout, QStackedWidget
+    QHBoxLayout, QStackedWidget,QDialog
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
@@ -19,18 +19,42 @@ from views.ws_client import WSClient
 from views.customers import CustomersPage
 from views.booking_history import BookingHistoryPage
 from views.root_admin_panel import RootAdminPanel
+from views.license_dialog import LicenseDialog
+from views.utils import load_license, get_device_id
+import requests
 
 import os
 from dotenv import load_dotenv
 load_dotenv()
 ROOT_TELEGRAM_ID = int(os.getenv("ROOT_TELEGRAM_ID"))
 
+API_URL = os.getenv("API_BASE_URL")
+
+
 
 
 from i18n import t, set_lang
 from utils.config import load_config, save_config
 
+def verify_saved_license():
+    license_key = load_license()
 
+    if not license_key:
+        return False
+
+    try:
+        r = requests.post(
+            f"{API_URL}/license/verify",
+            params={
+                "license_key": license_key,
+                "device_id": get_device_id()
+            },
+            timeout=(10,20)
+        )
+        return r.status_code == 200
+
+    except Exception:
+        return False
 
 
 
@@ -301,6 +325,12 @@ if __name__ == "__main__":
     app.setWindowIcon(QIcon(icon_path))
 
     load_style(app)
+
+    # 🔐 LICENSE CHECK
+    if not verify_saved_license():
+        dlg = LicenseDialog()
+        if dlg.exec() != QDialog.Accepted:
+            sys.exit(0)
 
     window = App()
     window.showMaximized()

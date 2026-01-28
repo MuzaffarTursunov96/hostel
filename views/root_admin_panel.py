@@ -28,9 +28,11 @@ class RootAdminPanel(QWidget):
 
         self.admins_tab = AdminsTab(app)
         self.branches_tab = BranchesTab(app)
+        self.licenses_tab = LicensesTab(app)
 
         self.tabs.addTab(self.admins_tab, "Admins")
         self.tabs.addTab(self.branches_tab, "Branches")
+        self.tabs.addTab(self.licenses_tab, "Licenses")
 
         self.tabs.currentChanged.connect(self.on_tab_change)
 
@@ -373,3 +375,67 @@ class BranchesTab(QWidget):
         api_delete(self.app, f"/root/branches/{branch_id}")
 
         self.load()
+
+# =========================
+# LICENSES TAB
+# =========================
+
+class LicensesTab(QWidget):
+    def __init__(self, app):
+        super().__init__()
+        self.app = app
+
+        layout = QVBoxLayout(self)
+
+        # ---- Trial checkbox ----
+        self.trial_chk = QCheckBox("Trial license")
+        self.trial_days = QLineEdit()
+        self.trial_days.setPlaceholderText("Trial days (e.g. 7)")
+        self.trial_days.setEnabled(False)
+
+        self.trial_chk.stateChanged.connect(
+            lambda s: self.trial_days.setEnabled(bool(s))
+        )
+
+        # ---- Generate button ----
+        self.gen_btn = QPushButton("🔑 Generate License")
+        self.gen_btn.clicked.connect(self.generate)
+        self.gen_btn.setCursor(QCursor(Qt.PointingHandCursor))
+
+        # ---- Output ----
+        self.output = QLineEdit()
+        self.output.setReadOnly(True)
+        self.output.setPlaceholderText("Generated license will appear here")
+
+        layout.addWidget(self.trial_chk)
+        layout.addWidget(self.trial_days)
+        layout.addWidget(self.gen_btn)
+        layout.addWidget(QLabel("License key"))
+        layout.addWidget(self.output)
+
+    def generate(self):
+        is_trial = self.trial_chk.isChecked()
+        days = self.trial_days.text().strip()
+
+        payload = {
+            "is_trial": is_trial,
+            "trial_days": int(days) if is_trial and days else None
+        }
+
+        try:
+            res = api_post(self.app, "/license/admin/create-license", payload)
+            self.output.setText(res["license_key"])
+
+            QMessageBox.information(
+                self,
+                "Success",
+                "License generated successfully"
+            )
+
+        except HTTPError as e:
+            try:
+                msg = e.response.json().get("detail", str(e))
+            except Exception:
+                msg = str(e)
+
+            QMessageBox.critical(self, "Error", msg)

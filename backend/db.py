@@ -44,6 +44,20 @@ def init_db():
         )
         """))
 
+        # ---------- LICENSES ----------
+        conn.execute(text("""
+        CREATE TABLE IF NOT EXISTS licenses (
+                id SERIAL PRIMARY KEY,
+                license_key VARCHAR(64) UNIQUE NOT NULL,
+                device_id VARCHAR(128),
+                is_active BOOLEAN DEFAULT TRUE,
+                expires_at TIMESTAMP NULL,
+                is_trial BOOLEAN DEFAULT FALSE,
+                trial_days INTEGER,
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        """))
+
         # ---------- CUSTOMER PASSPORT IMAGES ----------
         conn.execute(text("""
         CREATE TABLE IF NOT EXISTS customer_passport_images (
@@ -2153,3 +2167,65 @@ def cancel_future_booking(
                 payment_status = 'cancelled'
             WHERE id = :id
         """), {"id": booking_id})
+
+
+def get_license_key(license_key: str):
+    with get_connection() as conn:
+        result = conn.execute(
+            text("""
+                SELECT *
+                FROM licenses
+                WHERE license_key = :license_key
+            """),
+            {"license_key": license_key}
+        )
+        return result.mappings().first()
+    
+def update_license_key(license_key: str, device_id: str):
+    with get_connection() as conn:
+        conn.execute(
+            text("""
+                UPDATE licenses
+                SET device_id = :device_id
+                WHERE license_key = :license_key
+            """),
+            {
+                "license_key": license_key,
+                "device_id": device_id
+            }
+        )
+        conn.commit()
+
+def activate_trial(license_key: str, device_id: str, expires_at):
+    with get_connection() as conn:
+        conn.execute(
+            text("""
+                UPDATE licenses
+                SET
+                    device_id = :device_id,
+                    expires_at = :expires_at
+                WHERE license_key = :license_key
+                  AND expires_at IS NULL
+            """),
+            {
+                "license_key": license_key,
+                "device_id": device_id,
+                "expires_at": expires_at
+            }
+        )
+        conn.commit()
+
+def generate(key,is_trial=False,trial_days=7):
+    with get_connection() as conn:
+        conn.execute(
+            text("""
+                INSERT INTO licenses (license_key, is_trial, trial_days)
+                VALUES (:key, :is_trial, :trial_days)
+            """),
+            {
+                "key": key,
+                "is_trial": is_trial,
+                "trial_days": trial_days
+            }
+        )
+        conn.commit()
