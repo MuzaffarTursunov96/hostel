@@ -36,6 +36,11 @@ API_URL = os.getenv("API_BASE_URL")
 from i18n import t, set_lang
 from utils.config import load_config, save_config
 
+def should_skip_license():
+    # root machine bootstrap (first setup)
+    return os.getenv("ROOT_BOOTSTRAP") == "1"
+
+
 def verify_saved_license():
     license_key = load_license()
 
@@ -327,10 +332,12 @@ if __name__ == "__main__":
     load_style(app)
 
     # 🔐 LICENSE CHECK
-    if not verify_saved_license():
-        dlg = LicenseDialog()
-        if dlg.exec() != QDialog.Accepted:
-            sys.exit(0)
+    if not should_skip_license():
+        if not verify_saved_license():
+            dlg = LicenseDialog()
+            if dlg.exec() != QDialog.Accepted:
+                sys.exit(0)
+
 
     window = App()
     window.showMaximized()
