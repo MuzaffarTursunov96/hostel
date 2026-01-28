@@ -9,6 +9,8 @@ RU = {
     "no_bookings": "В данный момент бронирования отсутствуют.",
     "refunds": "Возвраты",
     "booking_canceled":"Бронирование отменено",
+    "refresh":"Обновить",
+    "reset_dashboard":"",
     
     "refund_amount": "Сумма возврата",
     "refund_reason": "Причина возврата",

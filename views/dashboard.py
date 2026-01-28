@@ -217,12 +217,37 @@ class DashboardPage(QWidget):
         header_bar = QHBoxLayout()
         header_bar.setSpacing(12)
 
-        # Title (LEFT)
+        # ===== TITLE =====
         title = QLabel(t("room_availability_now"))
         title.setStyleSheet("font-size:16px;font-weight:600;")
         header_bar.addWidget(title)
 
+        # ===== SMALL REFRESH BUTTON =====
+        refresh_btn = QPushButton()
+        refresh_btn.setIcon(QIcon("assets/icons/refresh.png"))  # reuse your icon
+        refresh_btn.setFixedSize(26, 26)
+        refresh_btn.setIconSize(QSize(16, 16))
+        refresh_btn.setCursor(QCursor(Qt.PointingHandCursor))
+        refresh_btn.setToolTip(t("refresh"))
+
+        # minimal desktop look
+        refresh_btn.setStyleSheet("""
+            QPushButton {
+                border: none;
+                background: transparent;
+            }
+            QPushButton:hover {
+                background: #f3f4f6;
+                border-radius: 6px;
+            }
+        """)
+
+        refresh_btn.clicked.connect(self.refresh)
+
+        header_bar.addWidget(refresh_btn)
+
         header_bar.addStretch()
+
 
         active_btn = QPushButton(t("active_bookings"))
         active_btn.setFixedHeight(32)
@@ -258,8 +283,8 @@ class DashboardPage(QWidget):
         filter_btn.clicked.connect(self.apply_date_filter)
         filter_btn.setCursor(QCursor(Qt.PointingHandCursor))
 
-        reset_btn = QPushButton(t("reset"))
-        reset_btn.setIcon(QIcon("assets/icons/refresh.png"))  # optional icon
+        reset_btn = QPushButton(t("reset_dashboard"))
+        reset_btn.setIcon(QIcon("assets/icons/reset.png"))  # optional icon
         reset_btn.clicked.connect(self.reset_filter)
         reset_btn.setCursor(QCursor(Qt.PointingHandCursor))
 

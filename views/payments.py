@@ -3,8 +3,8 @@ from PySide6.QtWidgets import (
     QPushButton, QScrollArea, QFrame,
     QComboBox, QLineEdit, QMessageBox,QGridLayout
 )
-from PySide6.QtCore import Qt, QDate
-from PySide6.QtGui import QPainter,QCursor
+from PySide6.QtCore import Qt, QDate,QSize
+from PySide6.QtGui import QPainter,QCursor,QIcon
 
 from PySide6.QtCharts import (
     QChart, QChartView, QPieSeries
@@ -160,18 +160,39 @@ class PaymentsPage(QWidget):
         actions = QHBoxLayout()
         actions.setSpacing(8)
 
-        def make_small_btn(text, handler):
+        def make_small_btn(text, icon_path, handler):
             btn = QPushButton(text)
             btn.setFixedHeight(32)
             btn.setCursor(QCursor(Qt.PointingHandCursor))
             btn.setStyleSheet(ACTION_BTN_STYLE)
+
+            btn.setIcon(QIcon(icon_path))
+            btn.setIconSize(QSize(16, 16))
+            btn.setLayoutDirection(Qt.LeftToRight)  # icon before text
+
             btn.clicked.connect(handler)
             return btn
 
 
-        history_btn = make_small_btn(t("payment_history"), self.open_history)
-        expenses_btn = make_small_btn(t("view_expenses_table"), self.open_expenses_table)
-        refunds_btn = make_small_btn(t("refunds"), self.open_refunds)
+
+        history_btn = make_small_btn(
+            t("payment_history"),
+            "assets/icons/payments.png",
+            self.open_history
+        )
+
+        expenses_btn = make_small_btn(
+            t("view_expenses_table"),
+            "assets/icons/expenses.png",
+            self.open_expenses_table
+        )
+
+        refunds_btn = make_small_btn(
+            t("refunds"),
+            "assets/icons/refunds.png",
+            self.open_refunds
+        )
+
 
         actions.addWidget(history_btn)
         actions.addWidget(expenses_btn)

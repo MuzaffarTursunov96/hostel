@@ -9,6 +9,8 @@ UZ = {
     "no_bookings": "Hozircha buyurtmalar mavjud emas.",
     "refunds": "Qaytarishlar",
     "booking_canceled":"Bron bekor qilindi",
+    "refresh":"Yangilash",
+    "reset_dashboard":"",
 
 
     "refund_amount": "Qaytariladigan summa",
