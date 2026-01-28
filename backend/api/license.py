@@ -1,6 +1,6 @@
 from fastapi import Depends,APIRouter, HTTPException
 from datetime import datetime, timedelta
-from auth import get_current_user
+from api.deps import get_current_user
 
 from db import (get_license_key, 
                 update_license_key, 
