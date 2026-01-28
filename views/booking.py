@@ -3,8 +3,8 @@ from PySide6.QtWidgets import (
     QPushButton, QLineEdit, QScrollArea,
     QComboBox, QMessageBox, QDateEdit,QCompleter
 )
-from PySide6.QtCore import Qt, QDate
-from PySide6.QtGui import QCursor
+from PySide6.QtCore import Qt, QDate, QSize
+from PySide6.QtGui import QCursor,QIcon
 
 from .api_client import api_get, api_post
 from i18n import t
@@ -24,6 +24,23 @@ class BookingPage(QWidget):
         self.build_ui()
         self.load_rooms()
 
+    def section_title(self, text, icon_path):
+        row = QHBoxLayout()
+
+        icon = QLabel()
+        icon.setPixmap(QIcon(icon_path).pixmap(18, 18))
+
+        label = QLabel(text)
+        label.setStyleSheet("font-size:15px;font-weight:600;")
+
+        row.addWidget(icon)
+        row.addWidget(label)
+        row.addStretch()
+
+        w = QWidget()
+        w.setLayout(row)
+        return w
+
     # ================= UI =================
     def build_ui(self):
         main = QVBoxLayout(self)
@@ -32,7 +49,6 @@ class BookingPage(QWidget):
         title.setStyleSheet("font-size:26px;font-weight:600;")
         main.addWidget(title)
 
-        
         # ===== SCROLL =====
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -40,54 +56,60 @@ class BookingPage(QWidget):
 
         wrapper = QWidget()
         wrapper_layout = QHBoxLayout(wrapper)
-        wrapper_layout.setContentsMargins(0, 0, 0, 0)
+        wrapper_layout.addStretch()
 
         content = QWidget()
-        content.setMaximumWidth(900)  # ✅ USER FRIENDLY WIDTH
+        content.setMaximumWidth(900)
+        content.setStyleSheet("""
+            QWidget {
+                background:white;
+                border-radius:16px;
+            }
+        """)
 
-        wrapper_layout.addStretch()
         wrapper_layout.addWidget(content)
         wrapper_layout.addStretch()
-
         scroll.setWidget(wrapper)
 
         layout = QVBoxLayout(content)
-        layout.setSpacing(16)
-        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(18)
+        layout.setContentsMargins(24, 24, 24, 24)
 
         # ===== ROOM =====
-        layout.addWidget(QLabel(t("room")))
+        layout.addWidget(self.section_title(t("room"), "assets/icons/room.png"))
+
         self.room_dropdown = QComboBox()
         self.room_dropdown.setFixedHeight(38)
         self.room_dropdown.currentTextChanged.connect(self.room_selected)
         layout.addWidget(self.room_dropdown)
 
-        # ===== DATES (CREATE FIRST) =====
+        # ===== DATES =====
+        layout.addWidget(self.section_title(t("dates"), "assets/icons/google-calendar.png"))
+
         self.checkin = QDateEdit(QDate.currentDate())
         self.checkout = QDateEdit(QDate.currentDate().addDays(1))
 
-        self.checkin.setCalendarPopup(True)
-        self.checkout.setCalendarPopup(True)
+        for d in (self.checkin, self.checkout):
+            d.setCalendarPopup(True)
+            d.setFixedHeight(38)
+            d.dateChanged.connect(self.load_available_beds)
 
-        self.checkin.dateChanged.connect(self.load_available_beds)
-        self.checkout.dateChanged.connect(self.load_available_beds)
+        dates = QHBoxLayout()
 
-        dates_row = QHBoxLayout()
         left = QVBoxLayout()
-        right = QVBoxLayout()
-
         left.addWidget(QLabel(t("check_in")))
         left.addWidget(self.checkin)
 
+        right = QVBoxLayout()
         right.addWidget(QLabel(t("check_out")))
         right.addWidget(self.checkout)
 
-        dates_row.addLayout(left)
-        dates_row.addLayout(right)
-        layout.addLayout(dates_row)
+        dates.addLayout(left)
+        dates.addLayout(right)
+        layout.addLayout(dates)
 
-        # ===== AVAILABLE BEDS =====
-        layout.addWidget(QLabel(t("available_beds")))
+        # ===== BEDS =====
+        layout.addWidget(self.section_title(t("available_beds"), "assets/icons/bed.png"))
 
         beds_scroll = QScrollArea()
         beds_scroll.setWidgetResizable(True)
@@ -101,56 +123,77 @@ class BookingPage(QWidget):
         layout.addWidget(beds_scroll)
 
         # ===== CUSTOMER =====
+        layout.addWidget(self.section_title(t("customer"), "assets/icons/account.png"))
+
         self.customer_box = QComboBox()
         self.customer_box.setEditable(True)
         self.customer_box.setInsertPolicy(QComboBox.NoInsert)
-        self.customer_box.setPlaceholderText(t("customer_name"))
-
+        self.customer_box.setFixedHeight(38)
         self.customer_box.activated.connect(self.on_customer_selected)
-
-
         layout.addWidget(self.customer_box)
-        self.load_customers()   # ✅ SAFE NOW
-
-        
 
         self.passport_entry = QLineEdit()
         self.passport_entry.setPlaceholderText(t("passport_id"))
+        self.passport_entry.setFixedHeight(38)
         self.passport_entry.textChanged.connect(self.on_passport_changed)
-
 
         self.contact_entry = QLineEdit()
         self.contact_entry.setPlaceholderText(t("contact_info"))
+        self.contact_entry.setFixedHeight(38)
 
-        # layout.addWidget(self.name_entry)
         layout.addWidget(self.passport_entry)
         layout.addWidget(self.contact_entry)
 
         # ===== PAYMENT =====
+        layout.addWidget(self.section_title(t("payment"), "assets/icons/usd.png"))
+
         self.total_entry = QLineEdit()
         self.total_entry.setPlaceholderText(t("total_amount"))
+        self.total_entry.setFixedHeight(38)
         self.total_entry.textChanged.connect(self.update_remaining)
 
         self.paid_entry = QLineEdit()
         self.paid_entry.setPlaceholderText(t("paid_amount"))
+        self.paid_entry.setFixedHeight(38)
         self.paid_entry.textChanged.connect(self.update_remaining)
 
         pay_row = QHBoxLayout()
         pay_row.addWidget(self.total_entry)
         pay_row.addWidget(self.paid_entry)
-
         layout.addLayout(pay_row)
 
         self.remaining_label = QLabel(t("remaining") + ": 0.00")
+        self.remaining_label.setStyleSheet("""
+            font-weight:600;
+            padding:8px;
+            border-radius:8px;
+            background:#fef3c7;
+        """)
         layout.addWidget(self.remaining_label)
 
         # ===== CONFIRM =====
         confirm = QPushButton(t("confirm_booking"))
-        confirm.setFixedHeight(44)
-        confirm.clicked.connect(self.confirm_booking)
+        confirm.setIcon(QIcon("assets/icons/checklist2.png"))
+        confirm.setIconSize(QSize(18, 18))
+        confirm.setFixedHeight(48)
         confirm.setCursor(QCursor(Qt.PointingHandCursor))
-
+        confirm.setStyleSheet("""
+            QPushButton {
+                background:#16a34a;
+                color:white;
+                font-size:16px;
+                font-weight:600;
+                border-radius:12px;
+            }
+            QPushButton:hover {
+                background:#15803d;
+            }
+        """)
+        confirm.clicked.connect(self.confirm_booking)
         layout.addWidget(confirm)
+
+
+
 
     def on_customer_selected(self, index):
         data = self.customer_box.itemData(index, Qt.UserRole)
@@ -228,13 +271,42 @@ class BookingPage(QWidget):
         for b in beds:
             btn = QPushButton(f"{t('bed')} {b['bed_number']}")
             btn.setCheckable(True)
-            btn.setFixedHeight(40)
-            btn.clicked.connect(lambda _, bid=b["id"]: self.select_bed(bid))
+            btn.setFixedHeight(44)
+
+            btn.setStyleSheet("""
+                QPushButton {
+                    border: 1px solid #e5e7eb;
+                    border-radius: 10px;
+                    background: white;
+                    font-size: 14px;
+                }
+                QPushButton:hover {
+                    background: #f3f4f6;
+                }
+                QPushButton:checked {
+                    background: rgba(37, 99, 235, 0.5);   /* #2563eb at 50% */
+                    color: white;                       /* darker blue text */
+                    font-weight: 600;
+                    border: 1px solid rgba(37, 99, 235, 0.8);
+                }
+            """)
+
+            btn.clicked.connect(lambda _, bid=b["id"], bbtn=btn: self.select_bed(bid, bbtn))
             btn.setCursor(QCursor(Qt.PointingHandCursor))
             self.beds_container.addWidget(btn)
 
-    def select_bed(self, bed_id):
+
+    def select_bed(self, bed_id, clicked_button):
         self.selected_bed_id = bed_id
+
+        # 🔥 uncheck all other bed buttons
+        for i in range(self.beds_container.count()):
+            w = self.beds_container.itemAt(i).widget()
+            if isinstance(w, QPushButton) and w is not clicked_button:
+                w.setChecked(False)
+
+        clicked_button.setChecked(True)
+
 
     def update_remaining(self):
         try:

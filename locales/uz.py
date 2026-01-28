@@ -11,6 +11,8 @@ UZ = {
     "booking_canceled":"Bron bekor qilindi",
     "refresh":"Yangilash",
     "reset_dashboard":"",
+    "dates": "Yashash sanalari",
+    "payment": "To‘lov",
 
 
     "refund_amount": "Qaytariladigan summa",

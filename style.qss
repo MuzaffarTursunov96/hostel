@@ -332,3 +332,31 @@ QPushButton#LoginButton:disabled {
     color: white;
 }
   
+/* ================= ACTION BUTTONS (LANG SAFE) ================= */
+
+QPushButton[action="add-room"],
+QPushButton[action="add-bed"] {
+    background: rgba(34, 197, 94, 0.18);   /* green 18% */
+    border: 1px solid #22c55e;
+    color: #065f46;
+    font-weight: 600;
+}
+
+QPushButton[action="add-room"]:hover,
+QPushButton[action="add-bed"]:hover {
+    background: rgba(34, 197, 94, 0.28);
+}
+
+/* Delete buttons */
+QPushButton[action="delete-room"],
+QPushButton[action="delete-bed"] {
+    background: rgba(239, 68, 68, 0.18);   /* red 18% */
+    border: 1px solid #ef4444;
+    color: #7f1d1d;
+    font-weight: 600;
+}
+
+QPushButton[action="delete-room"]:hover,
+QPushButton[action="delete-bed"]:hover {
+    background: rgba(239, 68, 68, 0.28);
+}

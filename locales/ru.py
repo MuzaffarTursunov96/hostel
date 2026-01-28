@@ -12,6 +12,9 @@ RU = {
     "refresh":"Обновить",
     "reset_dashboard":"",
     
+    "dates": "Даты проживания",
+    "payment": "Оплата",
+    
     "refund_amount": "Сумма возврата",
     "refund_reason": "Причина возврата",
     "confirm_cancel": "Вы уверены, что хотите отменить бронирование?",
