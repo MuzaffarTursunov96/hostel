@@ -61,7 +61,7 @@ async def remove_bed(bed_id: int, user=Depends(get_current_user)):
 
     room_id = row["room_id"]
 
-    delete_bed(bed_id)
+    status_del = delete_bed(bed_id)
 
     await ws_manager.broadcast({
         "type": "beds_changed",
@@ -69,7 +69,7 @@ async def remove_bed(bed_id: int, user=Depends(get_current_user)):
         "room_id": room_id
     })
 
-    return {"status": "ok"}
+    return status_del
 
 
 

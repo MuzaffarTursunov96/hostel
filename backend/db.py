@@ -2,7 +2,8 @@ from datetime import date
 from security import hash_password, verify_password
 from database import engine
 from sqlalchemy import text
-
+from sqlalchemy.exc import IntegrityError
+from fastapi import HTTPException
 
 def get_connection():
     return engine.begin()
@@ -1199,10 +1200,16 @@ def add_bed(branch_id, room_id):
 
 
 def delete_bed(bed_id):
-    with get_connection() as conn:
-        conn.execute(text("DELETE FROM beds WHERE id = :bed_id"), {
-            "bed_id": bed_id
-        })
+    try:
+        with get_connection() as conn:
+            conn.execute(
+                text("DELETE FROM beds WHERE id = :bed_id"),
+                {"bed_id": bed_id}
+            )
+        return {'status':200,'msg':"sucess"}
+    except Exception as ex:
+        return {'status':500,'msg':ex}
+
 
 
 def get_beds(branch_id, room_id):
