@@ -222,7 +222,8 @@ TRANSLATIONS = {
         "phone":"Номер телефона",
         "no_customers":"В данный момент клиенты недоступны.",
         "bed_has_bookings_cannot_delete": "Эта кровать забронирована. Сначала отмените бронирование.",
-        "room_has_booked_beds": "В этой комнате есть забронированные кровати. Сначала отмените бронирования."
+        "room_has_booked_beds": "В этой комнате есть забронированные кровати. Сначала отмените бронирования.",
+        "cannot_delete_bed_reason": "Эта кровать связана с бронированиями и не может быть удалена."
 
         },
         "uz": {
@@ -238,7 +239,7 @@ TRANSLATIONS = {
         "confirm_cancel": "Bekor qilishni tasdiqlash",
         "refunds":"Qaytarilgan pullar",
         "no_refunds_in_selected_range": "Tanlangan davrda qaytarilgan mablagʻlar yoʻq",
-
+        "cannot_delete_bed_reason": "Bu krovat bronlar bilan bog‘langan va o‘chirib bo‘lmaydi.",
 
 
         "new_booking": "Yangi bron",

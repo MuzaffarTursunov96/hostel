@@ -212,7 +212,9 @@ function deleteBed() {
     // 3️⃣ DELETE
     apiDelete(`/beds/${SELECTED_BED_ID}`)
       .done(function (data) {
-        alert(JSON.stringify(data))
+        if(data.status == 500){
+          alert(t("cannot_delete_bed_reason"));
+        }
         SELECTED_BED_ID = null;
         loadBeds(CURRENT_ROOM_ID);
       });
