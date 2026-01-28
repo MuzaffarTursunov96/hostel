@@ -28,7 +28,6 @@ function loadFinance() {
     year
   }).done(function (data) {
 
-    alert(data);
 
     const income   = Number(data.income   || 0);
     const expenses = Number(data.expenses || 0);
