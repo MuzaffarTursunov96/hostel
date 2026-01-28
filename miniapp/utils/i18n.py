@@ -11,7 +11,8 @@ TRANSLATIONS = {
         "refund_reason": "Причина возврата",
         "confirm_cancel": "Подтвердить отмену",
         "refunds":"Возвраты",
-        "no_refunds_in_selected_range":"",
+        "no_refunds_in_selected_range": "За выбранный период возвратов нет",
+
         
         "new_booking": "Новое бронирование",
         "booking_history": "История бронирований",
@@ -236,6 +237,8 @@ TRANSLATIONS = {
         "refund_reason": "Qaytarish sababi",
         "confirm_cancel": "Bekor qilishni tasdiqlash",
         "refunds":"Qaytarilgan pullar",
+        "no_refunds_in_selected_range": "Tanlangan davrda qaytarilgan mablagʻlar yoʻq",
+
 
 
         "new_booking": "Yangi bron",
