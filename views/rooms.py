@@ -312,7 +312,20 @@ class RoomsPage(QWidget):
             )
             return
 
-        api_delete(self.app, f"/beds/{self.selected_bed}")
+        status_del = api_delete(self.app, f"/beds/{self.selected_bed}")
+
+        if status_del['status'] == 500:
+            QMessageBox.warning(
+                self,
+                t("error"),
+                t("cannot_delete_bed_reason")
+            )
+        else:
+            QMessageBox.information(
+                self,
+                t("success"),
+                t("operation_completed_successfully")
+            )
         self.selected_bed = None
         self.load_beds()
         self.refresh_dashboard()

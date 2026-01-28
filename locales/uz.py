@@ -13,6 +13,8 @@ UZ = {
     "reset_dashboard":"",
     "dates": "Yashash sanalari",
     "payment": "To‘lov",
+    "cannot_delete_bed_reason": "Bu krovat bronlar bilan bog‘langan va o‘chirib bo‘lmaydi.",
+    "operation_completed_successfully": "Amaliyot muvaffaqiyatli bajarildi",
 
 
     "refund_amount": "Qaytariladigan summa",

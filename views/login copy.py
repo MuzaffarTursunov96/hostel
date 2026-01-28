@@ -4,7 +4,7 @@ from PySide6.QtWidgets import (
     QGraphicsDropShadowEffect, QSizePolicy
 )
 from PySide6.QtCore import Qt, QThread, Signal, QObject
-from PySide6.QtGui import QPixmap,QIcon
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QProgressBar
 
 import requests
@@ -147,24 +147,14 @@ class LoginPage(QWidget):
        
 
         # ===== INPUTS =====
-        # ===== INPUTS =====
         self.username = QLineEdit()
         self.username.setPlaceholderText(t("username"))
         self.username.setFixedHeight(44)
-        self.username.addAction(
-            QIcon("assets/icons/user.png"),
-            QLineEdit.LeadingPosition
-        )
 
         self.password = QLineEdit()
         self.password.setPlaceholderText(t("password"))
         self.password.setEchoMode(QLineEdit.Password)
         self.password.setFixedHeight(44)
-        self.password.addAction(
-            QIcon("assets/icons/locked.png"),
-            QLineEdit.LeadingPosition
-        )
-
 
         # ===== BUTTON =====
         self.login_btn = QPushButton(t("login"))
