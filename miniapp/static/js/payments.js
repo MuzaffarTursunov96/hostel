@@ -87,3 +87,88 @@ function openDebtPage() {
 function openCustomersPage() {
   window.location.href = "/customers";
 }
+
+
+
+
+
+
+function openRefundHistory() {
+  initRefundFilters();
+  $("#refundHistoryModal").removeClass("hidden");
+  loadRefundHistory();
+}
+
+function closeRefundHistory() {
+  $("#refundHistoryModal").addClass("hidden");
+}
+
+function initRefundFilters() {
+  const now = new Date();
+
+  const monthSel = $("#refundMonth");
+  const yearSel = $("#refundYear");
+
+  monthSel.empty();
+  yearSel.empty();
+
+  for (let m = 1; m <= 12; m++) {
+    monthSel.append(`<option value="${m}">${m}</option>`);
+  }
+
+  for (let y = now.getFullYear() - 5; y <= now.getFullYear() + 5; y++) {
+    yearSel.append(`<option value="${y}">${y}</option>`);
+  }
+
+  monthSel.val(now.getMonth() + 1);
+  yearSel.val(now.getFullYear());
+}
+
+function loadRefundHistory() {
+  const month = parseInt($("#refundMonth").val());
+  const year = parseInt($("#refundYear").val());
+
+  // 🔥 convert to date range
+  const fromDate = new Date(year, month - 1, 1);
+  const toDate = new Date(year, month, 0); // last day of month
+
+  const from = fromDate.toISOString().slice(0, 10);
+  const to = toDate.toISOString().slice(0, 10);
+
+  apiGet("/refunds/list", {
+    branch_id: CURRENT_BRANCH,
+    from_date: from,
+    to_date: to
+  }).done(renderRefundHistory);
+}
+
+
+function renderRefundHistory(rows) {
+  const box = $("#refundHistoryTable");
+  box.empty();
+
+  if (!rows.length) {
+    box.append(`
+      <div class="text-center text-tgHint py-6">
+        {{t("no_refunds_in_selected_range")}}
+      </div>
+    `);
+    return;
+  }
+
+  rows.forEach(r => {
+    box.append(`
+      <div class="border rounded-xl p-3">
+        <div class="font-semibold">
+          ${formatNumber(r.refund_amount)}
+        </div>
+        <div class="text-sm text-tgHint">
+          ${r.refund_reason || "-"}
+        </div>
+        <div class="text-xs text-tgHint">
+          ${r.created_at}
+        </div>
+      </div>
+    `);
+  });
+}

@@ -10,6 +10,7 @@ TRANSLATIONS = {
         "edit_future_booking": "Редактировать будущее бронирование",
         "refund_reason": "Причина возврата",
         "confirm_cancel": "Подтвердить отмену",
+        "refunds":"Возвраты",
         
         "new_booking": "Новое бронирование",
         "booking_history": "История бронирований",
@@ -233,6 +234,7 @@ TRANSLATIONS = {
         "edit_future_booking": "Kelajakdagi bronni tahrirlash",
         "refund_reason": "Qaytarish sababi",
         "confirm_cancel": "Bekor qilishni tasdiqlash",
+        "refunds":"Qaytarilgan pullar",
 
 
         "new_booking": "Yangi bron",
