@@ -11,6 +11,7 @@ TRANSLATIONS = {
         "refund_reason": "Причина возврата",
         "confirm_cancel": "Подтвердить отмену",
         "refunds":"Возвраты",
+        "no_refunds_in_selected_range":"",
         
         "new_booking": "Новое бронирование",
         "booking_history": "История бронирований",

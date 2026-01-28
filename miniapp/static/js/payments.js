@@ -150,7 +150,7 @@ function renderRefundHistory(rows) {
   if (!rows.length) {
     box.append(`
       <div class="text-center text-tgHint py-6">
-        {{t("no_refunds_in_selected_range")}}
+        ${t("no_refunds_in_selected_range")}
       </div>
     `);
     return;
@@ -166,9 +166,24 @@ function renderRefundHistory(rows) {
           ${r.refund_reason || "-"}
         </div>
         <div class="text-xs text-tgHint">
-          ${r.created_at}
+          ${formatDateTime(r.created_at)}
         </div>
       </div>
     `);
+  });
+}
+
+
+function formatDateTime(value) {
+  if (!value) return "-";
+
+  const d = new Date(value.replace(" ", "T"));
+
+  return d.toLocaleString(undefined, {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
   });
 }
