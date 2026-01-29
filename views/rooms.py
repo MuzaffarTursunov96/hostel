@@ -7,6 +7,7 @@ from PySide6.QtGui import QCursor,QIcon
 
 from i18n import t
 from .api_client import api_get, api_post, api_delete
+from .utils import resource_path
 
 
 
@@ -55,13 +56,13 @@ class RoomsPage(QWidget):
         room_actions = QHBoxLayout()
 
         btn_add_room = QPushButton(t("add_room"))
-        btn_add_room.setIcon(QIcon("assets/icons/room-add.png"))
+        btn_add_room.setIcon(QIcon(resource_path("assets/icons/room-add.png")))
         btn_add_room.setIconSize(QSize(18, 18))
         btn_add_room.clicked.connect(self.add_room)
         btn_add_room.setCursor(QCursor(Qt.PointingHandCursor))
 
         btn_delete_room = QPushButton(t("delete_room"))
-        btn_delete_room.setIcon(QIcon("assets/icons/room-delete.png"))
+        btn_delete_room.setIcon(QIcon(resource_path("assets/icons/room-delete.png")))
         btn_delete_room.setIconSize(QSize(18, 18))
         btn_delete_room.clicked.connect(self.delete_room)
         btn_delete_room.setCursor(QCursor(Qt.PointingHandCursor))
@@ -98,13 +99,13 @@ class RoomsPage(QWidget):
         bed_actions = QHBoxLayout()
 
         btn_add_bed = QPushButton(t("add_bed"))
-        btn_add_bed.setIcon(QIcon("assets/icons/bed-add.png"))
+        btn_add_bed.setIcon(QIcon(resource_path("assets/icons/bed-add.png")))
         btn_add_bed.setIconSize(QSize(18, 18))
         btn_add_bed.clicked.connect(self.add_bed)
         btn_add_bed.setCursor(QCursor(Qt.PointingHandCursor))
 
         btn_delete_bed = QPushButton(t("delete_bed"))
-        btn_delete_bed.setIcon(QIcon("assets/icons/bed-delete.png"))
+        btn_delete_bed.setIcon(QIcon(resource_path("assets/icons/bed-delete.png")))
         btn_delete_bed.setIconSize(QSize(18, 18))
         btn_delete_bed.clicked.connect(self.delete_bed)
         btn_delete_bed.setCursor(QCursor(Qt.PointingHandCursor))

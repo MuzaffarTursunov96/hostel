@@ -23,7 +23,6 @@ from views.license_dialog import LicenseDialog
 from views.utils import load_license, get_device_id
 import requests
 
-import os
 from dotenv import load_dotenv
 load_dotenv()
 ROOT_TELEGRAM_ID = int(os.getenv("ROOT_TELEGRAM_ID"))
@@ -35,6 +34,16 @@ API_URL = os.getenv("API_BASE_URL")
 
 from i18n import t, set_lang
 from utils.config import load_config, save_config
+
+
+def resource_path(relative_path: str) -> str:
+    """
+    Resolve resource path for dev and PyInstaller
+    """
+    if hasattr(sys, "_MEIPASS"):
+        return os.path.join(sys._MEIPASS, relative_path)
+    return os.path.join(os.path.abspath("."), relative_path)
+
 
 def should_skip_license():
     # root machine bootstrap (first setup)
@@ -312,8 +321,9 @@ class App(QMainWindow):
 
 def load_style(app):
     try:
-        with open("style.qss", "r", encoding="utf-8") as f:
+        with open(resource_path("style.qss"), "r", encoding="utf-8") as f:
             app.setStyleSheet(f.read())
+
     except Exception as e:
         print("Style load failed:", e)
 
@@ -322,11 +332,7 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
 
     # ===== SET APPLICATION ICON =====
-    icon_path = os.path.join(
-        os.path.dirname(__file__),
-        "assets",
-        "app1.ico"
-    )
+    icon_path = resource_path("assets/app1.ico")
     app.setWindowIcon(QIcon(icon_path))
 
     load_style(app)

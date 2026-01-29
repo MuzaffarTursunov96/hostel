@@ -16,6 +16,7 @@ from .api_client import api_get, api_post
 from .payment_history import PaymentHistoryDialog
 from .expenses_table import ExpensesTableDialog
 from .refunds import RefundsPage
+from .utils import resource_path
 
 
 
@@ -177,19 +178,19 @@ class PaymentsPage(QWidget):
 
         history_btn = make_small_btn(
             t("payment_history"),
-            "assets/icons/payments.png",
+            resource_path("assets/icons/payments.png"),
             self.open_history
         )
 
         expenses_btn = make_small_btn(
             t("view_expenses_table"),
-            "assets/icons/expenses.png",
+            resource_path("assets/icons/expenses.png"),
             self.open_expenses_table
         )
 
         refunds_btn = make_small_btn(
             t("refunds"),
-            "assets/icons/refunds.png",
+            resource_path("assets/icons/refunds.png"),
             self.open_refunds
         )
 

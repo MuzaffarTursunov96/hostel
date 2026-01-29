@@ -3,7 +3,8 @@ from PySide6.QtWidgets import (
     QLineEdit, QPushButton
 )
 from PySide6.QtCore import Qt
-import requests
+# import requests
+from .api_session import SESSION, API_URL
 
 from .utils import get_device_id, save_license
 
@@ -44,13 +45,13 @@ class LicenseDialog(QDialog):
             return
 
         try:
-            r = requests.post(
+            r = SESSION.post(
                 f"{API_URL}/license/verify",
                 params={
                     "license_key": key,
                     "device_id": get_device_id()
                 },
-                timeout=10
+                timeout=(10, 20)
             )
 
             if r.status_code != 200:

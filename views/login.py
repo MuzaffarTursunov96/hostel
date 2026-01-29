@@ -7,26 +7,18 @@ from PySide6.QtCore import Qt, QThread, Signal, QObject
 from PySide6.QtGui import QPixmap,QIcon
 from PySide6.QtWidgets import QProgressBar
 
-import requests
+from .api_session import SESSION, warmup_api
+
 import threading
+from .utils import resource_path
 
 from i18n import t
 
 API_URL = "https://hmsuz.com/api"
 
 # 🔥 Shared session (TLS will be reused)
-SESSION = requests.Session()
-SESSION.headers.update({
-    "Connection": "keep-alive"
-})
 
-
-
-def warmup_api():
-    try:
-        SESSION.get(f"{API_URL}/health", timeout=5)
-    except Exception:
-        pass  # warm-up only
+warmup_api()
 
 
 
@@ -54,7 +46,7 @@ class LoginWorker(QObject):
                     "username": self.username,
                     "password": self.password
                 },
-                timeout=(10, 30)  # ✅ longer handshake + read
+                timeout=(10, 30)
             )
 
             if r.status_code != 200:
@@ -93,7 +85,7 @@ class LoginPage(QWidget):
 
         # ===== BACKGROUND IMAGE =====
         self.bg = QLabel(self)
-        self.bg.setPixmap(QPixmap("assets/icons/login_bg.jpg"))
+        self.bg.setPixmap(QPixmap(resource_path("assets/icons/login_bg.jpg")))
         self.bg.setScaledContents(True)
         self.bg.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.bg.lower()
@@ -152,7 +144,7 @@ class LoginPage(QWidget):
         self.username.setPlaceholderText(t("username"))
         self.username.setFixedHeight(44)
         self.username.addAction(
-            QIcon("assets/icons/user.png"),
+            QIcon(resource_path("assets/icons/user.png")),
             QLineEdit.LeadingPosition
         )
 
@@ -161,7 +153,7 @@ class LoginPage(QWidget):
         self.password.setEchoMode(QLineEdit.Password)
         self.password.setFixedHeight(44)
         self.password.addAction(
-            QIcon("assets/icons/locked.png"),
+            QIcon(resource_path("assets/icons/locked.png")),
             QLineEdit.LeadingPosition
         )
 

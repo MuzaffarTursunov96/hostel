@@ -9,6 +9,7 @@ from PySide6.QtGui import QCursor,QIcon
 from utils.config import load_config, save_config
 from i18n import set_lang, t
 from .api_client import api_post,api_get
+from .utils import resource_path
 
 
 
@@ -39,7 +40,7 @@ class SettingsPage(QWidget):
         # ===== TITLE =====
         title = self.make_title(
             t("settings"),
-            "assets/icons/settings2.png",
+            resource_path("assets/icons/settings2.png"),
             size=24
         )
         self.layout.addWidget(title)
@@ -51,7 +52,7 @@ class SettingsPage(QWidget):
         # ===== USER SETTINGS =====
         user_lbl = self.make_title(
             t("user_settings"),
-            "assets/icons/locked.png",
+            resource_path("assets/icons/locked.png"),
             size=18
         )
         self.layout.addWidget(user_lbl)
@@ -77,7 +78,7 @@ class SettingsPage(QWidget):
             self.layout.addWidget(w)
 
         save_btn = QPushButton(t("save_changes"))
-        save_btn.setIcon(QIcon("assets/icons/save.png"))
+        save_btn.setIcon(QIcon(resource_path("assets/icons/save.png")))
         save_btn.setIconSize(QSize(16, 16))
         save_btn.clicked.connect(self.change_password)
         self.layout.addWidget(save_btn)
@@ -86,7 +87,7 @@ class SettingsPage(QWidget):
         # ===== LANGUAGE =====
         lang_lbl = self.make_title(
             t("language"),
-            "assets/icons/language.png",
+            resource_path("assets/icons/language.png"),
             size=18
         )
         self.layout.addWidget(lang_lbl)
@@ -136,7 +137,7 @@ class SettingsPage(QWidget):
 
         title = self.make_title(
             t("branch_management"),
-            "assets/icons/branch.png",
+            resource_path("assets/icons/branch.png"),
             size=18
         )
         layout.addWidget(title)
@@ -151,7 +152,7 @@ class SettingsPage(QWidget):
         self.new_branch = QLineEdit()
         self.new_branch.setPlaceholderText(t("new_branch_name"))
         add_btn = QPushButton(t("add_branch"))
-        add_btn.setIcon(QIcon("assets/icons/add2.png"))
+        add_btn.setIcon(QIcon(resource_path("assets/icons/add2.png")))
         add_btn.setIconSize(QSize(16, 16))
         add_btn.clicked.connect(self.add_branch_action)
         add_btn.setCursor(QCursor(Qt.PointingHandCursor))
@@ -165,7 +166,7 @@ class SettingsPage(QWidget):
         self.rename_branch = QLineEdit()
         self.rename_branch.setPlaceholderText(t("rename_selected_branch"))
         edit_btn = QPushButton(t("update"))
-        edit_btn.setIcon(QIcon("assets/icons/edit.png"))
+        edit_btn.setIcon(QIcon(resource_path("assets/icons/edit.png")))
         edit_btn.setIconSize(QSize(16, 16))
         edit_btn.clicked.connect(self.rename_branch_action)
         edit_btn.setCursor(QCursor(Qt.PointingHandCursor))

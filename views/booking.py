@@ -8,7 +8,7 @@ from PySide6.QtGui import QCursor,QIcon
 
 from .api_client import api_get, api_post
 from i18n import t
-
+from .utils import resource_path
 
 class BookingPage(QWidget):
     def __init__(self, app, branch_id):
@@ -76,7 +76,7 @@ class BookingPage(QWidget):
         layout.setContentsMargins(24, 24, 24, 24)
 
         # ===== ROOM =====
-        layout.addWidget(self.section_title(t("room"), "assets/icons/room.png"))
+        layout.addWidget(self.section_title(t("room"), resource_path("assets/icons/room.png")))
 
         self.room_dropdown = QComboBox()
         self.room_dropdown.setFixedHeight(38)
@@ -84,7 +84,7 @@ class BookingPage(QWidget):
         layout.addWidget(self.room_dropdown)
 
         # ===== DATES =====
-        layout.addWidget(self.section_title(t("dates"), "assets/icons/google-calendar.png"))
+        layout.addWidget(self.section_title(t("dates"), resource_path("assets/icons/google-calendar.png")))
 
         self.checkin = QDateEdit(QDate.currentDate())
         self.checkout = QDateEdit(QDate.currentDate().addDays(1))
@@ -109,7 +109,7 @@ class BookingPage(QWidget):
         layout.addLayout(dates)
 
         # ===== BEDS =====
-        layout.addWidget(self.section_title(t("available_beds"), "assets/icons/bed.png"))
+        layout.addWidget(self.section_title(t("available_beds"), resource_path("assets/icons/bed.png")))
 
         beds_scroll = QScrollArea()
         beds_scroll.setWidgetResizable(True)
@@ -123,7 +123,7 @@ class BookingPage(QWidget):
         layout.addWidget(beds_scroll)
 
         # ===== CUSTOMER =====
-        layout.addWidget(self.section_title(t("customer"), "assets/icons/account.png"))
+        layout.addWidget(self.section_title(t("customer"), resource_path("assets/icons/account.png")))
 
         self.customer_box = QComboBox()
         self.customer_box.setEditable(True)
@@ -145,7 +145,7 @@ class BookingPage(QWidget):
         layout.addWidget(self.contact_entry)
 
         # ===== PAYMENT =====
-        layout.addWidget(self.section_title(t("payment"), "assets/icons/usd.png"))
+        layout.addWidget(self.section_title(t("payment"), resource_path("assets/icons/usd.png")))
 
         self.total_entry = QLineEdit()
         self.total_entry.setPlaceholderText(t("total_amount"))
@@ -173,7 +173,7 @@ class BookingPage(QWidget):
 
         # ===== CONFIRM =====
         confirm = QPushButton(t("confirm_booking"))
-        confirm.setIcon(QIcon("assets/icons/checklist2.png"))
+        confirm.setIcon(QIcon(resource_path("assets/icons/checklist2.png")))
         confirm.setIconSize(QSize(18, 18))
         confirm.setFixedHeight(48)
         confirm.setCursor(QCursor(Qt.PointingHandCursor))

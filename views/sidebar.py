@@ -7,6 +7,7 @@ from PySide6.QtGui import QIcon,QPixmap,QCursor
 import os
 
 from .brand import BrandWidget
+from .utils import resource_path
 
 from i18n import t
 
@@ -61,14 +62,14 @@ class Sidebar(QFrame):
 
 
         # ===== Menu =====
-        self.add_btn(layout, t("dashboard"), "dashboard", "assets/icons/dashboard.png")
-        self.add_btn(layout, t("rooms"), "rooms", "assets/icons/rooms.png")
-        self.add_btn(layout, t("bookings"), "bookings", "assets/icons/booking.png")
-        self.add_btn(layout, t("booking_history"), "booking_history", "assets/icons/history.png")
-        self.add_btn(layout, t("customers"), "customers", "assets/icons/group.png")
-        self.add_btn(layout, t("payments"), "payments", "assets/icons/payment.png")
-        self.add_btn(layout, t("debts"), "debts", "assets/icons/money.png")
-        self.add_btn(layout, t("settings"), "settings", "assets/icons/settings.png")
+        self.add_btn(layout, t("dashboard"), "dashboard", resource_path("assets/icons/dashboard.png"))
+        self.add_btn(layout, t("rooms"), "rooms", resource_path("assets/icons/rooms.png"))
+        self.add_btn(layout, t("bookings"), "bookings", resource_path("assets/icons/booking.png"))
+        self.add_btn(layout, t("booking_history"), "booking_history", resource_path("assets/icons/history.png"))
+        self.add_btn(layout, t("customers"), "customers", resource_path("assets/icons/group.png"))
+        self.add_btn(layout, t("payments"), "payments", resource_path("assets/icons/payment.png"))
+        self.add_btn(layout, t("debts"), "debts", resource_path("assets/icons/money.png"))
+        self.add_btn(layout, t("settings"), "settings", resource_path("assets/icons/settings.png"))
 
                 # ===== Root Admin (ONLY FOR ROOT) =====
         if (
@@ -88,7 +89,7 @@ class Sidebar(QFrame):
 
         # ===== Logout =====
         logout = QPushButton("  " + t("logout"))
-        logout.setIcon(QIcon("assets/icons/logout.png"))
+        logout.setIcon(QIcon(resource_path("assets/icons/logout.png")))
         
         logout.setProperty("danger", "true")
         logout.setFixedHeight(42)

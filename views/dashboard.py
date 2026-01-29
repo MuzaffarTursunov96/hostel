@@ -11,6 +11,7 @@ from datetime import datetime
 from .api_client import api_get
 from i18n import t
 from layouts.flow_layout import FlowLayout
+from .utils import resource_path
 
 class CountdownBox(QFrame):
     def __init__(self, end_time=None, static=False):
@@ -96,7 +97,7 @@ class CalendarBedCell(QFrame):
         # future icon (INLINE, NOT NEW LINE)
         if bed.get("has_future"):
             icon = QLabel()
-            pix = QPixmap("assets/icons/calendar.png")
+            pix = QPixmap(resource_path("assets/icons/calendar.png"))
             icon.setPixmap(
                 pix.scaled(14, 14, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             )
@@ -224,7 +225,7 @@ class DashboardPage(QWidget):
 
         # ===== SMALL REFRESH BUTTON =====
         refresh_btn = QPushButton()
-        refresh_btn.setIcon(QIcon("assets/icons/refresh.png"))  # reuse your icon
+        refresh_btn.setIcon(QIcon(resource_path("assets/icons/refresh.png")))  # reuse your icon
         refresh_btn.setFixedSize(26, 26)
         refresh_btn.setIconSize(QSize(16, 16))
         refresh_btn.setCursor(QCursor(Qt.PointingHandCursor))
@@ -253,7 +254,7 @@ class DashboardPage(QWidget):
         active_btn.setFixedHeight(32)
         active_btn.setProperty("primary", "true")
 
-        active_btn.setIcon(QIcon("assets/icons/active_booking.png"))  # <-- your icon path
+        active_btn.setIcon(QIcon(resource_path("assets/icons/active_booking.png")))  # <-- your icon path
         active_btn.setIconSize(QSize(18, 18))
         active_btn.setCursor(QCursor(Qt.PointingHandCursor))
 
@@ -279,12 +280,12 @@ class DashboardPage(QWidget):
         self.to_date.setCalendarPopup(True)
 
         filter_btn = QPushButton(t("search"))
-        filter_btn.setIcon(QIcon("assets/icons/search.png"))
+        filter_btn.setIcon(QIcon(resource_path("assets/icons/search.png")))
         filter_btn.clicked.connect(self.apply_date_filter)
         filter_btn.setCursor(QCursor(Qt.PointingHandCursor))
 
         reset_btn = QPushButton(t("reset_dashboard"))
-        reset_btn.setIcon(QIcon("assets/icons/reset.png"))  # optional icon
+        reset_btn.setIcon(QIcon(resource_path("assets/icons/reset.png")))  # optional icon
         reset_btn.clicked.connect(self.reset_filter)
         reset_btn.setCursor(QCursor(Qt.PointingHandCursor))
 
