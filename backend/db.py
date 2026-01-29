@@ -2229,3 +2229,56 @@ def generate(key,is_trial=False,trial_days=7):
             }
         )
         conn.commit()
+
+def list_licenses_db():
+    with get_connection() as conn:
+        result = conn.execute(
+            text("""
+                SELECT id, license_key, device_id, is_trial,
+               trial_days, expires_at, is_active, created_at
+                FROM licenses
+                ORDER BY created_at DESC
+            """)
+        )
+        return result.mappings().all()
+    
+def update_license_db(
+            license_id,
+            expires_at=None,
+            is_active=None,
+            trial_days=None,
+            is_trial=None
+        ):
+    with get_connection() as conn:
+        conn.execute(
+            text("""
+                UPDATE licenses
+                SET
+                    expires_at = COALESCE(:expires_at, expires_at),
+                    is_active  = COALESCE(:is_active, is_active),
+                    trial_days = COALESCE(:trial_days, trial_days),
+                    is_trial   = COALESCE(:is_trial, is_trial)
+                WHERE id = :id
+            """),
+            {
+                "id": license_id,
+                "expires_at": expires_at,
+                "is_active": is_active,
+                "trial_days": trial_days,
+                "is_trial": is_trial
+            }
+        )
+        conn.commit()
+
+    
+def reset_device_db(license_id):
+    with get_connection() as conn:
+        conn.execute(
+            text("""
+                UPDATE licenses
+                SET device_id = NULL
+                WHERE id = :id
+            """),
+            {"id": license_id})
+        conn.commit()
+        return {"status": "ok"}

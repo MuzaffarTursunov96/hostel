@@ -5,7 +5,11 @@ from api.deps import get_current_user
 from db import (get_license_key, 
                 update_license_key, 
                 activate_trial,
-                generate)
+                generate,
+                list_licenses_db,
+                update_license_db,
+                reset_device_db
+                )
 
 router = APIRouter(prefix="/license", tags=["LICENSE"])
 
@@ -59,3 +63,46 @@ def verify_license(license_key: str, device_id: str):
         "status": "ok",
         "expires_at": license["expires_at"]
     }
+
+
+@router.get("/admin/list")
+def list_licenses(user=Depends(get_current_user)):
+    if not user["is_admin"] or int(user["telegram_id"]) not in [1343842535,6220656963]:
+        raise HTTPException(403, "Not allowed")
+
+    rows = list_licenses_db() 
+    return rows
+
+
+@router.post("/admin/update")
+def update_license(
+    license_id: int,
+    expires_at: datetime | None = None,
+    is_active: bool | None = None,
+    trial_days: int | None = None,
+    is_trial: bool | None = None,
+    user=Depends(get_current_user)
+):
+    if not user["is_admin"] or int(user["telegram_id"]) not in ROOT_IDS:
+        raise HTTPException(403, "Not allowed")
+
+    update_license_db(
+        license_id=license_id,
+        expires_at=expires_at,
+        is_active=is_active,
+        trial_days=trial_days,
+        is_trial=is_trial
+    )
+
+    return {"status": "ok"}
+
+
+
+@router.post("/admin/reset-device")
+def reset_device(license_id: int, user=Depends(get_current_user)):
+    if not user["is_admin"] or int(user["telegram_id"]) not in [1343842535, 6220656963]:
+        raise HTTPException(403, "Not allowed")
+
+    reset_device_db(license_id)
+
+    return {"status": "ok"}

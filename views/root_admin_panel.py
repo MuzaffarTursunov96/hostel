@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 from requests.exceptions import HTTPError
 from PySide6.QtGui import QCursor
+from datetime import datetime, timedelta
 
 from .api_client import api_get, api_post,api_delete
 
@@ -385,9 +386,13 @@ class LicensesTab(QWidget):
         super().__init__()
         self.app = app
 
-        layout = QVBoxLayout(self)
+        root = QVBoxLayout(self)
 
-        # ---- Trial checkbox ----
+        # =========================
+        # GENERATE LICENSE (YOUR FEATURE)
+        # =========================
+        gen_box = QVBoxLayout()
+
         self.trial_chk = QCheckBox("Trial license")
         self.trial_days = QLineEdit()
         self.trial_days.setPlaceholderText("Trial days (e.g. 7)")
@@ -397,22 +402,50 @@ class LicensesTab(QWidget):
             lambda s: self.trial_days.setEnabled(bool(s))
         )
 
-        # ---- Generate button ----
         self.gen_btn = QPushButton("🔑 Generate License")
         self.gen_btn.clicked.connect(self.generate)
         self.gen_btn.setCursor(QCursor(Qt.PointingHandCursor))
 
-        # ---- Output ----
         self.output = QLineEdit()
         self.output.setReadOnly(True)
         self.output.setPlaceholderText("Generated license will appear here")
 
-        layout.addWidget(self.trial_chk)
-        layout.addWidget(self.trial_days)
-        layout.addWidget(self.gen_btn)
-        layout.addWidget(QLabel("License key"))
-        layout.addWidget(self.output)
+        gen_box.addWidget(self.trial_chk)
+        gen_box.addWidget(self.trial_days)
+        gen_box.addWidget(self.gen_btn)
+        gen_box.addWidget(QLabel("Generated license key"))
+        gen_box.addWidget(self.output)
 
+        root.addLayout(gen_box)
+
+        # =========================
+        # SEPARATOR
+        # =========================
+        root.addWidget(QLabel("—" * 60))
+
+        # =========================
+        # LICENSE LIST (NEW FEATURE)
+        # =========================
+        self.table = QTableWidget(0, 8)
+        self.table.setHorizontalHeaderLabels([
+            "ID", "License Key", "Device",
+            "Trial", "Expires At", "Active",
+            "Created", "Actions"
+        ])
+        self.table.horizontalHeader().setStretchLastSection(True)
+
+        refresh = QPushButton("🔄 Refresh")
+        refresh.clicked.connect(self.load)
+        refresh.setCursor(QCursor(Qt.PointingHandCursor))
+
+        root.addWidget(refresh)
+        root.addWidget(self.table)
+
+        self.load()
+
+    # =========================
+    # GENERATE LICENSE
+    # =========================
     def generate(self):
         is_trial = self.trial_chk.isChecked()
         days = self.trial_days.text().strip()
@@ -431,6 +464,7 @@ class LicensesTab(QWidget):
                 "Success",
                 "License generated successfully"
             )
+            self.load()  # 🔄 refresh list
 
         except HTTPError as e:
             try:
@@ -439,3 +473,109 @@ class LicensesTab(QWidget):
                 msg = str(e)
 
             QMessageBox.critical(self, "Error", msg)
+
+    # =========================
+    # LOAD LICENSE LIST
+    # =========================
+    def load(self):
+        self.table.setRowCount(0)
+        licenses = api_get(self.app, "/license/admin/list")
+
+        for lic in licenses:
+            row = self.table.rowCount()
+            self.table.insertRow(row)
+
+            self.table.setItem(row, 0, QTableWidgetItem(str(lic["id"])))
+            self.table.setItem(row, 1, QTableWidgetItem(lic["license_key"]))
+            self.table.setItem(row, 2, QTableWidgetItem(
+                "✔" if lic["device_id"] else "-"
+            ))
+            self.table.setItem(row, 3, QTableWidgetItem(
+                "Yes" if lic["is_trial"] else "No"
+            ))
+            self.table.setItem(row, 4, QTableWidgetItem(
+                str(lic["expires_at"] or "-")
+            ))
+
+            chk = QCheckBox()
+            chk.setChecked(lic["is_active"])
+            chk.stateChanged.connect(
+                lambda s, i=lic["id"]: self.set_active(i, bool(s))
+            )
+            self.table.setCellWidget(row, 5, chk)
+
+            self.table.setItem(row, 6, QTableWidgetItem(
+                str(lic["created_at"])
+            ))
+
+            actions = QWidget()
+            hl = QHBoxLayout(actions)
+            hl.setContentsMargins(0, 0, 0, 0)
+
+            edit_btn = QPushButton("✏ Edit Expiry")
+            edit_btn.clicked.connect(
+                lambda _, i=lic["id"]: self.edit_expiry(i)
+            )
+
+            reset_btn = QPushButton("🔄 Reset Device")
+            reset_btn.clicked.connect(
+                lambda _, i=lic["id"]: self.reset_device(i)
+            )
+
+            hl.addWidget(edit_btn)
+            hl.addWidget(reset_btn)
+            self.table.setCellWidget(row, 7, actions)
+
+    # =========================
+    # ACTIONS
+    # =========================
+    def set_active(self, license_id, active):
+        api_post(self.app, "/license/admin/update", {
+            "license_id": license_id,
+            "is_active": active
+        })
+
+    def reset_device(self, license_id):
+        reply = QMessageBox.question(
+            self,
+            "Confirm",
+            "Reset device binding for this license?",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        if reply == QMessageBox.Yes:
+            api_post(self.app, "/license/admin/reset-device", {
+                "license_id": license_id
+            })
+            self.load()
+
+    def edit_expiry(self, license_id):
+        days, ok = QInputDialog.getInt(
+            self,
+            "Edit Trial",
+            "Trial days (0 = no trial)",
+            min=0,
+            max=365
+        )
+        if not ok:
+            return
+
+        payload = {"license_id": license_id}
+
+        if days == 0:
+            payload.update({
+                "is_trial": False,
+                "trial_days": None,
+                "expires_at": None
+            })
+        else:
+            payload.update({
+                "is_trial": True,
+                "trial_days": days,
+                # 🔥 IMPORTANT
+                "expires_at": (datetime.utcnow() + timedelta(days=days)).isoformat()
+            })
+
+        api_post(self.app, "/license/admin/update", payload)
+        self.load()
+
+
