@@ -66,7 +66,7 @@ async def rename_branch(data: dict, user=Depends(get_current_user)):
 
 
 
-@router.post("/branches")
+@router.post("/branches-admin")
 def create_branch_admin(data: dict, current_user=Depends(get_current_user)):
     if not current_user.get("is_admin"):
         raise HTTPException(403, "Admin only")

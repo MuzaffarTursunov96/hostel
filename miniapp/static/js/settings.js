@@ -126,7 +126,7 @@ function  createBranch() {
     return;
   }
 
-  apiPost("/branches", { name })
+  apiPost("/branches/branches-admin", { name })
     .done(function () {
       $("#newBranchName").val("");
       alert(t("branch_created"));
