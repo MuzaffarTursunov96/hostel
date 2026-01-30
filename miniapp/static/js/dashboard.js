@@ -638,8 +638,9 @@ $(document).ready(function () {
 
   apiGet("/auth/me").done(function (me) {
     var CURRENT_BRANCH = me.branch_id;
+    
 
-    localStorage.setItem("CURRENT_BRANCH", branchId);
+    localStorage.setItem("CURRENT_BRANCH", CURRENT_BRANCH);
 
     // 🔐 SAVE TO FLASK SESSION
     fetch("/api2/auth/save-context", {
