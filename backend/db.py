@@ -2333,13 +2333,24 @@ def list_users_by_admin_db(admin_id):
 
 def delete_user_by_admin_db(user_id, admin_id):
     with get_connection() as conn:
+        # 1️⃣ delete relations first
+        conn.execute(text("""
+            DELETE FROM user_branches
+            WHERE user_id = :uid
+        """), {"uid": user_id})
+
+        # 2️⃣ delete user
         res = conn.execute(text("""
             DELETE FROM users
             WHERE id = :uid
               AND created_by = :aid
-        """), {"uid": user_id, "aid": admin_id})
+        """), {
+            "uid": user_id,
+            "aid": admin_id
+        })
 
         return res.rowcount > 0
+
 
 def reset_password_db(new_password, user_id, admin_id):
     with get_connection() as conn:
