@@ -85,7 +85,7 @@ def create_branch_admin(data: dict, current_user=Depends(get_current_user)):
         "branch_id": branch_id
     }
 
-@router.post("/branches/{branch_id}/assign-user")
+@router.post("/{branch_id}/assign-user")
 def assign_user_to_branch(
     branch_id: int,
     data: dict,
