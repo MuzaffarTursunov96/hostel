@@ -643,18 +643,19 @@ $(document).ready(function () {
     localStorage.setItem("CURRENT_BRANCH", CURRENT_BRANCH);
 
     alert(CURRENT_BRANCH,'branch id')
+    loadDashboard();
 
     // 🔐 SAVE TO FLASK SESSION
-    fetch("/api2/auth/save-context", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        branch_id: CURRENT_BRANCH
-      })
-    }).then(() => {
-      loadDashboard();
-      // startWebSocket();
-    });
+    // fetch("/api2/auth/save-context", {
+    //   method: "POST",
+    //   headers: { "Content-Type": "application/json" },
+    //   body: JSON.stringify({
+    //     branch_id: CURRENT_BRANCH
+    //   })
+    // }).then(() => {
+      
+    //   // startWebSocket();
+    // });
 
   }).fail(function () {
     // fallback
