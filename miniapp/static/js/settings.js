@@ -1,6 +1,8 @@
 let BRANCHES = [];
 let CURRENT_BRANCH = null;
 let CURRENT_LANG = "ru";
+let SELECTED_USER_ID = null;
+
 
 $(document).ready(function () {
 
@@ -166,41 +168,6 @@ function deleteBranch() {
 
 
 
-
-function assignUserToBranch() {
-  const userId = $("#userSelect").val();
-  const branchId = $("#branchSelect").val();
-
-  if (!userId || !branchId) {
-    alert(t("select_user_and_branch"));
-    return;
-  }
-
-  apiPost(`/branches/${branchId}/users`, {
-    user_id: Number(userId)
-  }).done(function () {
-    alert(t("user_added_to_branch"));
-  });
-}
-
-
-function removeUserFromBranch() {
-  const userId = $("#userSelect").val();
-  const branchId = $("#branchSelect").val();
-
-  if (!userId || !branchId) {
-    alert(t("select_user_and_branch"));
-    return;
-  }
-
-  apiDelete(`/branches/${branchId}/users/${userId}`)
-    .done(function () {
-      alert(t("user_removed_from_branch"));
-    });
-}
-
-
-
 /* ================= PASSWORD ================= */
 
 function changePassword() {
@@ -323,4 +290,63 @@ function deleteUser() {
       // 🔄 reload users
       loadUsers();
     });
+}
+
+
+function openUserBranchModal() {
+  const userId = $("#userSelect").val();
+  if (!userId) {
+    alert(t("select_user"));
+    return;
+  }
+
+  SELECTED_USER_ID = userId;
+  $("#userBranchModal").removeClass("hidden");
+
+  apiGet("/branches").done(function (branches) {
+    const box = $("#branchCheckboxList").empty();
+
+    branches.forEach(b => {
+      box.append(`
+        <label class="flex items-center gap-2">
+          <input type="checkbox" class="branch-check" value="${b.id}">
+          <span>${b.name}</span>
+        </label>
+      `);
+    });
+  });
+}
+
+
+function saveUserBranches() {
+  if (!SELECTED_USER_ID) {
+    alert(t("select_user"));
+    return;
+  }
+
+  const branchIds = $(".branch-check:checked")
+    .map(function () {
+      return Number(this.value);
+    })
+    .get();
+
+  if (!branchIds.length) {
+    alert(t("select_branch"));
+    return;
+  }
+
+  const requests = branchIds.map(branchId =>
+    apiPost(`/branches/${branchId}/assign-user`, {
+      user_id: Number(SELECTED_USER_ID)
+    })
+  );
+
+  Promise.all(requests).then(() => {
+    alert(t("saved"));
+    closeUserBranchModal();
+  });
+}
+
+function closeUserBranchModal() {
+  $("#userBranchModal").addClass("hidden");
 }
