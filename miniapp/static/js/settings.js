@@ -24,12 +24,11 @@ $(document).ready(function () {
       // startWebSocket();
     });
 
-    if (!me.is_admin) {
-      $(".admin-only").hide();
-    }
-
     if (me.is_admin) {
-      loadUsers();
+      loadUsers();     // already done
+      loadBranches();  // 🔥 new
+    } else {
+      $(".admin-only").hide();
     }
 
 
@@ -107,7 +106,7 @@ $(document).on("change", "#branchSelect", function () {
 
   // ✅ update frontend immediately
   CURRENT_BRANCH = branchId;
-  
+
   $("#branchSelect").val(branchId);
 
   localStorage.setItem("CURRENT_BRANCH", branchId);
@@ -117,20 +116,22 @@ $(document).on("change", "#branchSelect", function () {
   setCurrentBranch(branchId);
 });
 
-function addBranch() {
+function  createBranch() {
   const name = $("#newBranchName").val().trim();
+
   if (!name) {
-    alert(t("branch_name_cannot_be_empty"));
+    alert(t("branch_name_required"));
     return;
   }
 
   apiPost("/branches", { name })
     .done(function () {
       $("#newBranchName").val("");
+      alert(t("branch_created"));
       loadBranches();
-      alert(t("branch_added_successfully"));
     });
 }
+
 
 function renameBranch() {
   const branchId = $("#branchSelect").val();
@@ -278,4 +279,48 @@ function setCurrentBranch(branchId) {
     });
 
   });
+}
+
+
+function createUser() {
+  const username = $("#newUsername").val().trim();
+  const password = $("#newUserPassword").val().trim();
+
+  if (!username || !password) {
+    alert(t("fill_all_fields"));
+    return;
+  }
+
+  apiPost("/users", {
+    username: username,
+    password: password
+  }).done(function () {
+
+    $("#newUsername").val("");
+    $("#newUserPassword").val("");
+
+    alert(t("user_created_successfully"));
+
+    // 🔄 reload users list
+    loadUsers();
+  });
+}
+
+function deleteUser() {
+  const userId = $("#userSelect").val();
+
+  if (!userId) {
+    alert(t("select_user"));
+    return;
+  }
+
+  if (!confirm(t("delete_user_confirm"))) return;
+
+  apiDelete(`/users/${userId}`)
+    .done(function () {
+      alert(t("user_deleted"));
+
+      // 🔄 reload users
+      loadUsers();
+    });
 }

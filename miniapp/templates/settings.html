@@ -19,6 +19,41 @@
   <h1 class="text-xl font-semibold">⚙ {{t("settings")}}</h1>
 
   <div class="admin-only">
+    <!-- ================= CREATE / DELETE USER ================= -->
+    <div class="bg-card rounded-2xl shadow p-4 space-y-3 admin-only">
+
+      <h3 class="font-semibold">👤 {{t("users")}}</h3>
+
+      <!-- CREATE -->
+      <input id="newUsername"
+            class="w-full px-3 py-2 rounded-lg border bg-transparent"
+            placeholder="{{t('username')}}">
+
+      <input id="newUserPassword"
+            type="password"
+            class="w-full px-3 py-2 rounded-lg border bg-transparent"
+            placeholder="{{t('password')}}">
+
+      <button onclick="createUser()"
+              class="w-full py-3 rounded-xl bg-blue-500 text-white font-semibold">
+        {{t("add")}}
+      </button>
+
+      <hr class="opacity-30">
+
+      <!-- DELETE -->
+      <select id="userSelect"
+              class="w-full px-3 py-2 rounded-lg border bg-transparent">
+      </select>
+
+      <button onclick="deleteUser()"
+              class="w-full py-3 rounded-xl bg-red-500 text-white font-semibold">
+        {{t("delete")}}
+      </button>
+
+    </div>
+
+
     <!-- ================= USER MANAGEMENT ================= -->
     <div class="bg-card rounded-2xl shadow p-4 space-y-4 admin-only">
 
@@ -45,44 +80,33 @@
 
 
     <!-- ================= BRANCH MANAGEMENT ================= -->
-    <div class="bg-card rounded-2xl shadow p-4 space-y-4">
+    <div class="bg-card rounded-2xl shadow p-4 space-y-3 admin-only">
 
       <h3 class="font-semibold">🏢 {{t("branch_management")}}</h3>
 
+      <!-- SELECT BRANCH -->
       <select id="branchSelect"
-
               class="w-full px-3 py-2 rounded-lg border bg-transparent">
       </select>
 
-      <div class="flex flex-wrap gap-2">
-        <input id="newBranchName"
-              class="flex-1 px-3 py-2 rounded-lg border bg-transparent"
-              placeholder='{{t("new_branch_name")}}'>
-        <button onclick="addBranch()"
-                class="w-full sm:w-auto px-4 py-2 rounded-xl bg-tgButton text-white font-medium">
-                
-          {{t("add")}}
-        </button>
-      </div>
+      <!-- CREATE -->
+      <input id="newBranchName"
+            class="w-full px-3 py-2 rounded-lg border bg-transparent"
+            placeholder="{{t('branch_name')}}">
 
-      <div class="flex flex-wrap gap-2">
-        <input id="renameBranchName"
-              class="flex-1 px-3 py-2 rounded-lg border bg-transparent"
-              placeholder='{{t("rename_selected_branch")}}'>
-        <button onclick="renameBranch()"
-                class="w-full sm:w-auto px-4 py-2 rounded-xl border font-medium">
-                
-          {{t("update")}}
-        </button>
-      </div>
+      <button onclick="createBranch()"
+              class="w-full py-3 rounded-xl bg-blue-500 text-white font-semibold">
+        {{t("add")}}
+      </button>
 
+      <!-- DELETE -->
       <button onclick="deleteBranch()"
-              class="w-full sm:w-auto px-4 py-2 rounded-xl bg-red-500 text-white">
+              class="w-full py-3 rounded-xl bg-red-500 text-white font-semibold">
         {{t("delete")}}
       </button>
 
-
     </div>
+
   </div>
 
   <!-- ================= PASSWORD ================= -->
