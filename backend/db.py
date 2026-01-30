@@ -1982,23 +1982,30 @@ def delete_admin_db(user_id: int):
     return {"status": "success"}
 
 
-def create_branch_db(name: str, current_user_id: int):
+def create_branch_db(name: str, created_by: int):
     with get_connection() as conn:
+        # 1️⃣ create branch
         branch_id = conn.execute(text("""
-            INSERT INTO branches (name)
-            VALUES (:name)
+            INSERT INTO branches (name, created_by)
+            VALUES (:name, :created_by)
             RETURNING id
-        """), {"name": name}).scalar()
+        """), {
+            "name": name,
+            "created_by": created_by
+        }).scalar()
 
+        # 2️⃣ connect admin to branch
         conn.execute(text("""
             INSERT INTO user_branches (user_id, branch_id)
-            VALUES (:uid, :bid)
+            VALUES (:user_id, :branch_id)
+            ON CONFLICT DO NOTHING
         """), {
-            "uid": current_user_id,
-            "bid": branch_id
+            "user_id": created_by,
+            "branch_id": branch_id
         })
 
-    return branch_id
+        return branch_id
+
 
 
 def delete_branch_db(branch_id: int):
