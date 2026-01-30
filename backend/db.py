@@ -204,7 +204,7 @@ def get_rooms_with_beds(branch_id):
                AND beds.branch_id = rooms.branch_id
             WHERE rooms.branch_id = :branch_id
             GROUP BY rooms.id, rooms.number
-            ORDER BY rooms.number ASC
+            ORDER BY rooms.id ASC
         """), {"branch_id": branch_id})
 
         rows = result.mappings().all()
@@ -1902,7 +1902,6 @@ def list_admins_db():
         admins = conn.execute(text("""
             SELECT id, telegram_id, username, is_active
             FROM users
-            WHERE is_admin = TRUE
             ORDER BY id
         """)).mappings().all()
 
