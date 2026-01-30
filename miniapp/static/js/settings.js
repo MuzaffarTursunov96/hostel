@@ -300,22 +300,34 @@ function openUserBranchModal() {
     return;
   }
 
-  SELECTED_USER_ID = userId;
+  SELECTED_USER_ID = Number(userId);
   $("#userBranchModal").removeClass("hidden");
 
-  apiGet("/branches").done(function (branches) {
-    const box = $("#branchCheckboxList").empty();
+  // 1️⃣ load assigned branches FIRST
+  apiGet(`/users/${SELECTED_USER_ID}/branches`).done(function (assigned) {
+    const assignedIds = assigned.map(b => b.id);
 
-    branches.forEach(b => {
-      box.append(`
-        <label class="flex items-center gap-2">
-          <input type="checkbox" class="branch-check" value="${b.id}">
-          <span>${b.name}</span>
-        </label>
-      `);
+    // 2️⃣ load all branches
+    apiGet("/branches").done(function (branches) {
+      const box = $("#branchCheckboxList").empty();
+
+      branches.forEach(b => {
+        const checked = assignedIds.includes(b.id) ? "checked" : "";
+
+        box.append(`
+          <label class="flex items-center gap-2">
+            <input type="checkbox"
+                   class="branch-check"
+                   value="${b.id}"
+                   ${checked}>
+            <span>${b.name}</span>
+          </label>
+        `);
+      });
     });
   });
 }
+
 
 
 function saveUserBranches() {

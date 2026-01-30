@@ -2496,3 +2496,18 @@ def list_users_in_branch_db(admin_id, branch_id):
             "bid": branch_id,
             "aid": admin_id
         }).mappings().all()
+
+
+def list_user_branches_db(admin_id: int, user_id: int):
+    with get_connection() as conn:
+        return conn.execute(text("""
+            SELECT b.id, b.name
+            FROM branches b
+            JOIN user_branches ub ON ub.branch_id = b.id
+            JOIN users u ON u.id = ub.user_id
+            WHERE u.id = :user_id
+              AND b.created_by = :admin_id
+        """), {
+            "user_id": user_id,
+            "admin_id": admin_id
+        }).mappings().all()

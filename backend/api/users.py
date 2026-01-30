@@ -5,7 +5,8 @@ from db import (
     list_users_by_admin_db,
     delete_user_by_admin_db,
     reset_password_db,
-    update_user_by_admin_db
+    update_user_by_admin_db,
+    list_user_branches_db
 )
 
 def require_admin(user):
@@ -100,3 +101,17 @@ def update_user(
         raise HTTPException(403, "Not your user")
 
     return {"ok": True}
+
+
+@router.get("/{user_id}/branches")
+def get_user_branches(
+    user_id: int,
+    current_user=Depends(get_current_user)
+):
+    if not current_user.get("is_admin"):
+        raise HTTPException(403, "Admin only")
+
+    return list_user_branches_db(
+        admin_id=current_user["user_id"],
+        user_id=user_id
+    )
