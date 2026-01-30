@@ -158,7 +158,7 @@ function deleteBranch() {
 
   if (!confirm(t("delete_branch_confirm"))) return;
 
-  apiDelete(`/branches/${branchId}`)
+  apiDelete(`/branches/admin/${branchId}`)
     .done(function () {
       loadBranches();
       alert(t("branch_deleted"));
