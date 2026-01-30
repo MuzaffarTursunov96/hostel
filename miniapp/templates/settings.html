@@ -26,13 +26,18 @@
 
       <!-- CREATE -->
       <input id="newUsername"
+       class="w-full px-3 py-2 rounded-lg border bg-transparent"
+       placeholder="{{t('username')}}">
+
+      <input id="newUserTelegram"
             class="w-full px-3 py-2 rounded-lg border bg-transparent"
-            placeholder="{{t('username')}}">
+            placeholder="{{t('telegram_id')}}">
 
       <input id="newUserPassword"
             type="password"
             class="w-full px-3 py-2 rounded-lg border bg-transparent"
             placeholder="{{t('password')}}">
+
 
       <button onclick="createUser()"
               class="w-full py-3 rounded-xl bg-blue-500 text-white font-semibold">

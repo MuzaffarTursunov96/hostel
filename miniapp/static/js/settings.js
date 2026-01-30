@@ -251,6 +251,7 @@ function setCurrentBranch(branchId) {
 
 function createUser() {
   const username = $("#newUsername").val().trim();
+  const telegramId = $("#newUserTelegram").val().trim();
   const password = $("#newUserPassword").val().trim();
 
   if (!username || !password) {
@@ -260,18 +261,19 @@ function createUser() {
 
   apiPost("/users", {
     username: username,
-    password: password
+    password: password,
+    telegram_id: telegramId || null   // ✅ optional
   }).done(function () {
 
     $("#newUsername").val("");
+    $("#newUserTelegram").val("");
     $("#newUserPassword").val("");
 
     alert(t("user_created_successfully"));
-
-    // 🔄 reload users list
     loadUsers();
   });
 }
+
 
 function deleteUser() {
   const userId = $("#userSelect").val();
