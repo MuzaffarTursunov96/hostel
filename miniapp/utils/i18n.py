@@ -223,11 +223,39 @@ TRANSLATIONS = {
         "no_customers":"В данный момент клиенты недоступны.",
         "bed_has_bookings_cannot_delete": "Эта кровать забронирована. Сначала отмените бронирование.",
         "room_has_booked_beds": "В этой комнате есть забронированные кровати. Сначала отмените бронирования.",
-        "cannot_delete_bed_reason": "Эта кровать связана с бронированиями и не может быть удалена."
-
+        "cannot_delete_bed_reason": "Эта кровать связана с бронированиями и не может быть удалена.",
+        "users": "Пользователи",
+        "telegram_id": "Telegram ID",
+        "assign_branches": "Назначить филиалы",
+        "delete": "Удалить",
+        "no_users": "Пользователи не найдены",
+        "branch_created": "Филиал успешно создан",
+        "branch_updated": "Филиал успешно обновлён",
+        "branch_deleted": "Филиал удалён",
+        "user_created_successfully": "Пользователь успешно создан",
+        "delete_user_confirm": "Вы уверены, что хотите удалить пользователя?",
+        "user_deleted": "Пользователь удалён",
+        "select_branch": "Выберите филиал"
         },
         "uz": {
-            "dashboard": "Dashboard",
+        
+        "users": "Foydalanuvchilar",
+        "telegram_id": "Telegram ID",
+        "assign_branches": "Filiallarni biriktirish",
+        "delete": "O‘chirish",
+        "no_users": "Foydalanuvchilar topilmadi",
+        "branch_created": "Filial muvaffaqiyatli yaratildi",
+        "branch_updated": "Filial muvaffaqiyatli yangilandi",
+        "branch_deleted": "Filial o‘chirildi",
+        "user_created_successfully": "Foydalanuvchi muvaffaqiyatli yaratildi",
+        "delete_user_confirm": "Foydalanuvchini o‘chirmoqchimisiz?",
+        "user_deleted": "Foydalanuvchi o‘chirildi",
+        "select_branch": "Filialni tanlang",
+
+
+
+
+        "dashboard": "Dashboard",
         "bookings": "Buyurtmalar",
         "payments": "To'lovlar",
         "debts": "Qarz daftar",
