@@ -9,7 +9,7 @@ import jwt
 
 
 API_URL = "http://backend:8000"
-VERSION ="2026-30-01-18-59"
+VERSION ="2026-30-01-19-09"
 
 
 load_dotenv()
