@@ -1,9 +1,10 @@
 let CURRENT_ROOM = null;
 let CURRENT_ROOM_ID = null;
 let SELECTED_BED_ID = null;
+let CURRENT_BRANCH = null;
 
 $(document).ready(function () {
-  var CURRENT_BRANCH = localStorage.getItem("CURRENT_BRANCH");
+  CURRENT_BRANCH = localStorage.getItem("CURRENT_BRANCH");
   if (!CURRENT_BRANCH) {
     console.warn("Branch not set yet");
   }

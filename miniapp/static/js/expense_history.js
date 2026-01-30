@@ -1,7 +1,4 @@
-var CURRENT_BRANCH = localStorage.getItem("CURRENT_BRANCH");
-if (!CURRENT_BRANCH) {
-  console.warn("Branch not set yet");
-}
+
 
 
 function initExpenseFilters() {

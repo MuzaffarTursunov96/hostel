@@ -1,7 +1,8 @@
 let ALL_PAYMENTS = [];
+let CURRENT_BRANCH = null;
 
 $(document).ready(function () {
-  var CURRENT_BRANCH = localStorage.getItem("CURRENT_BRANCH");
+  CURRENT_BRANCH = localStorage.getItem("CURRENT_BRANCH");
   if (!CURRENT_BRANCH) {
     console.warn("Branch not set yet");
   }

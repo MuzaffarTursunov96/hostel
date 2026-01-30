@@ -3,10 +3,11 @@ let searchTimer = null;
 
 let CURRENT_CUSTOMER_ID = null;
 let CURRENT_IMAGE_COUNT = 0;
+let CURRENT_BRANCH = null;
 
 $(document).ready(function () {
   loadCustomers();
-  var CURRENT_BRANCH = localStorage.getItem("CURRENT_BRANCH");
+  CURRENT_BRANCH = localStorage.getItem("CURRENT_BRANCH");
   if (!CURRENT_BRANCH) {
     console.warn("Branch not set yet");
   }
