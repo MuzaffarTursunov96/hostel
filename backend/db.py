@@ -1637,7 +1637,7 @@ def login(username: str):
 def telegram_login_db(telegram_id: int):
     with get_connection() as conn:
         return conn.execute(text("""
-            SELECT id, is_admin, branch_id, language
+            SELECT id, is_admin, language
             FROM users
             WHERE telegram_id = :telegram_id
               AND is_active = TRUE

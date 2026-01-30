@@ -64,7 +64,7 @@ def telegram_login(data: TelegramLoginIn):
     token = create_token({
         "user_id": user_id,
         "is_admin": is_admin,
-        "branch_id": default_branch or u["branch_id"],
+        "branch_id": default_branch,
         "language": u["language"] or "ru",
         "telegram_id": data.telegram_id
     })
