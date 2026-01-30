@@ -386,6 +386,7 @@ window.closeActiveBookings = function () {
 };
 
 function loadActiveBookings() {
+  alert(CURRENT_BRANCH,'branch')
   fetch(`/api2/active-bookings?branch_id=${CURRENT_BRANCH}`, {
     credentials: "include"
   })
@@ -639,24 +640,13 @@ $(document).ready(function () {
 
   apiGet("/auth/me").done(function (me) {
     CURRENT_BRANCH = me.branch_id;
-    
+    alert(CURRENT_BRANCH,'first')
 
     localStorage.setItem("CURRENT_BRANCH", CURRENT_BRANCH);
 
-    alert(CURRENT_BRANCH,'branch id')
     loadDashboard();
 
-    // 🔐 SAVE TO FLASK SESSION
-    // fetch("/api2/auth/save-context", {
-    //   method: "POST",
-    //   headers: { "Content-Type": "application/json" },
-    //   body: JSON.stringify({
-    //     branch_id: CURRENT_BRANCH
-    //   })
-    // }).then(() => {
-      
-    //   // startWebSocket();
-    // });
+  
 
   }).fail(function () {
     // fallback
