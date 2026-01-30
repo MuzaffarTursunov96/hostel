@@ -6,6 +6,7 @@ let countdownTimers = {};
 let currentEditingBooking = null;
 
 let ALL_ACTIVE_BOOKINGS = [];
+let CURRENT_BRANCH = null;
 
 
 /* ===============================
@@ -637,7 +638,7 @@ $(document).ready(function () {
   setTodayDefault();
 
   apiGet("/auth/me").done(function (me) {
-    var CURRENT_BRANCH = me.branch_id;
+    CURRENT_BRANCH = me.branch_id;
     
 
     localStorage.setItem("CURRENT_BRANCH", CURRENT_BRANCH);
