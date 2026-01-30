@@ -118,7 +118,7 @@ $(document).on("change", "#branchSelect", function () {
   setCurrentBranch(branchId);
 });
 
-function  createBranch() {
+function createBranch() {
   const name = $("#newBranchName").val().trim();
 
   if (!name) {
@@ -131,8 +131,16 @@ function  createBranch() {
       $("#newBranchName").val("");
       alert(t("branch_created"));
       loadBranches();
+    })
+    .fail(function (err) {
+      if (err.responseJSON && err.responseJSON.detail) {
+        alert(err.responseJSON.detail);
+      } else {
+        alert(t("api_error"));
+      }
     });
 }
+
 
 
 function renameBranch() {

@@ -1984,29 +1984,33 @@ def delete_admin_db(user_id: int):
 
 def create_branch_db(name: str, created_by: int):
     with get_connection() as conn:
-        # 1️⃣ create branch
-        branch_id = conn.execute(text("""
-            INSERT INTO branches (name, created_by)
-            VALUES (:name, :created_by)
-            RETURNING id
-        """), {
-            "name": name,
-            "created_by": created_by
-        }).scalar()
+        try:
+            # 1️⃣ create branch
+            branch_id = conn.execute(text("""
+                INSERT INTO branches (name, created_by)
+                VALUES (:name, :created_by)
+                RETURNING id
+            """), {
+                "name": name,
+                "created_by": created_by
+            }).scalar()
 
-        # 2️⃣ connect admin to branch
-        conn.execute(text("""
-            INSERT INTO user_branches (user_id, branch_id)
-            VALUES (:user_id, :branch_id)
-            ON CONFLICT DO NOTHING
-        """), {
-            "user_id": created_by,
-            "branch_id": branch_id
-        })
+            # 2️⃣ connect admin to branch
+            conn.execute(text("""
+                INSERT INTO user_branches (user_id, branch_id)
+                VALUES (:user_id, :branch_id)
+                ON CONFLICT DO NOTHING
+            """), {
+                "user_id": created_by,
+                "branch_id": branch_id
+            })
 
-        return branch_id
+            return branch_id
 
-
+        except IntegrityError as e:
+            # rollback transaction
+            conn.rollback()
+            return None
 
 def delete_branch_db(branch_id: int):
     with get_connection() as conn:

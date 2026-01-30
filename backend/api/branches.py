@@ -80,10 +80,17 @@ def create_branch_admin(data: dict, current_user=Depends(get_current_user)):
         created_by=current_user["user_id"]
     )
 
+    if branch_id is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Branch with this name already exists"
+        )
+
     return {
         "ok": True,
         "branch_id": branch_id
     }
+
 
 @router.post("/{branch_id}/assign-user")
 def assign_user_to_branch(
