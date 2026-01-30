@@ -2357,16 +2357,9 @@ def reset_password_db(new_password, user_id, admin_id):
         return res.rowcount > 0
 
 
-def create_branch_db(name: str, created_by: int):
-    with get_connection() as conn:
-        return conn.execute(text("""
-            INSERT INTO branches (name, created_by)
-            VALUES (:name, :created_by)
-            RETURNING id
-        """), {
-            "name": name,
-            "created_by": created_by
-        }).scalar()
+    
+
+
 
 
 def assign_user_to_branch_db(admin_id, user_id, branch_id):
