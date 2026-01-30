@@ -642,6 +642,8 @@ $(document).ready(function () {
 
     localStorage.setItem("CURRENT_BRANCH", CURRENT_BRANCH);
 
+    alert(CURRENT_BRANCH,'branch id')
+
     // 🔐 SAVE TO FLASK SESSION
     fetch("/api2/auth/save-context", {
       method: "POST",
