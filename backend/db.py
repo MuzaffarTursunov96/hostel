@@ -16,7 +16,8 @@ def init_db():
         conn.execute(text("""
         CREATE TABLE IF NOT EXISTS branches (
             id SERIAL PRIMARY KEY,
-            name TEXT NOT NULL UNIQUE
+            name TEXT NOT NULL UNIQUE,
+            created_by INTEGER
         )
         """))
 
@@ -159,11 +160,13 @@ def init_db():
         CREATE TABLE IF NOT EXISTS users (
             id SERIAL PRIMARY KEY,
             username TEXT UNIQUE NOT NULL,
+            role TEXT NOT NULL DEFAULT 'USER',
             password_hash TEXT NOT NULL,
             telegram_id BIGINT UNIQUE,
             is_admin BOOLEAN DEFAULT FALSE,
             is_active BOOLEAN DEFAULT TRUE,
             branch_id INTEGER,
+            created_by INTEGER,
             language TEXT DEFAULT 'ru',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
@@ -1838,7 +1841,7 @@ def delete_room_db(room_id: int, branch_id: int):
     return {"status": "success"}
 
 
-def create_admin_from_root(telegram_id: int, username: str, password: str):
+def create_admin_from_root(telegram_id: int, username: str, password: str,is_admin: bool):
     with get_connection() as conn:
         exists = conn.execute(text("""
             SELECT id
@@ -1854,11 +1857,12 @@ def create_admin_from_root(telegram_id: int, username: str, password: str):
 
         conn.execute(text("""
             INSERT INTO users (telegram_id, username, password_hash, is_admin)
-            VALUES (:telegram_id, :username, :password_hash, TRUE)
+            VALUES (:telegram_id, :username, :password_hash, :is_admin)
         """), {
             "telegram_id": telegram_id,
             "username": username,
-            "password_hash": hash_password(password)
+            "password_hash": hash_password(password),
+            "is_admin": is_admin
         })
 
     return {"status": "success"}
@@ -2282,3 +2286,213 @@ def reset_device_db(license_id):
             {"id": license_id})
         conn.commit()
         return {"status": "ok"}
+
+
+def create_user_db(username, password, telegram_id, created_by):
+    with get_connection() as conn:
+        exists = conn.execute(
+            text("SELECT 1 FROM users WHERE username = :u"),
+            {"u": username}
+        ).fetchone()
+
+        if exists:
+            return {"status": "error", "message": "User exists"}
+
+        uid = conn.execute(text("""
+            INSERT INTO users (
+                username, password_hash, telegram_id,
+                is_admin, is_active, created_by
+            )
+            VALUES (:u, :p, :t, FALSE, TRUE, :cb)
+            RETURNING id
+        """), {
+            "u": username,
+            "p": hash_password(password),
+            "t": telegram_id,
+            "cb": created_by
+        }).scalar()
+
+    return {"status": "success", "id": uid}
+
+def list_users_by_admin_db(admin_id):
+    with get_connection() as conn:
+        return conn.execute(text("""
+            SELECT id, username, telegram_id, is_active
+            FROM users
+            WHERE created_by = :admin_id
+            ORDER BY id
+        """), {"admin_id": admin_id}).mappings().all()
+
+
+def delete_user_by_admin_db(user_id, admin_id):
+    with get_connection() as conn:
+        res = conn.execute(text("""
+            DELETE FROM users
+            WHERE id = :uid
+              AND created_by = :aid
+        """), {"uid": user_id, "aid": admin_id})
+
+        return res.rowcount > 0
+
+def reset_password_db(new_password, user_id, admin_id):
+    with get_connection() as conn:
+        res = conn.execute(text("""
+            UPDATE users
+            SET password_hash = :p
+            WHERE id = :uid
+              AND created_by = :aid
+        """), {
+            "p": hash_password(new_password),
+            "uid": user_id,
+            "aid": admin_id
+        })
+
+        return res.rowcount > 0
+
+
+def create_branch_db(name: str, created_by: int):
+    with get_connection() as conn:
+        return conn.execute(text("""
+            INSERT INTO branches (name, created_by)
+            VALUES (:name, :created_by)
+            RETURNING id
+        """), {
+            "name": name,
+            "created_by": created_by
+        }).scalar()
+
+
+def assign_user_to_branch_db(admin_id, user_id, branch_id):
+    with get_connection() as conn:
+
+        # ✅ user must belong to this admin
+        user_ok = conn.execute(text("""
+            SELECT 1
+            FROM users
+            WHERE id = :uid
+              AND created_by = :aid
+        """), {
+            "uid": user_id,
+            "aid": admin_id
+        }).fetchone()
+
+        if not user_ok:
+            return False
+
+        # ✅ branch must belong to this admin
+        branch_ok = conn.execute(text("""
+            SELECT 1
+            FROM branches
+            WHERE id = :bid
+              AND created_by = :aid
+        """), {
+            "bid": branch_id,
+            "aid": admin_id
+        }).fetchone()
+
+        if not branch_ok:
+            return False
+
+        # ✅ assign user to branch
+        conn.execute(text("""
+            INSERT INTO user_branches (user_id, branch_id)
+            VALUES (:uid, :bid)
+            ON CONFLICT DO NOTHING
+        """), {
+            "uid": user_id,
+            "bid": branch_id
+        })
+
+    return True
+
+
+def update_user_by_admin_db(admin_id, user_id, username, telegram_id, is_active):
+    with get_connection() as conn:
+        res = conn.execute(text("""
+            UPDATE users
+            SET
+              username = COALESCE(:u, username),
+              telegram_id = COALESCE(:t, telegram_id),
+              is_active = COALESCE(:a, is_active)
+            WHERE id = :uid
+              AND created_by = :aid
+        """), {
+            "u": username,
+            "t": telegram_id,
+            "a": is_active,
+            "uid": user_id,
+            "aid": admin_id
+        })
+        return res.rowcount > 0
+
+def list_branches_by_admin_db(admin_id):
+    with get_connection() as conn:
+        return conn.execute(text("""
+            SELECT id, name
+            FROM branches
+            WHERE created_by = :aid
+            ORDER BY id
+        """), {"aid": admin_id}).mappings().all()
+    
+
+def update_branch_by_admin_db(admin_id, branch_id, name):
+    with get_connection() as conn:
+        res = conn.execute(text("""
+            UPDATE branches
+            SET name = :name
+            WHERE id = :bid
+              AND created_by = :aid
+        """), {
+            "name": name,
+            "bid": branch_id,
+            "aid": admin_id
+        })
+        return res.rowcount > 0
+
+def delete_branch_by_admin_db(admin_id, branch_id):
+    with get_connection() as conn:
+        res = conn.execute(text("""
+            DELETE FROM branches
+            WHERE id = :bid
+              AND created_by = :aid
+        """), {
+            "bid": branch_id,
+            "aid": admin_id
+        })
+        return res.rowcount > 0
+
+def remove_user_from_branch_db(admin_id, user_id, branch_id):
+    with get_connection() as conn:
+        res = conn.execute(text("""
+            DELETE FROM user_branches
+            WHERE user_id = :uid
+              AND branch_id = :bid
+              AND EXISTS (
+                SELECT 1 FROM users u
+                WHERE u.id = :uid AND u.created_by = :aid
+              )
+              AND EXISTS (
+                SELECT 1 FROM branches b
+                WHERE b.id = :bid AND b.created_by = :aid
+              )
+        """), {
+            "uid": user_id,
+            "bid": branch_id,
+            "aid": admin_id
+        })
+        return res.rowcount > 0
+
+
+def list_users_in_branch_db(admin_id, branch_id):
+    with get_connection() as conn:
+        return conn.execute(text("""
+            SELECT u.id, u.username, u.telegram_id
+            FROM users u
+            JOIN user_branches ub ON ub.user_id = u.id
+            JOIN branches b ON b.id = ub.branch_id
+            WHERE b.id = :bid
+              AND b.created_by = :aid
+        """), {
+            "bid": branch_id,
+            "aid": admin_id
+        }).mappings().all()

@@ -24,6 +24,11 @@ $(document).ready(function () {
       // startWebSocket();
     });
 
+    if (!me.is_admin) {
+      $(".admin-only").hide();
+    }
+
+
   }).fail(function () {
     loadBranches();
   });
@@ -110,14 +115,63 @@ function renameBranch() {
     return;
   }
 
-  apiPost("/branches/update", {
-    branch_id: Number(branchId),
-    name: name
-  }).done(function () {
-    $("#renameBranchName").val("");
-    loadBranches();
+  apiPut(`/branches/${branchId}`, { name })
+    .done(function () {
+      $("#renameBranchName").val("");
+      loadBranches();
+      alert(t("branch_updated"));
+    });
+}
+
+function deleteBranch() {
+  const branchId = $("#branchSelect").val();
+  if (!branchId) return;
+
+  if (!confirm(t("delete_branch_confirm"))) return;
+
+  apiDelete(`/branches/${branchId}`)
+    .done(function () {
+      loadBranches();
+      alert(t("branch_deleted"));
+    });
+}
+
+
+
+function loadUsers() {
+  apiGet("/users").done(function (users) {
+    const $u = $("#userSelect").empty();
+    users.forEach(u => {
+      $u.append(`<option value="${u.id}">${u.username}</option>`);
+    });
   });
 }
+
+function assignUserToBranch() {
+  const userId = $("#userSelect").val();
+  const branchId = $("#branchSelect").val();
+
+  if (!userId || !branchId) return;
+
+  apiPost(`/branches/${branchId}/users`, {
+    user_id: Number(userId)
+  }).done(() => {
+    alert(t("user_assigned"));
+  });
+}
+
+function removeUserFromBranch() {
+  const userId = $("#userSelect").val();
+  const branchId = $("#branchSelect").val();
+
+  if (!userId || !branchId) return;
+
+  apiDelete(`/branches/${branchId}/users/${userId}`)
+    .done(() => {
+      alert(t("user_removed"));
+    });
+}
+
 
 /* ================= PASSWORD ================= */
 

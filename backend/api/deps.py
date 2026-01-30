@@ -30,3 +30,8 @@ def is_root_admin(user):
         user["is_admin"] == 1 and
         user["telegram_id"] == ROOT_TELEGRAM_ID
     )
+
+def is_admin(user):
+    return (
+        user["is_admin"] == 1
+    )
