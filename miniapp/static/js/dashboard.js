@@ -386,7 +386,7 @@ window.closeActiveBookings = function () {
 };
 
 function loadActiveBookings() {
-  alert(CURRENT_BRANCH,'branch')
+  CURRENT_BRANCH = localStorage.getItem("CURRENT_BRANCH");
   fetch(`/api2/active-bookings?branch_id=${CURRENT_BRANCH}`, {
     credentials: "include"
   })
@@ -640,7 +640,6 @@ $(document).ready(function () {
 
   apiGet("/auth/me").done(function (me) {
     CURRENT_BRANCH = me.branch_id;
-    alert(CURRENT_BRANCH,'first')
 
     localStorage.setItem("CURRENT_BRANCH", CURRENT_BRANCH);
 
