@@ -2298,31 +2298,54 @@ def reset_device_db(license_id):
         return {"status": "ok"}
 
 
+
 def create_user_db(username, password, telegram_id, created_by):
     with get_connection() as conn:
-        exists = conn.execute(
-            text("SELECT 1 FROM users WHERE username = :u"),
-            {"u": username}
-        ).fetchone()
+
+        # ✅ check username
+        exists = conn.execute(text("""
+            SELECT 1 FROM users WHERE username = :u
+        """), {"u": username}).fetchone()
 
         if exists:
-            return {"status": "error", "message": "User exists"}
+            return {"status": "error", "message": "Username already exists"}
 
-        uid = conn.execute(text("""
-            INSERT INTO users (
-                username, password_hash, telegram_id,
-                is_admin, is_active, created_by
-            )
-            VALUES (:u, :p, :t, FALSE, TRUE, :cb)
-            RETURNING id
-        """), {
-            "u": username,
-            "p": hash_password(password),
-            "t": telegram_id,
-            "cb": created_by
-        }).scalar()
+        # ✅ check telegram_id if provided
+        if telegram_id:
+            tg_exists = conn.execute(text("""
+                SELECT 1 FROM users WHERE telegram_id = :t
+            """), {"t": telegram_id}).fetchone()
 
-    return {"status": "success", "id": uid}
+            if tg_exists:
+                return {
+                    "status": "error",
+                    "message": "Telegram ID already linked to another user"
+                }
+
+        try:
+            uid = conn.execute(text("""
+                INSERT INTO users (
+                    username, password_hash, telegram_id,
+                    is_admin, is_active, created_by
+                )
+                VALUES (:u, :p, :t, FALSE, TRUE, :cb)
+                RETURNING id
+            """), {
+                "u": username,
+                "p": hash_password(password),
+                "t": telegram_id,
+                "cb": created_by
+            }).scalar()
+
+            return {"status": "success", "id": uid}
+
+        except IntegrityError:
+            conn.rollback()
+            return {
+                "status": "error",
+                "message": "User already exists"
+            }
+
 
 def list_users_by_admin_db(admin_id):
     with get_connection() as conn:
