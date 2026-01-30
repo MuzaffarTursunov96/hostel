@@ -28,6 +28,10 @@ $(document).ready(function () {
       $(".admin-only").hide();
     }
 
+    if (me.is_admin) {
+      loadUsers();
+    }
+
 
   }).fail(function () {
     loadBranches();
@@ -37,6 +41,27 @@ $(document).ready(function () {
 
 
 });
+
+function loadUsers() {
+  apiGet("/users")
+    .done(function (users) {
+      const $u = $("#userSelect").empty();
+
+      if (!users.length) {
+        $u.append(`<option>${t("no_users")}</option>`);
+        return;
+      }
+
+      users.forEach(u => {
+        $u.append(`
+          <option value="${u.id}">
+            ${u.username}
+          </option>
+        `);
+      });
+    });
+}
+
 
 
 function setActiveLangUI(lang) {
@@ -81,7 +106,8 @@ $(document).on("change", "#branchSelect", function () {
   if (!branchId) return;
 
   // ✅ update frontend immediately
-  var CURRENT_BRANCH = branchId;
+  CURRENT_BRANCH = branchId;
+  
   $("#branchSelect").val(branchId);
 
   localStorage.setItem("CURRENT_BRANCH", branchId);
@@ -138,39 +164,40 @@ function deleteBranch() {
 
 
 
-function loadUsers() {
-  apiGet("/users").done(function (users) {
-    const $u = $("#userSelect").empty();
-    users.forEach(u => {
-      $u.append(`<option value="${u.id}">${u.username}</option>`);
-    });
-  });
-}
+
 
 function assignUserToBranch() {
   const userId = $("#userSelect").val();
   const branchId = $("#branchSelect").val();
 
-  if (!userId || !branchId) return;
+  if (!userId || !branchId) {
+    alert(t("select_user_and_branch"));
+    return;
+  }
 
   apiPost(`/branches/${branchId}/users`, {
     user_id: Number(userId)
-  }).done(() => {
-    alert(t("user_assigned"));
+  }).done(function () {
+    alert(t("user_added_to_branch"));
   });
 }
+
 
 function removeUserFromBranch() {
   const userId = $("#userSelect").val();
   const branchId = $("#branchSelect").val();
 
-  if (!userId || !branchId) return;
+  if (!userId || !branchId) {
+    alert(t("select_user_and_branch"));
+    return;
+  }
 
   apiDelete(`/branches/${branchId}/users/${userId}`)
-    .done(() => {
-      alert(t("user_removed"));
+    .done(function () {
+      alert(t("user_removed_from_branch"));
     });
 }
+
 
 
 /* ================= PASSWORD ================= */
