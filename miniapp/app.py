@@ -9,7 +9,7 @@ import jwt
 
 
 API_URL = "http://backend:8000"
-VERSION ="2026-28-01-14-43"
+VERSION ="2026-30-01-10-23"
 
 
 load_dotenv()
@@ -226,7 +226,7 @@ def rooms():
     
     return render_template(
         "rooms.html",
-        current_branch_id=session.get("branch_id", 1),
+        # current_branch_id=session.get("branch_id", 1),
         version = VERSION
         )
 
@@ -235,7 +235,7 @@ def rooms():
 def bookings():
     return render_template(
         "bookings.html",
-        current_branch_id=session.get("branch_id", 1),
+        # current_branch_id=session.get("branch_id", 1),
         version = VERSION
         )
 
@@ -245,7 +245,7 @@ def customers():
    
     return render_template(
         "customers.html",
-        current_branch_id=session.get("branch_id", 1),
+        # current_branch_id=session.get("branch_id", 1),
         version = VERSION
         )
 
@@ -254,10 +254,9 @@ def customers():
 @app.route("/payments")
 @login_required
 def payments_page():
-   
     return render_template(
         "payments.html",
-        current_branch_id=session.get("branch_id", 1),
+        # current_branch_id=session.get("branch_id", 1),
         version = VERSION
     )
 
@@ -266,7 +265,7 @@ def payments_page():
 def payment_history_page():
     return render_template(
         "payment_history.html",
-        current_branch_id=session.get("branch_id", 1),
+        # current_branch_id=session.get("branch_id", 1),
         version = VERSION
     )
 
@@ -275,7 +274,7 @@ def payment_history_page():
 def debts():
     return render_template(
         "debts.html",
-        current_branch_id=session.get("branch_id", 1),
+        # current_branch_id=session.get("branch_id", 1),
         version = VERSION
     )
 

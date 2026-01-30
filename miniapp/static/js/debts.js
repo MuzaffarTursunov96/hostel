@@ -2,6 +2,11 @@ let ALL_DEBTS = [];
 let searchTimer = null;
 
 $(document).ready(function () {
+  var CURRENT_BRANCH = localStorage.getItem("CURRENT_BRANCH");
+  if (!CURRENT_BRANCH) {
+    console.warn("Branch not set yet");
+  }
+
   setDefaultRange();
   loadDebts();
 

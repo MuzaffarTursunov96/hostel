@@ -1,4 +1,8 @@
 $(document).ready(function () {
+  var CURRENT_BRANCH = localStorage.getItem("CURRENT_BRANCH");
+  if (!CURRENT_BRANCH) {
+    console.warn("Branch not set yet");
+  }
   initFilters();
   loadFinance();
 });
@@ -21,6 +25,8 @@ function initFilters() {
 function loadFinance() {
   const month = $("#filterMonth").val();
   const year = $("#filterYear").val();
+
+  
 
   apiGet("/payments/monthly-finance", {
     branch_id: CURRENT_BRANCH,

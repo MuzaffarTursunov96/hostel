@@ -7,6 +7,11 @@ let SELECTED_BED_ID = null;
 $(document).ready(function () {
   const today = new Date().toISOString().split("T")[0];
 
+  var CURRENT_BRANCH = localStorage.getItem("CURRENT_BRANCH");
+  if (!CURRENT_BRANCH) {
+    console.warn("Branch not set yet");
+  }
+
   $("#checkin").val(today);
   $("#checkout").val(today);
 

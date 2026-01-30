@@ -3,6 +3,11 @@ let CURRENT_ROOM_ID = null;
 let SELECTED_BED_ID = null;
 
 $(document).ready(function () {
+  var CURRENT_BRANCH = localStorage.getItem("CURRENT_BRANCH");
+  if (!CURRENT_BRANCH) {
+    console.warn("Branch not set yet");
+  }
+
   loadRooms();
   document.addEventListener("DOMContentLoaded", startWebSocket);
 });
@@ -13,6 +18,7 @@ function loadRooms() {
   $("#roomsList").empty();
   $("#bedsList").empty();
   $("#bedsTitle").text(t("beds"));
+
 
   apiGet("/rooms", { branch_id: CURRENT_BRANCH })
     .done(function (rooms) {

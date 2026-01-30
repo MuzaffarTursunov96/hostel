@@ -3,7 +3,7 @@ from PySide6.QtWidgets import (
     QLineEdit, QPushButton, QFrame,
     QGraphicsDropShadowEffect, QSizePolicy
 )
-from PySide6.QtCore import Qt, QThread, Signal, QObject
+from PySide6.QtCore import Qt, QThread, Signal, QObject,QTimer
 from PySide6.QtGui import QPixmap,QIcon
 from PySide6.QtWidgets import QProgressBar
 
@@ -265,6 +265,8 @@ class LoginPage(QWidget):
         self.thread.finished.connect(self.thread.deleteLater)
 
         self.thread.start()
+        self.username.setEnabled(False)
+        self.password.setEnabled(False)
 
     # =========================
     def login_success(self, data):
@@ -276,11 +278,23 @@ class LoginPage(QWidget):
 
         self.app.telegram_id = data.get("telegram_id")
 
-        self.spinner.hide()
+        QTimer.singleShot(2500, self._finish_login)
+        # self.spinner.hide()
+        # self.login_btn.setEnabled(True)
+        # self.on_success()
+
+    def _finish_login(self):
+        self.spinner.hide()              # hide spinner FIRST
         self.login_btn.setEnabled(True)
-        self.on_success()
+        self.username.setEnabled(True)
+        self.password.setEnabled(True)
+        self.on_success()                # THEN rebuild UI
+
+
 
     def login_failed(self, msg):
         self.spinner.hide()
         self.login_btn.setEnabled(True)
+        self.username.setEnabled(True)
+        self.password.setEnabled(True)
         self.msg_label.setText(msg)

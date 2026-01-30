@@ -6,6 +6,10 @@ let CURRENT_IMAGE_COUNT = 0;
 
 $(document).ready(function () {
   loadCustomers();
+  var CURRENT_BRANCH = localStorage.getItem("CURRENT_BRANCH");
+  if (!CURRENT_BRANCH) {
+    console.warn("Branch not set yet");
+  }
 
   $("#searchCustomer").on("input", function () {
     clearTimeout(searchTimer);

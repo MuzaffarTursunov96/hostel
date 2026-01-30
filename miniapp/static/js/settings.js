@@ -76,8 +76,11 @@ $(document).on("change", "#branchSelect", function () {
   if (!branchId) return;
 
   // ✅ update frontend immediately
-  CURRENT_BRANCH = branchId;
+  var CURRENT_BRANCH = branchId;
   $("#branchSelect").val(branchId);
+
+  localStorage.setItem("CURRENT_BRANCH", branchId);
+
 
   // ✅ persist backend
   setCurrentBranch(branchId);
