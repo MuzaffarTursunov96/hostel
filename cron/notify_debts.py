@@ -22,8 +22,7 @@ MESSAGES = {
         "branch": "🏨 Filial",
         "debt": "💰 Qarzdorlik",
         "notify": "📅 Belgilangan sana",
-        "checkout_date": "🚪 Checkout",
-        "footer": "❗ Iltimos, to‘lovni amalga oshiring"
+        "checkout_date": "🚪 Chiqib ketish sanasi"
     },
     "ru": {
         "title": "⚠️ Напоминание о задолженности",
@@ -34,20 +33,7 @@ MESSAGES = {
         "branch": "🏨 Филиал",
         "debt": "💰 Задолженность",
         "notify": "📅 Назначенная дата",
-        "checkout_date": "🚪 Выезд",
-        "footer": "❗ Пожалуйста, произведите оплату"
-    },
-    "en": {
-        "title": "⚠️ Debt booking reminder",
-        "today": "⏰ Reminder day",
-        "overdue": "⚠️ Overdue debt",
-        "checkout": "🚨 Checkout date passed",
-        "customer": "👤 Customer",
-        "branch": "🏨 Branch",
-        "debt": "💰 Debt",
-        "notify": "📅 Notify date",
-        "checkout_date": "🚪 Checkout",
-        "footer": "❗ Please complete the payment"
+        "checkout_date": "🚪 Выезд"
     }
 }
 
@@ -95,7 +81,6 @@ async def send_notifications(rows):
                 f"{t['notify']}: {r['notify_date']}\n"
                 f"{t['checkout_date']}: {r['checkout_date']}\n"
                 "━━━━━━━━━━━━━━━━━━━━\n"
-                f"{t['footer']}"
             )
 
             try:
