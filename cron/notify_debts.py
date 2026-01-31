@@ -17,8 +17,9 @@ MESSAGES = {
         "title": "⚠️ Qarzdor bron bo‘yicha eslatma",
         "today": "⏰ Bugun eslatma kuni",
         "overdue": "⚠️ Qarzdorlik muddati o‘tgan",
-        "checkout": "🚨 Bron muddati o‘tgan (checkout o‘tib ketgan)",
+        "checkout": "🚨 Bron muddati o‘tgan",
         "customer": "👤 Mijoz",
+        "contact": "📞 Aloqa",
         "branch": "🏨 Filial",
         "debt": "💰 Qarzdorlik",
         "notify": "📅 Belgilangan sana",
@@ -30,6 +31,7 @@ MESSAGES = {
         "overdue": "⚠️ Просроченная задолженность",
         "checkout": "🚨 Срок проживания истёк",
         "customer": "👤 Клиент",
+        "contact": "📞 Контакт",
         "branch": "🏨 Филиал",
         "debt": "💰 Задолженность",
         "notify": "📅 Назначенная дата",
@@ -75,7 +77,8 @@ async def send_notifications(rows):
                 "━━━━━━━━━━━━━━━━━━━━\n"
                 f"{t[status_key]}\n"
                 f"{t['customer']}: {r['customer_name']}\n"
-                f"{t['branch']}: {r['branch_name']}\n"
+                f"{t['contact']}: `{r['contact'] or '—'}`\n"
+                f"{t['branch']}: *{r['branch_name']}*\n"
                 "━━━━━━━━━━━━━━━━━━━━\n"
                 f"{t['debt']}: `{r['remaining_amount']}` so‘m\n"
                 f"{t['notify']}: {r['notify_date']}\n"
@@ -104,28 +107,28 @@ async def send_notifications(rows):
 def run():
     with get_connection() as conn:
         rows = conn.execute(text("""
-                SELECT
-                    b.id,
-                    b.branch_id,
-                    br.name AS branch_name,
-                    b.customer_name,
-                    b.remaining_amount,
-                    b.notify_date,
-                    b.checkout_date
-                FROM bookings b
-                JOIN branches br ON br.id = b.branch_id
-                WHERE b.remaining_amount > 0
-                AND b.status = 'active'
-                AND (
+            SELECT
+                b.id,
+                b.branch_id,
+                br.name AS branch_name,
+                b.customer_name,
+                b.contact,
+                b.remaining_amount,
+                b.notify_date,
+                b.checkout_date
+            FROM bookings b
+            JOIN branches br ON br.id = b.branch_id
+            WHERE b.remaining_amount > 0
+              AND b.status = 'active'
+              AND (
                     b.notify_date <= CURRENT_DATE
                     OR b.checkout_date < CURRENT_DATE
-                )
-                AND (
+                  )
+              AND (
                     b.last_notified IS NULL
                     OR b.last_notified < CURRENT_DATE
-                )
-            """)).mappings().all()
-
+                  )
+        """)).mappings().all()
 
     if not rows:
         print("No debt notifications today")
