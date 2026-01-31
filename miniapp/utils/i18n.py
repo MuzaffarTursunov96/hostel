@@ -238,7 +238,7 @@ TRANSLATIONS = {
         "select_branch": "Выберите филиал"
         },
         "uz": {
-        
+        "notify_date":"",
         "users": "Foydalanuvchilar",
         "telegram_id": "Telegram ID",
         "assign_branches": "Filiallarni biriktirish",

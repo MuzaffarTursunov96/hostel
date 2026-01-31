@@ -1,6 +1,8 @@
 let CURRENT_ROOM_ID = null;
 let SELECTED_BED_ID = null;
 let CURRENT_BRANCH = null;
+let notifyDateManuallyChanged = false;
+
 
 
 
@@ -14,12 +16,29 @@ $(document).ready(function () {
 
   $("#checkin").val(today);
   $("#checkout").val(today);
+  $("#notifyDate").val(today); 
 
   loadRooms();
   document.addEventListener("DOMContentLoaded", startWebSocket);
 
   $("#checkin, #checkout").on("change", loadAvailableBeds);
   $("#total, #paid").on("input", updateRemaining);
+
+  $("#notifyDate").on("change", function () {
+    notifyDateManuallyChanged = true;
+  });
+
+  $("#checkout").on("change", function () {
+    const checkout = $(this).val();
+
+    if (!checkout) return;
+
+    if (!notifyDateManuallyChanged) {
+      $("#notifyDate").val(checkout);
+    }
+  });
+
+
 });
 
 /* ---------- ROOMS ---------- */
@@ -147,7 +166,8 @@ function confirmBooking() {
     total: parseFloat($("#total").val()),
     paid: pai ? pai : 0,
     checkin: $("#checkin").val(),
-    checkout: $("#checkout").val()
+    checkout: $("#checkout").val(),
+    notify_date: $("#notifyDate").val()
   })
   .done(function () {
   alert("✅ " + t("booking_created"));

@@ -51,6 +51,7 @@ class BookingCreate(BaseModel):
     paid: float
     checkin: date
     checkout: date
+    notify_date: date | None = None
 
 
 @router.post("/")
@@ -65,7 +66,8 @@ async def create_booking(data: BookingCreate, user=Depends(get_current_user)):
         data.total,
         data.paid,
         data.checkin,
-        data.checkout
+        data.checkout,
+        data.notify_date or data.checkout
     )
 
     add_or_get_customer(
