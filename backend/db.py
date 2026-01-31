@@ -104,6 +104,7 @@ def init_db():
             status TEXT DEFAULT 'active',
             booking_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             notify_date DATE,
+            last_notified DATE,
 
             FOREIGN KEY(branch_id) REFERENCES branches(id),
             FOREIGN KEY(room_id) REFERENCES rooms(id),
