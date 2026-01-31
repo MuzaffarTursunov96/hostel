@@ -75,7 +75,7 @@ async def send_notifications(rows):
                 "━━━━━━━━━━━━━━━━━━━━\n"
                 f"{t[status_key]}\n"
                 f"{t['customer']}: {r['customer_name']}\n"
-                f"{t['branch']}: {r['branch_id']}\n"
+                f"{t['branch']}: {r['branch_name']}\n"
                 "━━━━━━━━━━━━━━━━━━━━\n"
                 f"{t['debt']}: `{r['remaining_amount']}` so‘m\n"
                 f"{t['notify']}: {r['notify_date']}\n"
@@ -104,25 +104,28 @@ async def send_notifications(rows):
 def run():
     with get_connection() as conn:
         rows = conn.execute(text("""
-            SELECT
-                id,
-                branch_id,
-                customer_name,
-                remaining_amount,
-                notify_date,
-                checkout_date
-            FROM bookings
-            WHERE remaining_amount > 0
-              AND status = 'active'
-              AND (
-                  notify_date <= CURRENT_DATE
-                  OR checkout_date < CURRENT_DATE
-              )
-              AND (
-                  last_notified IS NULL
-                  OR last_notified < CURRENT_DATE
-              )
-        """)).mappings().all()
+                SELECT
+                    b.id,
+                    b.branch_id,
+                    br.name AS branch_name,
+                    b.customer_name,
+                    b.remaining_amount,
+                    b.notify_date,
+                    b.checkout_date
+                FROM bookings b
+                JOIN branches br ON br.id = b.branch_id
+                WHERE b.remaining_amount > 0
+                AND b.status = 'active'
+                AND (
+                    b.notify_date <= CURRENT_DATE
+                    OR b.checkout_date < CURRENT_DATE
+                )
+                AND (
+                    b.last_notified IS NULL
+                    OR b.last_notified < CURRENT_DATE
+                )
+            """)).mappings().all()
+
 
     if not rows:
         print("No debt notifications today")
