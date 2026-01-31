@@ -44,28 +44,40 @@
 
   <!-- DATES -->
   <div class="bg-card rounded-2xl p-4 shadow grid grid-cols-2 gap-3">
-    <div>
-      <label class="text-sm text-tgHint">{{t("check_in")}}</label>
-      <input type="date" id="checkin"
-             class="w-full px-3 py-2 rounded-lg border bg-transparent">
-    </div>
-    <div>
-      <label class="text-sm text-tgHint">{{t("check_out")}}</label>
-      <input type="date" id="checkout"
-             class="w-full px-3 py-2 rounded-lg border bg-transparent">
-    </div>
-    <!-- NOTIFY DATE -->
-    <div class="bg-card rounded-2xl p-4 shadow space-y-2">
-      <label class="text-sm text-tgHint">
-        {{t("notify_date")}}
-      </label>
 
-      <input type="date"
-            id="notifyDate"
+    <!-- CHECK IN -->
+    <div>
+      <label class="text-sm text-tgHint">
+        {{t("check_in")}}
+      </label>
+      <input type="date" id="checkin"
             class="w-full px-3 py-2 rounded-lg border bg-transparent">
     </div>
 
+    <!-- CHECK OUT -->
+    <div>
+      <label class="text-sm text-tgHint">
+        {{t("check_out")}}
+      </label>
+      <input type="date" id="checkout"
+            class="w-full px-3 py-2 rounded-lg border bg-transparent">
+    </div>
+
+    <!-- NOTIFY DATE -->
+    <div class="col-span-2">
+      <label class="text-sm text-tgHint flex items-center gap-1">
+        🔔 {{t("notify_date")}}
+      </label>
+      <input type="date"
+            id="notifyDate"
+            class="w-full px-3 py-2 rounded-lg border bg-transparent">
+      <p class="text-xs text-gray-400 mt-1">
+        {{t("notify_date_hint")}}
+      </p>
+    </div>
+
   </div>
+
 
   <!-- BEDS -->
   <div class="bg-card rounded-2xl p-4 shadow space-y-2">
