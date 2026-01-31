@@ -236,10 +236,14 @@ TRANSLATIONS = {
         "delete_user_confirm": "Вы уверены, что хотите удалить пользователя?",
         "user_deleted": "Пользователь удалён",
         "select_branch": "Выберите филиал",
-        "notify_date": "Дата напоминания"
+        "notify_date": "Дата напоминания",
+        "notify_date_hint": "Дата отправки напоминания об оплате"
+
 
         },
         "uz": {
+        "notify_date_hint": "To‘lov bo‘yicha eslatma yuboriladigan sana",
+
         "notify_date": "Eslatma sanasi",
         "users": "Foydalanuvchilar",
         "telegram_id": "Telegram ID",

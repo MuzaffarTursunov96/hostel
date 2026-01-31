@@ -310,53 +310,55 @@ def add_booking(
         # 3️⃣ Insert booking
         # -----------------------------
         booking_id = conn.execute(text("""
-            INSERT INTO bookings (
-                branch_id,
-                customer_name,
-                passport_id,
-                contact,
-                room_id,
-                bed_id,
-                total_amount,
-                paid_amount,
-                remaining_amount,
-                payment_status,
-                checkin_date,
-                checkout_date,
-                status
-            )
-            VALUES (
-                :branch_id,
-                :customer_name,
-                :passport_id,
-                :contact,
-                :room_id,
-                :bed_id,
-                :total_amount,
-                :paid_amount,
-                :remaining_amount,
-                :payment_status,
-                :checkin_date,
-                :checkout_date,
-                :notify_date,
-                'active'
-            )
-            RETURNING id
-        """), {
-            "branch_id": branch_id,
-            "customer_name": customer_name,
-            "passport_id": passport_id,
-            "contact": contact,
-            "room_id": room_id,
-            "bed_id": bed_id,
-            "total_amount": total_amount,
-            "paid_amount": paid_amount,
-            "remaining_amount": remaining_amount,
-            "payment_status": payment_status,
-            "checkin_date": checkin_date,
-            "checkout_date": checkout_date,
-            "notify_date":notify_date,
-        }).scalar()
+                INSERT INTO bookings (
+                    branch_id,
+                    customer_name,
+                    passport_id,
+                    contact,
+                    room_id,
+                    bed_id,
+                    total_amount,
+                    paid_amount,
+                    remaining_amount,
+                    payment_status,
+                    checkin_date,
+                    checkout_date,
+                    notify_date,
+                    status
+                )
+                VALUES (
+                    :branch_id,
+                    :customer_name,
+                    :passport_id,
+                    :contact,
+                    :room_id,
+                    :bed_id,
+                    :total_amount,
+                    :paid_amount,
+                    :remaining_amount,
+                    :payment_status,
+                    :checkin_date,
+                    :checkout_date,
+                    :notify_date,
+                    'active'
+                )
+                RETURNING id
+            """), {
+                "branch_id": branch_id,
+                "customer_name": customer_name,
+                "passport_id": passport_id,
+                "contact": contact,
+                "room_id": room_id,
+                "bed_id": bed_id,
+                "total_amount": total_amount,
+                "paid_amount": paid_amount,
+                "remaining_amount": remaining_amount,
+                "payment_status": payment_status,
+                "checkin_date": checkin_date,
+                "checkout_date": checkout_date,
+                "notify_date": notify_date,
+            }).scalar()
+
 
         if paid_amount > 0:
             conn.execute(text("""
