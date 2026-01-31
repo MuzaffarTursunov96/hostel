@@ -103,6 +103,7 @@ def init_db():
             checkout_date DATE NOT NULL,
             status TEXT DEFAULT 'active',
             booking_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            notify_date DATE,
 
             FOREIGN KEY(branch_id) REFERENCES branches(id),
             FOREIGN KEY(room_id) REFERENCES rooms(id),
@@ -261,7 +262,8 @@ def add_booking(
     total_amount,
     paid_amount,
     checkin_date,
-    checkout_date
+    checkout_date,
+    notify_date,
 ):
     with get_connection() as conn:
 
@@ -335,6 +337,7 @@ def add_booking(
                 :payment_status,
                 :checkin_date,
                 :checkout_date,
+                :notify_date,
                 'active'
             )
             RETURNING id
@@ -350,7 +353,8 @@ def add_booking(
             "remaining_amount": remaining_amount,
             "payment_status": payment_status,
             "checkin_date": checkin_date,
-            "checkout_date": checkout_date
+            "checkout_date": checkout_date,
+            "notify_date":notify_date,
         }).scalar()
 
         if paid_amount > 0:

@@ -1,0 +1,1 @@
+0 1 * * * python /app/cron/notify_debts.py >> /var/log/cron.log 2>&1

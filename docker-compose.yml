@@ -68,6 +68,15 @@ services:
       - backend
       - miniapp
 
+  cron:
+    build:
+      context: .
+      dockerfile: cron/Dockerfile
+    container_name: hostel_cron
+    restart: always
+    env_file: .env
+    depends_on:
+      - postgres
 
 # ===================== PERSISTENT VOLUMES =====================
 volumes:
