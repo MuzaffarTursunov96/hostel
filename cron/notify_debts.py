@@ -104,7 +104,8 @@ async def send_notifications(rows):
                 WHERE id = :id
             """), {"id": r["id"]})
 
-
+    await bot.session.close()
+    
 def run():
     with get_connection() as conn:
         rows = conn.execute(text("""

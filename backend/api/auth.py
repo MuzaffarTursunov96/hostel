@@ -15,7 +15,8 @@ def me(user=Depends(get_current_user)):
         "id": user["user_id"],
         "is_admin": user["is_admin"],
         "branch_id": default_branch or user.get("branch_id"),
-        "language": user.get("language") or "ru"
+        "language": user.get("language") or "ru",
+        "notify_enabled": user.get("notify_enabled", True)
     }
 
 @router.post("/login")
