@@ -235,10 +235,12 @@ TRANSLATIONS = {
         "user_created_successfully": "Пользователь успешно создан",
         "delete_user_confirm": "Вы уверены, что хотите удалить пользователя?",
         "user_deleted": "Пользователь удалён",
-        "select_branch": "Выберите филиал"
+        "select_branch": "Выберите филиал",
+        "notify_date": "Дата напоминания"
+
         },
         "uz": {
-        "notify_date":"",
+        "notify_date": "Eslatma sanasi",
         "users": "Foydalanuvchilar",
         "telegram_id": "Telegram ID",
         "assign_branches": "Filiallarni biriktirish",
