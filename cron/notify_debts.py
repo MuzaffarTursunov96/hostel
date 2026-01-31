@@ -1,5 +1,4 @@
 import sys
-import os
 import asyncio
 from datetime import date
 from sqlalchemy import text
@@ -8,60 +7,105 @@ from sqlalchemy import text
 sys.path.append("/app/backend")
 
 from db import get_connection
-from bot.bot import bot  # aiogram Bot instance
+from bot.bot import bot   # aiogram Bot instance
 
+
+# ================== TRANSLATIONS ==================
+
+MESSAGES = {
+    "uz": {
+        "title": "⚠️ Qarzdor bron bo‘yicha eslatma",
+        "today": "⏰ Bugun eslatma kuni",
+        "overdue": "⚠️ Qarzdorlik muddati o‘tgan",
+        "checkout": "🚨 Bron muddati o‘tgan (checkout o‘tib ketgan)",
+        "customer": "👤 Mijoz",
+        "branch": "🏨 Filial",
+        "debt": "💰 Qarzdorlik",
+        "notify": "📅 Belgilangan sana",
+        "checkout_date": "🚪 Checkout",
+        "footer": "❗ Iltimos, to‘lovni amalga oshiring"
+    },
+    "ru": {
+        "title": "⚠️ Напоминание о задолженности",
+        "today": "⏰ Сегодня день напоминания",
+        "overdue": "⚠️ Просроченная задолженность",
+        "checkout": "🚨 Срок проживания истёк",
+        "customer": "👤 Клиент",
+        "branch": "🏨 Филиал",
+        "debt": "💰 Задолженность",
+        "notify": "📅 Назначенная дата",
+        "checkout_date": "🚪 Выезд",
+        "footer": "❗ Пожалуйста, произведите оплату"
+    },
+    "en": {
+        "title": "⚠️ Debt booking reminder",
+        "today": "⏰ Reminder day",
+        "overdue": "⚠️ Overdue debt",
+        "checkout": "🚨 Checkout date passed",
+        "customer": "👤 Customer",
+        "branch": "🏨 Branch",
+        "debt": "💰 Debt",
+        "notify": "📅 Notify date",
+        "checkout_date": "🚪 Checkout",
+        "footer": "❗ Please complete the payment"
+    }
+}
+
+
+# ================== MAIN LOGIC ==================
 
 async def send_notifications(rows):
     today = date.today()
 
     for r in rows:
-        # determine status text
+        # determine status
         if r["checkout_date"] < today:
-            status_text = "🚨 *Bron muddati o‘tgan (checkout o‘tib ketgan)*"
+            status_key = "checkout"
         elif r["notify_date"] < today:
-            status_text = "⚠️ *Qarzdorlik muddati o‘tgan*"
+            status_key = "overdue"
         else:
-            status_text = "⏰ *Bugun eslatma kuni*"
+            status_key = "today"
 
         # get users for this branch
         with get_connection() as conn:
             users = conn.execute(text("""
-                SELECT u.telegram_id
+                SELECT u.telegram_id, u.language
                 FROM users u
                 JOIN user_branches ub ON ub.user_id = u.id
                 WHERE ub.branch_id = :bid
                   AND u.telegram_id IS NOT NULL
                   AND u.is_active = TRUE
-            """), {"bid": r["branch_id"]}).fetchall()
+            """), {"bid": r["branch_id"]}).mappings().all()
 
         if not users:
             continue
 
-        # telegram message (table-style)
-        msg = (
-            "⚠️ *Qarzdor bron bo‘yicha eslatma*\n\n"
-            "━━━━━━━━━━━━━━━━━━━━\n"
-            f"{status_text}\n"
-            f"👤 *Mijoz:* {r['customer_name']}\n"
-            f"🏨 *Filial ID:* {r['branch_id']}\n"
-            "━━━━━━━━━━━━━━━━━━━━\n"
-            f"💰 *Qarzdorlik:* `{r['remaining_amount']}` so‘m\n"
-            f"📅 *Belgilangan sana:* {r['notify_date']}\n"
-            f"🚪 *Checkout:* {r['checkout_date']}\n"
-            "━━━━━━━━━━━━━━━━━━━━\n"
-            "❗ Iltimos, to‘lovni amalga oshiring"
-        )
-
-        # send to all users of branch
         for u in users:
+            lang = u.get("language") or "ru"
+            t = MESSAGES.get(lang, MESSAGES["ru"])
+
+            msg = (
+                f"{t['title']}\n\n"
+                "━━━━━━━━━━━━━━━━━━━━\n"
+                f"{t[status_key]}\n"
+                f"{t['customer']}: {r['customer_name']}\n"
+                f"{t['branch']}: {r['branch_id']}\n"
+                "━━━━━━━━━━━━━━━━━━━━\n"
+                f"{t['debt']}: `{r['remaining_amount']}` so‘m\n"
+                f"{t['notify']}: {r['notify_date']}\n"
+                f"{t['checkout_date']}: {r['checkout_date']}\n"
+                "━━━━━━━━━━━━━━━━━━━━\n"
+                f"{t['footer']}"
+            )
+
             try:
                 await bot.send_message(
-                    u.telegram_id,
+                    u["telegram_id"],
                     msg,
                     parse_mode="Markdown"
                 )
             except Exception as e:
-                print(f"Telegram send failed ({u.telegram_id}):", e)
+                print(f"Telegram send failed ({u['telegram_id']}):", e)
 
         # mark booking as notified today (ANTI-SPAM)
         with get_connection() as conn:
