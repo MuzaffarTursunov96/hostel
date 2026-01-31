@@ -54,7 +54,7 @@ async def send_notifications(rows):
         else:
             status_key = "today"
 
-        # get users for this branch
+        # get users for this branch (RESPECT notify_enabled)
         with get_connection() as conn:
             users = conn.execute(text("""
                 SELECT u.telegram_id, u.language
@@ -63,6 +63,7 @@ async def send_notifications(rows):
                 WHERE ub.branch_id = :bid
                   AND u.telegram_id IS NOT NULL
                   AND u.is_active = TRUE
+                  AND u.notify_enabled = TRUE
             """), {"bid": r["branch_id"]}).mappings().all()
 
         if not users:
