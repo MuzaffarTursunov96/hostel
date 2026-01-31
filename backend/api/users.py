@@ -6,7 +6,10 @@ from db import (
     delete_user_by_admin_db,
     reset_password_db,
     update_user_by_admin_db,
-    list_user_branches_db
+    list_user_branches_db,
+    set_my_notifications_db,
+    admin_set_user_notify_db,
+    get_user_db
 )
 
 def require_admin(user):
@@ -115,3 +118,42 @@ def get_user_branches(
         admin_id=current_user["user_id"],
         user_id=user_id
     )
+
+@router.post("/me/notify")
+def set_my_notifications(data: dict, user=Depends(get_current_user)):
+    enabled = bool(data.get("enabled", True))
+
+    set_my_notifications_db(enabled, user["user_id"])
+
+    return {"ok": True}
+
+
+@router.post("/admin/users/{user_id}/notify")
+def admin_set_user_notify(
+        user_id: int,
+        data: dict,
+        current_user=Depends(get_current_user)
+    ):
+    require_admin(current_user)
+    enabled = bool(data.get("enabled", True))
+    
+    admin_set_user_notify_db(enabled,user_id,current_user["user_id"])
+    
+
+    return {"ok": True}
+
+
+@router.get("/{user_id}")
+def get_user(
+        user_id: int,
+        current_user=Depends(get_current_user)
+    ):
+    require_admin(current_user)
+
+    u = get_user_db(user_id, current_user["user_id"])
+    
+
+    if not u:
+        raise HTTPException(404, "User not found")
+
+    return u

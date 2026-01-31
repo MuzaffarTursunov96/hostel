@@ -96,6 +96,16 @@
 
   </div>
 
+  <!-- ADMIN: USER NOTIFICATIONS -->
+  <div class="flex items-center justify-between admin-only">
+    <span class="text-sm">🔔 {{t("user_notifications")}}</span>
+    <input type="checkbox"
+          id="userNotifyToggle"
+          onchange="toggleUserNotifications()">
+  </div>
+
+
+
   <!-- ================= PASSWORD ================= -->
   <div class="bg-card rounded-2xl shadow p-4 space-y-3">
 
@@ -122,6 +132,24 @@
     </button>
 
   </div>
+
+  <!-- ================= NOTIFICATIONS (USER) ================= -->
+<div class="bg-card rounded-2xl shadow p-4 space-y-3">
+
+  <h3 class="font-semibold">🔔 {{t("notifications")}}</h3>
+
+  <label class="flex items-center justify-between cursor-pointer">
+    <span class="text-sm">
+      {{t("debt_notifications")}}
+    </span>
+
+    <input type="checkbox"
+           id="myNotifyToggle"
+           class="toggle-checkbox">
+  </label>
+
+</div>
+
 
   <!-- ================= LANGUAGE ================= -->
   <div class="bg-card rounded-2xl shadow p-4 space-y-3">

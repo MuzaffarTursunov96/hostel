@@ -170,6 +170,7 @@ def init_db():
             branch_id INTEGER,
             created_by INTEGER,
             language TEXT DEFAULT 'ru',
+            notify_enabled BOOLEAN DEFAULT TRUE,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
         """))
@@ -2555,3 +2556,43 @@ def list_user_branches_db(admin_id: int, user_id: int):
             "user_id": user_id,
             "admin_id": admin_id
         }).mappings().all()
+
+
+def set_my_notifications_db(enabled, user_id):
+    with get_connection() as conn:
+        conn.execute(text("""
+            UPDATE users
+            SET notify_enabled = :enabled
+            WHERE id = :uid
+        """), {
+            "enabled": enabled,
+            "uid": user_id
+        })
+
+def admin_set_user_notify_db(enabled,user_id,current_user_id):
+    with get_connection() as conn:
+        conn.execute(text("""
+            UPDATE users
+            SET notify_enabled = :enabled
+            WHERE id = :uid
+              AND created_by = :admin_id
+        """), {
+            "enabled": enabled,
+            "uid": user_id,
+            "admin_id": current_user_id
+        })
+
+def get_user_db(user_id, admin_id):
+
+    with get_connection() as conn:
+        u = conn.execute(text("""
+            SELECT id, username, telegram_id, is_active, notify_enabled
+            FROM users
+            WHERE id = :uid
+              AND created_by = :admin_id
+        """), {
+            "uid": user_id,
+            "admin_id": admin_id
+        }).mappings().fetchone()
+
+        return u

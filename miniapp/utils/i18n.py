@@ -237,12 +237,30 @@ TRANSLATIONS = {
         "user_deleted": "Пользователь удалён",
         "select_branch": "Выберите филиал",
         "notify_date": "Дата напоминания",
-        "notify_date_hint": "Дата отправки напоминания об оплате"
+        "notify_date_hint": "Дата отправки напоминания об оплате",
+        "notifications": "Уведомления",
+        "debt_notifications": "Уведомления о задолженности",
+        "user_notifications": "Уведомления пользователя",
+        "enable_notifications": "Включить уведомления",
+        "notify_hint": "Вы будете получать уведомления о задолженных бронях в Telegram",
+        "notifications_enabled": "Уведомления включены",
+        "notifications_disabled": "Уведомления отключены",
+        "settings_saved": "Настройки сохранены",
+        "select_user": "Выберите пользователя"
 
 
         },
         "uz": {
         "notify_date_hint": "To‘lov bo‘yicha eslatma yuboriladigan sana",
+        "notifications": "Bildirishnomalar",
+        "debt_notifications": "Qarzdorlik bo‘yicha bildirishnomalar",
+        "user_notifications": "Foydalanuvchi bildirishnomalari",
+        "enable_notifications": "Bildirishnomalarni yoqish",
+        "notify_hint": "Qarzdor bronlar haqida Telegram orqali xabar olasiz",
+        "notifications_enabled": "Bildirishnomalar yoqildi",
+        "notifications_disabled": "Bildirishnomalar o‘chirildi",
+        "settings_saved": "Sozlamalar saqlandi",
+        "select_user": "Foydalanuvchini tanlang",
 
         "notify_date": "Eslatma sanasi",
         "users": "Foydalanuvchilar",

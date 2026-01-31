@@ -33,15 +33,60 @@ $(document).ready(function () {
       $(".admin-only").hide();
     }
 
+    if (me.notify_enabled !== undefined) {
+      $("#myNotifyToggle").prop("checked", me.notify_enabled);
+    }
+
 
   }).fail(function () {
     loadBranches();
+
   });
 
   document.addEventListener("DOMContentLoaded", startWebSocket);
 
 
 });
+
+
+$("#myNotifyToggle").on("change", function () {
+  const enabled = this.checked;
+
+  apiPost("/users/me/notify", {
+    enabled: enabled
+  }).done(function () {
+    alert(t("settings_saved"));
+  });
+});
+
+function toggleUserNotifications() {
+  const userId = $("#userSelect").val();
+  if (!userId) {
+    alert(t("select_user"));
+    return;
+  }
+
+  const enabled = $("#userNotifyToggle").is(":checked");
+
+  apiPost(`/users/admin/users/${userId}/notify`, {
+    enabled: enabled
+  }).done(function () {
+    alert(t("settings_saved"));
+  });
+}
+
+$(document).on("change", "#userSelect", function () {
+  const userId = $(this).val();
+  if (!userId) return;
+
+  apiGet(`/users/${userId}`).done(function (u) {
+    $("#userNotifyToggle").prop(
+      "checked",
+      u.notify_enabled === true
+    );
+  });
+});
+
 
 function loadUsers() {
   apiGet("/users")
@@ -341,33 +386,36 @@ function openUserBranchModal() {
 
 
 function saveUserBranches() {
-  if (!SELECTED_USER_ID) {
-    alert(t("select_user"));
-    return;
-  }
+  const checked = $(".branch-check:checked").map(function () {
+    return Number(this.value);
+  }).get();
 
-  const branchIds = $(".branch-check:checked")
-    .map(function () {
-      return Number(this.value);
-    })
-    .get();
+  const unchecked = $(".branch-check:not(:checked)").map(function () {
+    return Number(this.value);
+  }).get();
 
-  if (!branchIds.length) {
-    alert(t("select_branch"));
-    return;
-  }
+  const requests = [];
 
-  const requests = branchIds.map(branchId =>
-    apiPost(`/branches/${branchId}/assign-user`, {
-      user_id: Number(SELECTED_USER_ID)
-    })
-  );
+  checked.forEach(branchId => {
+    requests.push(
+      apiPost(`/branches/${branchId}/assign-user`, {
+        user_id: SELECTED_USER_ID
+      })
+    );
+  });
+
+  unchecked.forEach(branchId => {
+    requests.push(
+      apiDelete(`/branches/${branchId}/users/${SELECTED_USER_ID}`)
+    );
+  });
 
   Promise.all(requests).then(() => {
     alert(t("saved"));
     closeUserBranchModal();
   });
 }
+
 
 function closeUserBranchModal() {
   $("#userBranchModal").addClass("hidden");
