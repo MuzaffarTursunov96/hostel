@@ -1,53 +1,69 @@
-from datetime import date
 import sys
 import os
+import asyncio
+from sqlalchemy import text
 
 sys.path.append("/app/backend")
 
-from sqlalchemy import text
 from db import get_connection
-from bot.bot import bot
-import asyncio
+from bot.bot import bot   # aiogram Bot instance
 
-today = date.today()
+async def send_notifications(rows):
+    for r in rows:
+        with get_connection() as conn:
+            users = conn.execute(text("""
+                SELECT u.telegram_id
+                FROM users u
+                JOIN user_branches ub ON ub.user_id = u.id
+                WHERE ub.branch_id = :bid
+                  AND u.telegram_id IS NOT NULL
+                  AND u.is_active = TRUE
+            """), {"bid": r["branch_id"]}).fetchall()
+
+        msg = (
+            "⚠️ *Qarzdor bron bo‘yicha eslatma*\n\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            f"👤 *Mijoz:* {r['customer_name']}\n"
+            f"🏨 *Filial ID:* {r['branch_id']}\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            f"💰 *Qarzdorlik:* `{r['remaining_amount']}` so‘m\n"
+            f"📅 *Bugungi sana:* {r.get('notify_date', '')}\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "❗ Iltimos, to‘lovni amalga oshiring"
+        )
+
+
+        for u in users:
+            try:
+                await bot.send_message(
+                    u.telegram_id,
+                    msg,
+                    parse_mode="Markdown"
+                )
+
+            except Exception as e:
+                print("Telegram send failed:", e)
+
 
 def run():
     with get_connection() as conn:
         rows = conn.execute(text("""
             SELECT
-                b.id,
-                b.branch_id,
-                b.customer_name,
-                b.remaining_amount
-            FROM bookings b
-            WHERE b.remaining_amount > 0
-              AND b.notify_date = :today
-              AND b.status = 'active'
-        """), {"today": today}).mappings().all()
+                id,
+                branch_id,
+                customer_name,
+                remaining_amount
+            FROM bookings
+            WHERE remaining_amount > 0
+              AND notify_date = CURRENT_DATE
+              AND status = 'active'
+        """)).mappings().all()
 
-        for r in rows:
-            notify_branch(r)
+    if not rows:
+        print("No debt notifications today")
+        return
 
-def notify_branch(row):
-    # get users + admins of branch
-    with get_connection() as conn:
-        users = conn.execute(text("""
-            SELECT u.telegram_id
-            FROM users u
-            JOIN user_branches ub ON ub.user_id = u.id
-            WHERE ub.branch_id = :bid
-              AND u.telegram_id IS NOT NULL
-              AND u.is_active = TRUE
-        """), {"bid": row["branch_id"]}).fetchall()
-
-    msg = (
-        f"⚠️ Qarzdor bron!\n"
-        f"👤 {row['customer_name']}\n"
-        f"💰 Qarzdorlik: {row['remaining_amount']}"
-    )
-
-    for u in users:
-        asyncio.run(bot.send_message(u.telegram_id, msg))
+    asyncio.run(send_notifications(rows))
 
 
 if __name__ == "__main__":
