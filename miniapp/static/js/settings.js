@@ -32,6 +32,7 @@ $(document).ready(function () {
     } else {
       $(".admin-only").hide();
     }
+    alert(me.notify_enabled);
 
     if (me.notify_enabled !== undefined) {
       $("#myNotifyToggle").prop("checked", me.notify_enabled);
