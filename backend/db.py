@@ -1977,11 +1977,17 @@ def get_admin_db(user_id: int):
         "branches": branches
     }
 
-
 def delete_admin_db(admin_id: int):
     with get_connection() as conn:
 
-        # 1️⃣ delete booking refunds
+        # 0️⃣ BREAK self-reference FIRST (CRITICAL)
+        conn.execute(text("""
+            UPDATE users
+            SET created_by = NULL
+            WHERE created_by = :aid
+        """), {"aid": admin_id})
+
+        # 1️⃣ booking refunds
         conn.execute(text("""
             DELETE FROM booking_refunds
             WHERE branch_id IN (
@@ -1989,7 +1995,7 @@ def delete_admin_db(admin_id: int):
             )
         """), {"aid": admin_id})
 
-        # 2️⃣ delete booking payments
+        # 2️⃣ booking payments
         conn.execute(text("""
             DELETE FROM booking_payments
             WHERE branch_id IN (
@@ -1997,7 +2003,7 @@ def delete_admin_db(admin_id: int):
             )
         """), {"aid": admin_id})
 
-        # 3️⃣ delete bookings
+        # 3️⃣ bookings
         conn.execute(text("""
             DELETE FROM bookings
             WHERE branch_id IN (
@@ -2005,7 +2011,7 @@ def delete_admin_db(admin_id: int):
             )
         """), {"aid": admin_id})
 
-        # 4️⃣ delete beds
+        # 4️⃣ beds
         conn.execute(text("""
             DELETE FROM beds
             WHERE branch_id IN (
@@ -2013,7 +2019,7 @@ def delete_admin_db(admin_id: int):
             )
         """), {"aid": admin_id})
 
-        # 5️⃣ delete rooms
+        # 5️⃣ rooms
         conn.execute(text("""
             DELETE FROM rooms
             WHERE branch_id IN (
@@ -2021,7 +2027,7 @@ def delete_admin_db(admin_id: int):
             )
         """), {"aid": admin_id})
 
-        # 6️⃣ delete expenses
+        # 6️⃣ expenses
         conn.execute(text("""
             DELETE FROM expenses
             WHERE branch_id IN (
@@ -2029,30 +2035,31 @@ def delete_admin_db(admin_id: int):
             )
         """), {"aid": admin_id})
 
-        # 7️⃣ delete user-branch relations
+        # 7️⃣ user-branches
         conn.execute(text("""
             DELETE FROM user_branches
             WHERE user_id IN (
-                SELECT id FROM users WHERE created_by = :aid
+                SELECT id FROM users WHERE created_by IS NULL
             )
             OR branch_id IN (
                 SELECT id FROM branches WHERE created_by = :aid
             )
         """), {"aid": admin_id})
 
-        # 8️⃣ delete branches
+        # 8️⃣ branches
         conn.execute(text("""
             DELETE FROM branches
             WHERE created_by = :aid
         """), {"aid": admin_id})
 
-        # 9️⃣ delete users created by admin
+        # 9️⃣ users created by admin
         conn.execute(text("""
             DELETE FROM users
-            WHERE created_by = :aid
+            WHERE created_by IS NULL
+              AND id != :aid
         """), {"aid": admin_id})
 
-        # 🔟 delete admin LAST
+        # 🔟 admin LAST
         res = conn.execute(text("""
             DELETE FROM users
             WHERE id = :aid
@@ -2063,7 +2070,6 @@ def delete_admin_db(admin_id: int):
             raise Exception("Admin not found or cannot be deleted")
 
     return {"status": "success"}
-
 
 
 
