@@ -2652,16 +2652,41 @@ def list_users_in_branch_db(admin_id, branch_id):
 def list_user_branches_db(admin_id: int, user_id: int):
     with get_connection() as conn:
         return conn.execute(text("""
-            SELECT b.id, b.name
+            SELECT DISTINCT b.id, b.name
             FROM branches b
-            JOIN user_branches ub ON ub.branch_id = b.id
-            JOIN users u ON u.id = ub.user_id
-            WHERE u.id = :user_id
-              AND b.created_by = :admin_id
+
+            -- user must be related to branch
+            JOIN user_branches ub_user
+              ON ub_user.branch_id = b.id
+             AND ub_user.user_id = :user_id
+
+            -- admin relation (optional)
+            LEFT JOIN user_branches ub_admin
+              ON ub_admin.branch_id = b.id
+             AND ub_admin.user_id = :admin_id
+
+            WHERE
+                b.created_by = :admin_id
+                OR ub_admin.user_id IS NOT NULL
         """), {
             "user_id": user_id,
             "admin_id": admin_id
         }).mappings().all()
+
+
+# def list_user_branches_db(admin_id: int, user_id: int):
+#     with get_connection() as conn:
+#         return conn.execute(text("""
+#             SELECT b.id, b.name
+#             FROM branches b
+#             JOIN user_branches ub ON ub.branch_id = b.id
+#             JOIN users u ON u.id = ub.user_id
+#             WHERE u.id = :user_id
+#               AND b.created_by = :admin_id
+#         """), {
+#             "user_id": user_id,
+#             "admin_id": admin_id
+#         }).mappings().all()
 
 
 def set_my_notifications_db(enabled, user_id):
