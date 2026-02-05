@@ -185,10 +185,11 @@ RU = {
     "room_has_booked_beds": "В этой комнате есть забронированные кровати. Сначала отмените бронирования.",
     "cannot_delete_bed_reason": "Эта кровать связана с бронированиями и не может быть удалена.",
     "operation_completed_successfully": "Операция успешно выполнена",
-    "add_user":"",
-    "telegram_id":"",
-    "permission_denied":"",
-    "users":"",
+    "add_user": "Добавить пользователя",
+    "telegram_id": "Telegram ID",
+    "permission_denied": "Доступ запрещён",
+    "users": "Пользователи",
+    "user_created": "Пользователь успешно создан",
     
 
 }

@@ -1,8 +1,11 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QLineEdit, QPushButton,
-    QMessageBox, QComboBox, QScrollArea, QFrame
+    QMessageBox, QComboBox, QScrollArea, QFrame,QDialog,QCheckBox
 )
+
+
+
 from PySide6.QtCore import Qt,QSize
 from PySide6.QtGui import QCursor,QIcon
 
@@ -379,18 +382,24 @@ class SettingsPage(QWidget):
         layout.addWidget(add_user_btn)
 
         # --- SELECT USER ---
+        user_row = QHBoxLayout()
+
         self.user_combo = QComboBox()
-        self.user_combo.currentIndexChanged.connect(self.load_user_branches)
-        layout.addWidget(self.user_combo)
 
-        # --- USER ↔ BRANCH ASSIGNMENT ---
-        self.branch_assign_layout = QVBoxLayout()
-        layout.addLayout(self.branch_assign_layout)
+        branches_btn = QPushButton(t("branches"))
+        branches_btn.clicked.connect(self.open_user_branches_modal)
 
-        self.layout.addWidget(box)
+        user_row.addWidget(self.user_combo)
+        user_row.addWidget(branches_btn)
+
+        layout.addLayout(user_row)
+
 
         # load users once UI exists
         self.load_users()
+
+        self.layout.addWidget(box)
+
 
     def load_users(self):
         try:
@@ -438,63 +447,83 @@ class SettingsPage(QWidget):
 
         QMessageBox.information(self, t("success"), t("user_created"))
 
-    def load_user_branches(self):
-        if not self.is_admin:
-            return
 
-        self.clear_branch_assignments()
-
+    def open_user_branches_modal(self):
         text = self.user_combo.currentText()
         if "-" not in text:
+            QMessageBox.warning(self, t("error"), t("select_user"))
             return
 
         user_id = int(text.split(" - ")[0])
 
-        try:
-            assigned = api_get(self.app, f"/users/{user_id}/branches")
-            all_branches = api_get(self.app, "/branches/")
-        except Exception:
-            QMessageBox.critical(self, t("error"), t("cannot_load_data"))
-            return
+        dlg = UserBranchDialog(self.app, user_id, self)
+        dlg.exec()
 
+
+
+
+class UserBranchDialog(QDialog):
+    def __init__(self, app, user_id, parent=None):
+        super().__init__(parent)
+        self.app = app
+        self.user_id = user_id
+        self.setWindowTitle(t("assign_branches"))
+        self.resize(320, 400)
+
+        layout = QVBoxLayout(self)
+
+        title = QLabel(t("assign_branches"))
+        title.setStyleSheet("font-size:16px;font-weight:600;")
+        layout.addWidget(title)
+
+        self.checkboxes = []
+
+        assigned = api_get(app, f"/users/{user_id}/branches")
         assigned_ids = {b["id"] for b in assigned}
 
-        for b in all_branches:
-            cb = QPushButton(
-                f"{'✅' if b['id'] in assigned_ids else '⬜'} {b['name']}"
-            )
-            cb.clicked.connect(
-                lambda _, bid=b["id"], uid=user_id:
-                    self.toggle_user_branch(uid, bid)
-            )
-            self.branch_assign_layout.addWidget(cb)
+        self.initial_assigned_ids = set(assigned_ids)
 
-    def toggle_user_branch(self, user_id, branch_id):
-        if not self.is_admin:
-            QMessageBox.warning(self, t("error"), t("permission_denied"))
-            return
 
-        try:
+        branches = api_get(app, "/branches/")
+
+        for b in branches:
+            cb = QCheckBox(b["name"])
+            cb.setChecked(b["id"] in assigned_ids)
+            cb.branch_id = b["id"]
+            self.checkboxes.append(cb)
+            layout.addWidget(cb)
+
+        save_btn = QPushButton(t("save"))
+        save_btn.clicked.connect(self.save)
+        layout.addWidget(save_btn)
+
+        cancel_btn = QPushButton(t("cancel"))
+        cancel_btn.clicked.connect(self.reject)
+        layout.addWidget(cancel_btn)
+
+
+    def save(self):
+        current_ids = {
+            cb.branch_id
+            for cb in self.checkboxes
+            if cb.isChecked()
+        }
+
+        to_add = current_ids - self.initial_assigned_ids
+        to_remove = self.initial_assigned_ids - current_ids
+
+        for branch_id in to_add:
             api_post(
                 self.app,
                 f"/branches/{branch_id}/assign-user",
-                {"user_id": user_id}
+                {"user_id": self.user_id}
             )
-        except Exception:
-            try:
-                api_post(
-                    self.app,
-                    f"/branches/{branch_id}/remove-user",
-                    {"user_id": user_id}
-                )
-            except Exception:
-                QMessageBox.critical(self, t("error"), t("cannot_update_assignment"))
-                return
 
-        self.load_user_branches()
+        for branch_id in to_remove:
+            api_post(
+                self.app,
+                f"/branches/{branch_id}/remove-user",
+                {"user_id": self.user_id}
+            )
 
-    def clear_branch_assignments(self):
-        while self.branch_assign_layout.count():
-            item = self.branch_assign_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+        self.accept()

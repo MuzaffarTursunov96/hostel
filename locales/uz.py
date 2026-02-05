@@ -191,7 +191,12 @@ UZ = {
     "phone":"Telefon raqam",
     "no_customers":"Klientlar hozirda mavjud emas",
     "bed_has_bookings_cannot_delete": "Bu krovat band qilingan. Avval bandlovni bekor qiling.",
-  "room_has_booked_beds": "Bu xonada band qilingan krovatlar mavjud. Avval bandlovlarni bekor qiling."
+  "room_has_booked_beds": "Bu xonada band qilingan krovatlar mavjud. Avval bandlovlarni bekor qiling.",
+  "add_user": "Foydalanuvchi qo‘shish",
+  "telegram_id": "Telegram ID",
+  "permission_denied": "Ruxsat yo‘q",
+  "users": "Foydalanuvchilar",
+  "user_created": "Foydalanuvchi muvaffaqiyatli yaratildi",
 
 
 }

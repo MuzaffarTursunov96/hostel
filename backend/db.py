@@ -1933,6 +1933,11 @@ def list_admins_db():
 
 
 def set_admin_active_db(user_id: int, is_active: bool):
+    if is_active == 0 or is_active =='0':
+        is_active = False
+    elif is_active ==1 or is_active =='1':
+        is_active = True
+
     with get_connection() as conn:
         conn.execute(text("""
             UPDATE users
