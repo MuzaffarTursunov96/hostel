@@ -1980,18 +1980,17 @@ def get_admin_db(user_id: int):
 
 def delete_admin_db(user_id: int):
     with get_connection() as conn:
-        conn.execute(text("""
-            DELETE FROM user_branches
-            WHERE user_id = :user_id
-        """), {"user_id": user_id})
-
-        conn.execute(text("""
+        res = conn.execute(text("""
             DELETE FROM users
             WHERE id = :user_id
               AND is_admin = TRUE
         """), {"user_id": user_id})
 
+        if res.rowcount == 0:
+            return {"status": "error", "message": "Admin not found"}
+
     return {"status": "success"}
+
 
 
 def create_branch_db(name: str, created_by: int):
