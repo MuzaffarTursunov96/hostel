@@ -1652,18 +1652,7 @@ def telegram_login_db(telegram_id: int):
         """), {"telegram_id": telegram_id}).mappings().fetchone()
 
 
-def user_auto_create(telegram_id: int, username: str):
-    with get_connection() as conn:
-        user_id = conn.execute(text("""
-            INSERT INTO users (telegram_id, username, is_admin, is_active)
-            VALUES (:telegram_id, :username, FALSE, TRUE)
-            RETURNING id
-        """), {
-            "telegram_id": telegram_id,
-            "username": username
-        }).scalar()
 
-    return user_id
 
 
 def remove_bed_db(bed_id: int, branch_id: int):

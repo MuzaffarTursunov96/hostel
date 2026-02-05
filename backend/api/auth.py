@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException,Depends
 from .schemas import LoginIn,TelegramLoginIn
 from security import verify_password, create_token
-from db import login as db_login,telegram_login_db,user_auto_create,get_default_branch_id
+from db import login as db_login,telegram_login_db,get_default_branch_id
 from api.deps import get_current_user
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -53,8 +53,10 @@ def telegram_login(data: TelegramLoginIn):
     if not u:
         # AUTO CREATE USER (VERY IMPORTANT)
 
-        user_id = user_auto_create(data.telegram_id, data.username)
-        is_admin = 0
+        raise HTTPException(
+            status_code=401,
+            detail="User is not registered. Please contact administrator."
+        )
     else:
         user_id = u["id"]
         is_admin = u["is_admin"]

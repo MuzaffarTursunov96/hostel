@@ -38,8 +38,8 @@ def create_user(data: dict, current_user=Depends(get_current_user)):
     password = data.get("password")
     telegram_id = data.get("telegram_id")
 
-    if not username or not password:
-        raise HTTPException(400, "username and password required")
+    if not username or not password or not telegram_id:
+        raise HTTPException(400, "username, password and telegram_id required")
 
     user = create_user_db(
         username=username,
