@@ -2596,3 +2596,14 @@ def get_user_db(user_id, admin_id):
         }).mappings().fetchone()
 
         return u
+    
+def get_user_preferences_db(user_id):
+    with get_connection() as conn:
+        prefs = conn.execute(text("""
+            SELECT notify_enabled, language
+            FROM users
+            WHERE id = :uid
+        """), {"uid": user_id}).mappings().fetchone()
+
+        return prefs
+    

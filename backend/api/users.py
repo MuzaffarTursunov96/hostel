@@ -9,7 +9,8 @@ from db import (
     list_user_branches_db,
     set_my_notifications_db,
     admin_set_user_notify_db,
-    get_user_db
+    get_user_db,
+    get_user_preferences_db
 )
 
 def require_admin(user):
@@ -20,12 +21,12 @@ router = APIRouter(prefix="/users", tags=["Users"])
 
 
 
-
 @router.get("/me/preferences")
 def get_user_preferences(user=Depends(get_current_user)):
+    row = get_user_preferences_db(user["user_id"])
     return {
-        "language": user["language"],
-        "notify_enabled": user["notify_enabled"]
+        "language": row["language"] or "ru",
+        "notify_enabled": row["notify_enabled"]
     }
 
 
