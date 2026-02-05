@@ -152,6 +152,7 @@ class AdminsTab(QWidget):
             self.load_admins()
         except Exception as e:
             QMessageBox.critical(self, "Error", str(e))
+            self.load_admins()
 
 
     def reset_password(self, user_id):
