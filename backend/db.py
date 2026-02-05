@@ -1977,10 +1977,16 @@ def get_admin_db(user_id: int):
         "branches": branches
     }
 
-
 def delete_admin_db(admin_id: int):
     try:
-        with engine.begin() as conn:  # 🔒 ONE TRANSACTION
+        with engine.begin() as conn:
+
+            # 0️⃣ BREAK SELF-FK FIRST
+            conn.execute(text("""
+                UPDATE users
+                SET created_by = NULL
+                WHERE created_by = :aid
+            """), {"aid": admin_id})
 
             # 1️⃣ booking refunds
             conn.execute(text("""
@@ -2034,7 +2040,7 @@ def delete_admin_db(admin_id: int):
             conn.execute(text("""
                 DELETE FROM user_branches
                 WHERE user_id IN (
-                    SELECT id FROM users WHERE created_by = :aid
+                    SELECT id FROM users WHERE created_by IS NULL
                 )
                 OR branch_id IN (
                     SELECT id FROM branches WHERE created_by = :aid
@@ -2050,7 +2056,8 @@ def delete_admin_db(admin_id: int):
             # 9️⃣ users created by admin
             conn.execute(text("""
                 DELETE FROM users
-                WHERE created_by = :aid
+                WHERE created_by IS NULL
+                  AND id != :aid
             """), {"aid": admin_id})
 
             # 🔟 admin LAST
@@ -2060,20 +2067,12 @@ def delete_admin_db(admin_id: int):
             """), {"aid": admin_id})
 
             if res.rowcount == 0:
-                raise HTTPException(
-                    404,
-                    "Admin not found or already deleted"
-                )
+                raise HTTPException(404, "Admin not found")
 
-        # ✅ auto-commit here
         return {"status": "success"}
 
     except Exception as e:
-        # ❌ auto-rollback happens here
-        raise HTTPException(
-            500,
-            f"Delete admin failed: {str(e)}"
-        )
+        raise HTTPException(500, f"Delete admin failed: {e}")
 
 
 def create_branch_db(name: str, created_by: int):
