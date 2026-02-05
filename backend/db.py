@@ -2615,23 +2615,39 @@ def delete_branch_by_admin_db(admin_id, branch_id):
 def remove_user_from_branch_db(admin_id, user_id, branch_id):
     with get_connection() as conn:
         res = conn.execute(text("""
-            DELETE FROM user_branches
-            WHERE user_id = :uid
-              AND branch_id = :bid
+            DELETE FROM user_branches ub
+            WHERE ub.user_id = :uid
+              AND ub.branch_id = :bid
+
+              -- user must belong to admin
               AND EXISTS (
-                SELECT 1 FROM users u
-                WHERE u.id = :uid AND u.created_by = :aid
+                  SELECT 1
+                  FROM users u
+                  WHERE u.id = :uid
+                    AND u.created_by = :aid
               )
+
+              -- admin must OWN or BE ASSIGNED to branch
               AND EXISTS (
-                SELECT 1 FROM branches b
-                WHERE b.id = :bid AND b.created_by = :aid
+                  SELECT 1
+                  FROM branches b
+                  LEFT JOIN user_branches ub_admin
+                    ON ub_admin.branch_id = b.id
+                   AND ub_admin.user_id = :aid
+                  WHERE b.id = :bid
+                    AND (
+                        b.created_by = :aid
+                        OR ub_admin.user_id IS NOT NULL
+                    )
               )
         """), {
             "uid": user_id,
             "bid": branch_id,
             "aid": admin_id
         })
+
         return res.rowcount > 0
+
 
 
 def list_users_in_branch_db(admin_id, branch_id):
