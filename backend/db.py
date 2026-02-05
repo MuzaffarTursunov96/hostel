@@ -1738,7 +1738,7 @@ def get_dashboard_rooms(branch_id: int):
             SELECT id, number
             FROM rooms
             WHERE branch_id = :branch_id
-            ORDER BY number
+            ORDER BY id
         """), {"branch_id": branch_id}).mappings().all()
 
 

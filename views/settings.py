@@ -23,6 +23,9 @@ class SettingsPage(QWidget):
         self.app = app
         self.branches = []
 
+        self.me = api_get(self.app, "/auth/me")
+        self.is_admin = self.me.get("is_admin", False)
+
         self.build_ui()
         self.load_branches()
 
@@ -48,6 +51,8 @@ class SettingsPage(QWidget):
 
         # ===== BRANCH SECTION =====
         self.build_branch_section()
+
+        self.build_user_section()
 
         # ===== USER SETTINGS =====
         user_lbl = self.make_title(
@@ -131,6 +136,11 @@ class SettingsPage(QWidget):
         return wrapper
 
     def build_branch_section(self):
+        
+        if not self.is_admin:
+            return   # 🚫 users never see this
+        
+
         box = QFrame()
         box.setFrameShape(QFrame.StyledPanel)
         layout = QVBoxLayout(box)
@@ -226,6 +236,11 @@ class SettingsPage(QWidget):
         
 
     def add_branch_action(self):
+
+        if not self.is_admin:
+            QMessageBox.warning(self, t("error"), t("permission_denied"))
+            return
+
         name = self.new_branch.text().strip()
         if not name:
             QMessageBox.warning(self, t("error"), t("branch_name_required"))
@@ -254,6 +269,10 @@ class SettingsPage(QWidget):
 
 
     def rename_branch_action(self):
+        if not self.is_admin:
+            QMessageBox.warning(self, t("error"), t("permission_denied"))
+            return
+
         value = self.branch_combo.currentText()
         if not value or "-" not in value:
             return
@@ -321,3 +340,161 @@ class SettingsPage(QWidget):
         save_config(config)
 
         self.app.reload_ui()
+
+
+    def build_user_section(self):
+        if not self.is_admin:
+            return  # 🚫 users never see this
+
+        box = QFrame()
+        box.setFrameShape(QFrame.StyledPanel)
+        layout = QVBoxLayout(box)
+
+        title = self.make_title(
+            t("users"),
+            resource_path("assets/icons/user.png"),
+            size=18
+        )
+        layout.addWidget(title)
+
+        # --- CREATE USER ---
+        self.new_username = QLineEdit()
+        self.new_username.setPlaceholderText(t("username"))
+
+        self.new_user_password = QLineEdit()
+        self.new_user_password.setPlaceholderText(t("password"))
+        self.new_user_password.setEchoMode(QLineEdit.Password)
+
+        self.new_user_telegram = QLineEdit()
+        self.new_user_telegram.setPlaceholderText(t("telegram_id"))
+
+
+
+        add_user_btn = QPushButton(t("add_user"))
+        add_user_btn.clicked.connect(self.create_user)
+
+        layout.addWidget(self.new_username)
+        layout.addWidget(self.new_user_telegram)
+        layout.addWidget(self.new_user_password)
+        layout.addWidget(add_user_btn)
+
+        # --- SELECT USER ---
+        self.user_combo = QComboBox()
+        self.user_combo.currentIndexChanged.connect(self.load_user_branches)
+        layout.addWidget(self.user_combo)
+
+        # --- USER ↔ BRANCH ASSIGNMENT ---
+        self.branch_assign_layout = QVBoxLayout()
+        layout.addLayout(self.branch_assign_layout)
+
+        self.layout.addWidget(box)
+
+        # load users once UI exists
+        self.load_users()
+
+    def load_users(self):
+        try:
+            users = api_get(self.app, "/users")
+        except Exception:
+            QMessageBox.critical(self, t("error"), t("cannot_load_users"))
+            return
+
+        self.user_combo.blockSignals(True)
+        self.user_combo.clear()
+
+        for u in users:
+            self.user_combo.addItem(f"{u['id']} - {u['username']}")
+
+        self.user_combo.blockSignals(False)
+
+    def create_user(self):
+        if not self.is_admin:
+            QMessageBox.warning(self, t("error"), t("permission_denied"))
+            return
+
+        username = self.new_username.text().strip()
+        password = self.new_user_password.text().strip()
+
+        telegram_id = self.new_user_telegram.text().strip()
+
+        if not username or not password or not telegram_id:
+            QMessageBox.warning(self, t("error"), t("fill_all_fields"))
+            return
+
+        try:
+            api_post(self.app, "/users", {
+                "username": username,
+                "password": password,
+                "telegram_id": telegram_id
+            })
+        except Exception:
+            QMessageBox.critical(self, t("error"), t("cannot_create_user"))
+            return
+
+        self.new_username.clear()
+        self.new_user_password.clear()
+        self.new_user_telegram.clear()
+        self.load_users()
+
+        QMessageBox.information(self, t("success"), t("user_created"))
+
+    def load_user_branches(self):
+        if not self.is_admin:
+            return
+
+        self.clear_branch_assignments()
+
+        text = self.user_combo.currentText()
+        if "-" not in text:
+            return
+
+        user_id = int(text.split(" - ")[0])
+
+        try:
+            assigned = api_get(self.app, f"/users/{user_id}/branches")
+            all_branches = api_get(self.app, "/branches/")
+        except Exception:
+            QMessageBox.critical(self, t("error"), t("cannot_load_data"))
+            return
+
+        assigned_ids = {b["id"] for b in assigned}
+
+        for b in all_branches:
+            cb = QPushButton(
+                f"{'✅' if b['id'] in assigned_ids else '⬜'} {b['name']}"
+            )
+            cb.clicked.connect(
+                lambda _, bid=b["id"], uid=user_id:
+                    self.toggle_user_branch(uid, bid)
+            )
+            self.branch_assign_layout.addWidget(cb)
+
+    def toggle_user_branch(self, user_id, branch_id):
+        if not self.is_admin:
+            QMessageBox.warning(self, t("error"), t("permission_denied"))
+            return
+
+        try:
+            api_post(
+                self.app,
+                f"/branches/{branch_id}/assign-user",
+                {"user_id": user_id}
+            )
+        except Exception:
+            try:
+                api_post(
+                    self.app,
+                    f"/branches/{branch_id}/remove-user",
+                    {"user_id": user_id}
+                )
+            except Exception:
+                QMessageBox.critical(self, t("error"), t("cannot_update_assignment"))
+                return
+
+        self.load_user_branches()
+
+    def clear_branch_assignments(self):
+        while self.branch_assign_layout.count():
+            item = self.branch_assign_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()

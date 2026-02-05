@@ -19,6 +19,16 @@ def require_admin(user):
 router = APIRouter(prefix="/users", tags=["Users"])
 
 
+
+
+@router.get("/me/preferences")
+def get_user_preferences(user=Depends(get_current_user)):
+    return {
+        "language": user["language"],
+        "notify_enabled": user["notify_enabled"]
+    }
+
+
 @router.post("")
 def create_user(data: dict, current_user=Depends(get_current_user)):
     require_admin(current_user)

@@ -20,6 +20,8 @@ class BookingPage(QWidget):
         self.current_room_id = None
         self.selected_bed_id = None
         self.prefilled_bed_id = None
+        self.notify_date_manually_changed = False
+
 
         self.build_ui()
         self.load_rooms()
@@ -108,6 +110,23 @@ class BookingPage(QWidget):
         dates.addLayout(right)
         layout.addLayout(dates)
 
+
+
+        # ===== NOTIFY DATE =====
+        layout.addWidget(
+            self.section_title(t("notify_date"), resource_path("assets/icons/bell.png"))
+        )
+
+        self.notify_date = QDateEdit(QDate.currentDate())
+        self.notify_date.setCalendarPopup(True)
+        self.notify_date.setFixedHeight(38)
+
+        layout.addWidget(self.notify_date)
+
+
+        self.notify_date.dateChanged.connect(self.on_notify_date_changed)
+        self.checkout.dateChanged.connect(self.on_checkout_changed)
+
         # ===== BEDS =====
         layout.addWidget(self.section_title(t("available_beds"), resource_path("assets/icons/bed.png")))
 
@@ -193,6 +212,13 @@ class BookingPage(QWidget):
         layout.addWidget(confirm)
 
 
+    def on_notify_date_changed(self):
+        self.notify_date_manually_changed = True
+
+
+    def on_checkout_changed(self, new_date):
+        if not self.notify_date_manually_changed:
+            self.notify_date.setDate(new_date)
 
 
     def on_customer_selected(self, index):
@@ -350,6 +376,7 @@ class BookingPage(QWidget):
                 "paid": paid,
                 "checkin": self.checkin.date().toString("yyyy-MM-dd"),
                 "checkout": self.checkout.date().toString("yyyy-MM-dd"),
+                "notify_date": self.notify_date.date().toString("yyyy-MM-dd"),
             }
         )
 
@@ -392,6 +419,9 @@ class BookingPage(QWidget):
         # reset dates
         self.checkin.setDate(QDate.currentDate())
         self.checkout.setDate(QDate.currentDate().addDays(1))
+        self.notify_date.setDate(QDate.currentDate())
+        self.notify_date_manually_changed = False
+
 
         # reload data for new branch
         self.load_rooms()
@@ -420,6 +450,10 @@ class BookingPage(QWidget):
         # reset dates
         self.checkin.setDate(QDate.currentDate())
         self.checkout.setDate(QDate.currentDate().addDays(1))
+
+        self.notify_date.setDate(QDate.currentDate())
+        self.notify_date_manually_changed = False
+
 
         # reload beds for current room
         self.load_available_beds()

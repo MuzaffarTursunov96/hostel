@@ -184,6 +184,11 @@ RU = {
     "bed_has_bookings_cannot_delete": "Эта кровать забронирована. Сначала отмените бронирование.",
     "room_has_booked_beds": "В этой комнате есть забронированные кровати. Сначала отмените бронирования.",
     "cannot_delete_bed_reason": "Эта кровать связана с бронированиями и не может быть удалена.",
-    "operation_completed_successfully": "Операция успешно выполнена"
+    "operation_completed_successfully": "Операция успешно выполнена",
+    "add_user":"",
+    "telegram_id":"",
+    "permission_denied":"",
+    "users":"",
+    
 
 }

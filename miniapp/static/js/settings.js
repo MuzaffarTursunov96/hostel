@@ -10,9 +10,9 @@ $(document).ready(function () {
   apiGet("/auth/me").done(function (me) {
     // alert(me)
     CURRENT_BRANCH = me.branch_id;
-    CURRENT_LANG = me.language || "ru";
+    // CURRENT_LANG = me.language || "ru";
 
-    setActiveLangUI(CURRENT_LANG);
+    // setActiveLangUI(CURRENT_LANG);
 
     // 🔐 SAVE TO FLASK SESSION
     fetch("/auth/save-context", {
@@ -32,15 +32,30 @@ $(document).ready(function () {
     } else {
       $(".admin-only").hide();
     }
-    alert(me.notify_enabled);
+    
 
-    if (me.notify_enabled !== undefined) {
-      $("#myNotifyToggle").prop("checked", me.notify_enabled);
-    }
+    // if (me.notify_enabled !== undefined) {
+    //   $("#myNotifyToggle").prop("checked", me.notify_enabled);
+    // }
+
+
 
 
   }).fail(function () {
     loadBranches();
+
+  });
+
+
+   // 2️⃣ USER PREFERENCES (🔥 NEW API)
+  apiGet("/users/me/preferences").done(function (prefs) {
+
+    CURRENT_LANG = prefs.language || "ru";
+    setActiveLangUI(CURRENT_LANG);
+
+    if (prefs.notify_enabled !== undefined) {
+      $("#myNotifyToggle").prop("checked", prefs.notify_enabled);
+    }
 
   });
 
