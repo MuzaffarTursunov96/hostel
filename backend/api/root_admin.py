@@ -21,7 +21,7 @@ def create_admin(
         raise HTTPException(400, "telegram_id and password required")
 
 
-    user_stat = create_admin_from_root(telegram_id, username, password)
+    user_stat = create_admin_from_root(telegram_id, username, password,True)
     
     if user_stat['status'] =='error':
         raise HTTPException(400, "Admin already exists")
