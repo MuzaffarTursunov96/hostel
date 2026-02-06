@@ -200,6 +200,8 @@ UZ = {
     "branches": "Filiallar",
     "select_user": "Foydalanuvchini tanlang",
     "assign_branches": "Filiallarni tayinlash",
-
+    "user_deleted": "Foydalanuvchi muvaffaqiyatli o‘chirildi",
+    "delete_user_confirm": "Siz ushbu foydalanuvchini o‘chirishni xohlaysizmi?",
+    "delete": "O'chirish",
 
 }

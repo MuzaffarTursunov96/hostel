@@ -11,7 +11,7 @@ from PySide6.QtGui import QCursor,QIcon
 
 from utils.config import load_config, save_config
 from i18n import set_lang, t
-from .api_client import api_post,api_get
+from .api_client import api_post,api_get,api_delete
 from .utils import resource_path
 
 
@@ -388,9 +388,15 @@ class SettingsPage(QWidget):
 
         branches_btn = QPushButton(t("branches"))
         branches_btn.clicked.connect(self.open_user_branches_modal)
+        
+        delete_user_btn = QPushButton(t("delete"))
+        delete_user_btn.clicked.connect(self.delete_selected_user)
+        delete_user_btn.setCursor(QCursor(Qt.PointingHandCursor))
+
 
         user_row.addWidget(self.user_combo)
         user_row.addWidget(branches_btn)
+        user_row.addWidget(delete_user_btn)
 
         layout.addLayout(user_row)
 
@@ -446,6 +452,34 @@ class SettingsPage(QWidget):
         self.load_users()
 
         QMessageBox.information(self, t("success"), t("user_created"))
+
+
+    def delete_selected_user(self):
+        text = self.user_combo.currentText()
+        if "-" not in text:
+            QMessageBox.warning(self, t("error"), t("select_user"))
+            return
+
+        user_id = int(text.split(" - ")[0])
+
+        reply = QMessageBox.question(
+            self,
+            t("confirm"),
+            t("delete_user_confirm"),
+            QMessageBox.Yes | QMessageBox.No
+        )
+
+        if reply != QMessageBox.Yes:
+            return
+
+        try:
+            api_delete(self.app, f"/users/{user_id}")
+        except Exception as e:
+            QMessageBox.critical(self, t("error"), str(e))
+            return
+
+        QMessageBox.information(self, t("success"), t("user_deleted"))
+        self.load_users()   # 🔥 refresh list
 
 
     def open_user_branches_modal(self):
@@ -520,10 +554,9 @@ class UserBranchDialog(QDialog):
             )
 
         for branch_id in to_remove:
-            api_post(
+            api_delete(
                 self.app,
-                f"/branches/{branch_id}/remove-user",
-                {"user_id": self.user_id}
+                f"/branches/{branch_id}/users/{self.user_id}"
             )
 
         self.accept()
