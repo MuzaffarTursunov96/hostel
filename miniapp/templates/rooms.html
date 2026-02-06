@@ -66,5 +66,43 @@
 
 </div>
 
+<!-- ADD ROOM MODAL -->
+<div id="roomModal"
+     class="fixed inset-0 bg-black/40 hidden items-center justify-center z-50">
+
+  <div class="bg-white rounded-2xl w-[90%] max-w-sm p-5 space-y-4">
+    <h2 class="text-lg font-semibold flex items-center gap-2">
+      🏠 {{ t("add_room") }}
+    </h2>
+
+    <!-- ROOM NAME -->
+    <div>
+      <label class="text-sm text-gray-600">
+        {{ t("room_name") }}
+      </label>
+      <input
+        id="roomNameInput"
+        type="text"
+        class="w-full mt-1 px-3 py-2 rounded-xl border focus:outline-none focus:ring-2 focus:ring-tgButton"
+        placeholder="{{ t('enter_room_name') }}"
+      />
+    </div>
+
+    <!-- ACTIONS -->
+    <div class="flex gap-2 pt-2">
+      <button onclick="closeRoomModal()"
+              class="flex-1 py-2 rounded-xl border">
+        {{ t("cancel") }}
+      </button>
+
+      <button onclick="submitRoom()"
+              class="flex-1 py-2 rounded-xl bg-tgButton text-white font-medium">
+        {{ t("create") }}
+      </button>
+    </div>
+  </div>
+</div>
+
+
 <script src="/static/js/rooms.js?v={{version}}"></script>
 {% endblock %}

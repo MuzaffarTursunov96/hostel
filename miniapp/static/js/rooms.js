@@ -115,11 +115,52 @@ function loadBeds(roomId) {
 
 /* ================= ACTIONS ================= */
 
-function addRoom() {
-  const $btn = $("#addRoomBtn");
+// function addRoom() {
+//   const $btn = $("#addRoomBtn");
 
-  // ✅ disable immediately
-  $btn.prop("disabled", true).addClass("opacity-50 cursor-not-allowed");
+//   // ✅ disable immediately
+//   $btn.prop("disabled", true).addClass("opacity-50 cursor-not-allowed");
+
+//   apiGet("/rooms", { branch_id: CURRENT_BRANCH })
+//     .done(function (rooms) {
+//       const nextNumber = getNextRoomNumber(rooms || []);
+
+//       apiPost("/rooms", {
+//         branch_id: CURRENT_BRANCH,
+//         number: nextNumber
+//       }).done(function () {
+//         loadRooms();
+//       }).always(function () {
+//         // ✅ re-enable after everything finishes
+//         $btn.prop("disabled", false).removeClass("opacity-50 cursor-not-allowed");
+//       });
+//     })
+//     .fail(function () {
+//       $btn.prop("disabled", false).removeClass("opacity-50 cursor-not-allowed");
+//     });
+// }
+
+function addRoom() {
+  $("#roomNameInput").val("");
+  $("#roomModal").removeClass("hidden").addClass("flex");
+}
+
+
+function closeRoomModal() {
+  $("#roomModal").addClass("hidden").removeClass("flex");
+}
+
+function submitRoom() {
+  const roomName = $("#roomNameInput").val().trim();
+
+  if (!roomName) {
+    alert(t("room_name_required"));
+    return;
+  }
+
+  // disable button to prevent double submit
+  const btn = $("#roomModal button.bg-tgButton");
+  btn.prop("disabled", true).addClass("opacity-50");
 
   apiGet("/rooms", { branch_id: CURRENT_BRANCH })
     .done(function (rooms) {
@@ -127,16 +168,16 @@ function addRoom() {
 
       apiPost("/rooms", {
         branch_id: CURRENT_BRANCH,
-        number: nextNumber
-      }).done(function () {
+        number: nextNumber,
+        room_name: roomName
+      })
+      .done(function () {
+        closeRoomModal();
         loadRooms();
-      }).always(function () {
-        // ✅ re-enable after everything finishes
-        $btn.prop("disabled", false).removeClass("opacity-50 cursor-not-allowed");
+      })
+      .always(function () {
+        btn.prop("disabled", false).removeClass("opacity-50");
       });
-    })
-    .fail(function () {
-      $btn.prop("disabled", false).removeClass("opacity-50 cursor-not-allowed");
     });
 }
 

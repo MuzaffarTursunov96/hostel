@@ -25,6 +25,7 @@ def init_db():
         conn.execute(text("""
         CREATE TABLE IF NOT EXISTS rooms (
             id SERIAL PRIMARY KEY,
+            room_name TEXT,
             number TEXT NOT NULL,
             description TEXT,
             branch_id INTEGER NOT NULL,
@@ -1780,21 +1781,18 @@ def export_monthly_data_db(year, month, branch_id: int):
 
 
 
-def create_room_db(number: str, branch_id: int):
-    try:
-        with get_connection() as conn:
-            conn.execute(text("""
-                INSERT INTO rooms (number, branch_id)
-                VALUES (:number, :branch_id)
-            """), {
-                "number": number,
-                "branch_id": branch_id
-            })
+def create_room_db(number: str, room_name: str, branch_id: int):
+    with get_connection() as conn:
+        conn.execute(text("""
+            INSERT INTO rooms (number, room_name, branch_id)
+            VALUES (:number, :room_name, :branch_id)
+        """), {
+            "number": number,
+            "room_name": room_name,
+            "branch_id": branch_id
+        })
+    return {"status": "success"}
 
-        return {"status": "success"}
-
-    except Exception:
-        return {"status": "error"}
 
 
 def delete_room_db(room_id: int, branch_id: int):

@@ -24,7 +24,7 @@ def rooms(branch_id: int, user=Depends(get_current_user)):
 async def create_room(data: RoomCreate, user=Depends(get_current_user)):
 
     
-    create_stat =create_room_db(data.number,data.branch_id)
+    create_stat =create_room_db(data.number, data.room_name, data.branch_id)
     
     if create_stat['status'] =='success':
         await ws_manager.broadcast({
