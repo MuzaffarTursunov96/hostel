@@ -9,6 +9,7 @@ router = APIRouter(prefix="/rooms", tags=["Rooms"])
 
 # ================= SCHEMAS =================
 class RoomCreate(BaseModel):
+    room_name: str
     number: str
     branch_id: int
 
