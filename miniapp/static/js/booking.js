@@ -48,7 +48,10 @@ function loadRooms() {
       const $room = $("#roomSelect");
       $room.empty();
       rooms.forEach(r => {
-        $room.append(`<option value="${r.id}">${t("room")} ${r.room_number}</option>`);
+        const label = r.room_name || r.room_number;
+        $room.append(`<option value="${r.id}">${label}</option>`);
+
+        // $room.append(`<option value="${r.id}">${t("room")} ${r.room_number}</option>`);
       });
 
       if (rooms.length) {
@@ -251,7 +254,7 @@ function renderBookingHistory(rows) {
           </div>
 
           <div class="mt-1 text-xs text-gray-600">
-            🏠 ${t("room")} ${r.room_number} • 🛏 ${t("bed")} ${r.bed_number}
+            🏠 ${r.room_name || r.room_number} • 🛏 ${t("bed")} ${r.bed_number}
           </div>
 
           <div class="text-xs text-gray-600">

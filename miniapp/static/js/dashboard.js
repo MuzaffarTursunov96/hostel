@@ -51,7 +51,7 @@ function loadDashboard(filter=false) {
       const $roomEl = $(`
         <div class="bg-white rounded-2xl shadow p-4 space-y-3">
           <div class="font-semibold text-gray-900">
-            🏠 ${t("room")} ${room.room_number}
+            🏠 ${room.room_name || room.room_number}
           </div>
           <div class="beds-flow flex flex-wrap gap-2"></div>
         </div>
@@ -333,7 +333,9 @@ function loadFutureEditRooms(booking) {
       const sel = $("#editFutureRoom").empty();
 
       rooms.forEach(r => {
-        sel.append(`<option value="${r.id}">${t("room")} ${r.room_number}</option>`);
+        const label = r.room_name || r.room_number;
+        sel.append(`<option value="${r.id}">${label}</option>`);
+
       });
 
       sel.val(booking.room_id);
@@ -413,6 +415,7 @@ $(document).on("input", "#activeBookingSearch", function () {
   const filtered = ALL_ACTIVE_BOOKINGS.filter(b =>
     (b.customer_name || "").toLowerCase().includes(q) ||
     (b.passport_id || "").toLowerCase().includes(q) ||
+    (b.room_name || "").toLowerCase().includes(q) ||
     String(b.room_number).includes(q) ||
     String(b.bed_number).includes(q)
   );
@@ -451,7 +454,8 @@ function renderActiveBookings(bookings) {
 
       <!-- ROOM / BED -->
       <div class="text-sm text-gray-600">
-        🏠 ${t("room")} ${b.room_number} • 🛏 ${t("bed")} ${b.bed_number}
+        🏠 ${b.room_name || b.room_number} • 🛏 ${t("bed")} ${b.bed_number}
+
       </div>
 
       <!-- DATES -->
@@ -526,7 +530,9 @@ function loadEditRooms(booking) {
       const sel = $("#editRoom").empty();
 
       rooms.forEach(r => {
-        sel.append(`<option value="${r.id}">${t("room")} ${r.room_number}</option>`);
+        const label = r.room_name || r.room_number;
+        sel.append(`<option value="${r.id}">${label}</option>`);
+
       });
     
       // ✅ select first room by default

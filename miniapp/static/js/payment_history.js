@@ -87,7 +87,8 @@ function renderTable(query) {
           </div>
 
           <div class="text-sm text-gray-600">
-            🏠 ${t("room")} ${p.room_number} · 🛏 ${t("bed")} ${p.bed_number}
+            🏠 ${p.room_name || p.room_number} · 🛏 ${t("bed")} ${p.bed_number}
+
           </div>
         </div>
 

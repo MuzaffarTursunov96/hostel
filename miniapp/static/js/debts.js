@@ -71,7 +71,8 @@ function renderDebts(query = "") {
               <div class="font-semibold">${d.customer_name}</div>
               <div class="text-sm text-gray-500">${d.passport_id}</div>
               <div class="text-sm text-gray-500">
-                🏠 ${t("room")} ${d.room_number} · 🛏 ${t("bed")} ${d.bed_number}
+                🏠 ${d.room_name || d.room_number} · 🛏 ${t("bed")} ${d.bed_number}
+
               </div>
               <div class="text-xs text-tgHint">
                 ${fmtDate(d.checkin_date)} → ${fmtDate(d.checkout_date)}

@@ -201,6 +201,7 @@ def get_rooms_with_beds(branch_id):
             SELECT 
                 rooms.id,
                 rooms.number AS room_number,
+                COALESCE(rooms.room_name, rooms.number) AS room_name,
                 COUNT(beds.id) AS bed_count
             FROM rooms
             LEFT JOIN beds 
@@ -217,6 +218,7 @@ def get_rooms_with_beds(branch_id):
         {
             "id": r["id"],
             "room_number": r["room_number"],
+            "room_name": r["room_name"],
             "bed_count": r["bed_count"]
         }
         for r in rows
@@ -495,6 +497,7 @@ def get_debts_by_range(branch_id, from_date, to_date):
                 b.passport_id,
                 b.contact,
                 r.number AS room_number,
+                COALESCE(r.room_name, r.number) AS room_name,
                 beds.bed_number,
                 b.total_amount,
                 b.paid_amount,
@@ -872,6 +875,7 @@ def get_payment_history(branch_id):
                 b.customer_name,
                 b.passport_id,
                 r.number AS room_number,
+                COALESCE(r.room_name, r.number) AS room_name,
                 beds.bed_number
             FROM booking_payments bp
             JOIN bookings b ON b.id = bp.booking_id
@@ -894,6 +898,7 @@ def get_payment_history_by_month(branch_id, year, month):
                 b.customer_name,
                 b.passport_id,
                 r.number AS room_number,
+                COALESCE(r.room_name, r.number) AS room_name,
                 beds.bed_number
             FROM booking_payments bp
             JOIN bookings b ON b.id = bp.booking_id
@@ -928,6 +933,7 @@ def get_payments_by_range(branch_id, start_date, end_date):
                 b.contact,
                 b.bed_id,
                 r.number AS room_number,
+                COALESCE(r.room_name, r.number) AS room_name,
                 b.checkin_date,
                 b.checkout_date
 
@@ -1081,7 +1087,8 @@ def get_past_bookings(branch_id, from_date=None, to_date=None):
             bk.total_amount,
             bk.customer_name,
             bk.passport_id,
-            r.number AS room_number
+            r.number AS room_number,
+            COALESCE(r.room_name, r.number) AS room_name
         FROM bookings bk
         JOIN rooms r ON r.id = bk.room_id
         JOIN beds ON beds.id = bk.bed_id
@@ -1124,7 +1131,8 @@ def get_active_bookings(branch_id):
                 bk.total_amount,
                 bk.customer_name,
                 bk.passport_id,
-                r.number AS room_number
+                r.number AS room_number,
+                COALESCE(r.room_name, r.number) AS room_name
             FROM bookings bk
             JOIN rooms r ON r.id = bk.room_id
             JOIN beds ON beds.id = bk.bed_id
@@ -1389,7 +1397,8 @@ def get_future_bookings(branch_id, bed_id):
                 bk.paid_amount,                 
                 bk.customer_name,
                 bk.passport_id,
-                r.number AS room_number
+                r.number AS room_number,
+                COALESCE(r.room_name, r.number) AS room_name
             FROM bookings bk
             JOIN rooms r ON r.id = bk.room_id
             JOIN beds ON beds.id = bk.bed_id
@@ -1411,6 +1420,7 @@ def get_future_bookings(branch_id, bed_id):
             "bed_id": r["bed_id"],
             "bed_number": r["bed_number"],
             "room_number": r["room_number"],
+            "room_name": r["room_name"],
             "customer_name": r["customer_name"],
             "passport_id": r["passport_id"],
             "checkin_date": r["checkin_date"],
@@ -1725,7 +1735,7 @@ def delete_passport_image_db(image_id: int):
 def get_dashboard_rooms(branch_id: int):
     with get_connection() as conn:
         return conn.execute(text("""
-            SELECT id, number
+            SELECT id, number,COALESCE(room_name, number) AS room_name
             FROM rooms
             WHERE branch_id = :branch_id
             ORDER BY id
@@ -1756,6 +1766,7 @@ def export_monthly_data_db(year, month, branch_id: int):
                 b.customer_name,
                 b.contact,
                 r.number AS room_number,
+                COALESCE(r.room_name, r.number) AS room_name,
                 b.bed_id,
                 b.total_amount,
                 b.paid_amount,

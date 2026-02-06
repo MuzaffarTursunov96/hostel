@@ -251,8 +251,10 @@ TRANSLATIONS = {
 
         },
         "uz": {
+        "room_name": "Xona nomi",
         "enter_room_name": "Xona nomini kiriting",
         "create":"Yaratish",
+
         "notify_date_hint": "To‘lov bo‘yicha eslatma yuboriladigan sana",
         "notifications": "Bildirishnomalar",
         "debt_notifications": "Qarzdorlik bo‘yicha bildirishnomalar",

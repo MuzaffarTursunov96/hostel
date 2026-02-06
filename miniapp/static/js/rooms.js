@@ -30,7 +30,7 @@ function loadRooms() {
             <button
               class="room-item px-4 py-2 rounded-full border text-sm whitespace-nowrap
                     bg-gray-100 text-gray-700">
-              🏠 ${t("room")} ${room.room_number}
+              🏠 ${room.room_name || room.room_number}
             </button>
           `);
 
@@ -55,7 +55,8 @@ function selectRoom(room) {
   CURRENT_ROOM_ID = room.id;
   SELECTED_BED_ID = null;
 
-  $("#bedsTitle").text(`${t("room")} ${room.room_number} — ${t("beds")}`);
+  $("#bedsTitle").text(`${room.room_name || room.room_number} — ${t("beds")}`);
+
   loadBeds(room.id);
 }
 

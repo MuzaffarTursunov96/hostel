@@ -24,6 +24,7 @@ def dashboard_rooms(
         room_data = {
             "room_id": room["id"],
             "room_number": room["number"],
+            "room_name": room["room_name"],
             "beds": []
         }
 
