@@ -1,2 +1,2 @@
-0 1 * * * python /app/cron/notify_debts.py >> /var/log/cron.log 2>&1
-45 11 * * * python /app/cron/notify_debts.py >> /var/log/cron.log 2>&1
+50 14 * * * root /usr/bin/python /app/cron/notify_debts.py >> /var/log/cron.log 2>&1
+

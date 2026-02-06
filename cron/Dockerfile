@@ -2,21 +2,29 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# copy whole project
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    cron \
+    tzdata \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set timezone
+ENV TZ=Asia/Tashkent
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+# Copy project
 COPY . /app
 
-# install dependencies
+# Install Python dependencies
 RUN pip install --no-cache-dir -r backend/requirements.txt
 
-# install cron
-RUN apt-get update && apt-get install -y cron
-
-ENV TZ=Asia/Tashkent
-RUN apt-get install -y tzdata
-
-# add cron job
+# Setup cron job
 COPY cron/crontab /etc/cron.d/notify-debts
-RUN chmod 0644 /etc/cron.d/notify-debts
-RUN crontab /etc/cron.d/notify-debts
+RUN chmod 0644 /etc/cron.d/notify-debts \
+    && crontab /etc/cron.d/notify-debts
 
+# Create log file
+RUN touch /var/log/cron.log
+
+# Start cron
 CMD ["cron", "-f"]
