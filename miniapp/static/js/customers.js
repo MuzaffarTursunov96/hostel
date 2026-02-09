@@ -338,16 +338,28 @@ function setUploadLoading(isLoading) {
   }
 }
 
-
 function editCustomer(customerId) {
   const c = ALL_CUSTOMERS.find(x => x.id === customerId);
   if (!c) return;
 
-  const name = prompt("Customer name:", c.name);
-  if (!name) return;
+  $("#editCustomerId").val(c.id);
+  $("#editCustomerName").val(c.name || "");
+  $("#editCustomerContact").val(c.contact || "");
+  $("#editCustomerPassport").val(c.passport_id || "");
 
-  const contact = prompt("Contact:", c.contact || "") || "";
-  const passport_id = prompt("Passport ID:", c.passport_id || "") || "";
+  $("#editCustomerModal").removeClass("hidden");
+}
+
+function saveCustomerEdit() {
+  const customerId = $("#editCustomerId").val();
+  const name = $("#editCustomerName").val().trim();
+  const contact = $("#editCustomerContact").val().trim();
+  const passport_id = $("#editCustomerPassport").val().trim();
+
+  if (!name) {
+    alert("Name is required");
+    return;
+  }
 
   const params = new URLSearchParams({
     name,
@@ -361,10 +373,16 @@ function editCustomer(customerId) {
   })
     .then(r => {
       if (!r.ok) throw new Error();
+      closeEditCustomer();
       loadCustomers();
     })
     .catch(() => alert("Failed to update customer"));
 }
+
+function closeEditCustomer() {
+  $("#editCustomerModal").addClass("hidden");
+}
+
 
 
 function deleteCustomer(customerId) {

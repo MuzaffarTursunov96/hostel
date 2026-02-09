@@ -33,6 +33,51 @@
 
 </div>
 
+
+<div id="editCustomerModal"
+     class="fixed inset-0 bg-black/50 hidden flex items-center justify-center z-50">
+
+  <div class="bg-white rounded-xl w-11/12 max-w-md p-5">
+    <h3 class="text-lg font-semibold mb-4">✏️ Edit Customer</h3>
+
+    <input type="hidden" id="editCustomerId">
+
+    <div class="mb-3">
+      <label class="text-sm">Name</label>
+      <input id="editCustomerName"
+             class="w-full border rounded px-3 py-2"
+             placeholder="Customer name">
+    </div>
+
+    <div class="mb-3">
+      <label class="text-sm">Contact</label>
+      <input id="editCustomerContact"
+             class="w-full border rounded px-3 py-2"
+             placeholder="+998...">
+    </div>
+
+    <div class="mb-4">
+      <label class="text-sm">Passport ID</label>
+      <input id="editCustomerPassport"
+             class="w-full border rounded px-3 py-2"
+             placeholder="AB1234567">
+    </div>
+
+    <div class="flex justify-end gap-2">
+      <button onclick="closeEditCustomer()"
+              class="px-4 py-2 border rounded">
+        Cancel
+      </button>
+
+      <button onclick="saveCustomerEdit()"
+              class="px-4 py-2 bg-tgButton text-white rounded">
+        Save
+      </button>
+    </div>
+  </div>
+</div>
+
+
 <!-- ================= PASSPORT MODAL ================= -->
 <!-- <div id="passportModal" class="fixed inset-0 z-50 hidden">
 
