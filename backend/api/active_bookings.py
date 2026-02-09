@@ -33,7 +33,7 @@ async def api_cancel_booking(
     data: CancelBookingRequest,
     user=Depends(get_current_user)
 ):
-    print("Cancelling booking:", data.booking_id, "branch:", data.branch_id)
+    
     cancel_booking(data.booking_id, data.branch_id)
 
     await ws_manager.broadcast({

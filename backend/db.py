@@ -953,11 +953,27 @@ def get_payments_by_range(branch_id, start_date, end_date):
         return result.mappings().all()
 
 
+# def cancel_booking(booking_id: int, branch_id: int):
+#     with get_connection() as conn:
+#         conn.execute(text("""
+#             UPDATE bookings
+#             SET status = 'canceled'
+#             WHERE id = :booking_id
+#               AND branch_id = :branch_id
+#               AND status = 'active'
+#         """), {
+#             "booking_id": booking_id,
+#             "branch_id": branch_id
+#         })
+
 def cancel_booking(booking_id: int, branch_id: int):
     with get_connection() as conn:
         conn.execute(text("""
             UPDATE bookings
-            SET status = 'canceled'
+            SET
+                status = 'canceled',
+                remaining_amount = 0,
+                payment_status = 'canceled'
             WHERE id = :booking_id
               AND branch_id = :branch_id
               AND status = 'active'
