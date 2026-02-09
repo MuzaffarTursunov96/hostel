@@ -13,6 +13,37 @@
     }
   </script>
 
+  <style>
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      color: var(--tg-theme-hint-color);
+      text-decoration: none;
+    }
+
+    .nav-icon {
+      width: 24px;
+      height: 24px;
+      opacity: 0.7;
+      transition: opacity 0.2s, transform 0.15s;
+    }
+
+    /* active / hover */
+    .nav-item.active .nav-icon,
+    .nav-item:hover .nav-icon {
+      opacity: 1;
+      transform: scale(1.05);
+    }
+
+    .nav-item.active,
+    .nav-item:hover {
+      color: var(--tg-theme-button-color);
+    }
+
+  </style>
+
 
   <title>{% block title %}App{% endblock %}</title>
 
@@ -44,6 +75,12 @@
         }
       }
     }
+
+    document.querySelectorAll(".nav-item").forEach(link => {
+      if (link.href === window.location.href) {
+        link.classList.add("active");
+      }
+    });
   </script>
 
 <script src="/static/ws.js"></script>
