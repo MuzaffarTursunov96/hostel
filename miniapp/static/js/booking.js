@@ -2,6 +2,8 @@ let CURRENT_ROOM_ID = null;
 let SELECTED_BED_ID = null;
 let CURRENT_BRANCH = null;
 let notifyDateManuallyChanged = false;
+let BRANCH_CUSTOMERS = [];
+
 
 
 
@@ -13,6 +15,9 @@ $(document).ready(function () {
   if (!CURRENT_BRANCH) {
     console.warn("Branch not set yet");
   }
+
+  loadBranchCustomers();
+
 
   $("#checkin").val(today);
   $("#checkout").val(today);
@@ -38,8 +43,74 @@ $(document).ready(function () {
     }
   });
 
-
 });
+
+
+
+$("#customerName").on("input focus", function () {
+  const q = $(this).val().toLowerCase().trim();
+  const $dd = $("#customerDropdown");
+  $dd.empty();
+
+  if (!BRANCH_CUSTOMERS.length) return;
+
+  const matches = BRANCH_CUSTOMERS
+    .filter(c =>
+      !q ||
+      (c.name || "").toLowerCase().includes(q) ||
+      (c.passport_id || "").toLowerCase().includes(q)
+    )
+    .slice(0, 8);
+
+  if (!matches.length) {
+    $dd.addClass("hidden");
+    return;
+  }
+
+  matches.forEach(c => {
+    $dd.append(`
+      <div class="px-3 py-2 cursor-pointer hover:bg-gray-100"
+           onclick="selectCustomer(${c.id})">
+        <div class="font-medium">${c.name}</div>
+        <div class="text-xs text-gray-500">
+          🪪 ${c.passport_id || "—"} · 📞 ${c.contact || "—"}
+        </div>
+      </div>
+    `);
+  });
+
+  $dd.removeClass("hidden");
+});
+
+
+function selectCustomer(customerId) {
+  const c = BRANCH_CUSTOMERS.find(x => x.id === customerId);
+  if (!c) return;
+
+  $("#customerName").val(c.name || "");
+  $("#passport").val(c.passport_id || "");
+  $("#contact").val(c.contact || "");
+
+  $("#customerDropdown").addClass("hidden");
+}
+
+
+$(document).on("click", function (e) {
+  if (!$(e.target).closest("#customerName, #customerDropdown").length) {
+    $("#customerDropdown").addClass("hidden");
+  }
+});
+
+
+
+
+
+function loadBranchCustomers() {
+  apiGet("/customers/", { branch_id: CURRENT_BRANCH })
+    .done(function (rows) {
+      BRANCH_CUSTOMERS = rows || [];
+    });
+}
 
 /* ---------- ROOMS ---------- */
 function loadRooms() {
