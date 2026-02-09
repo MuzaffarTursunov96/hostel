@@ -63,12 +63,13 @@ function renderCustomers(customers) {
           <button
             class="px-3 py-1 border rounded text-sm"
             onclick="editCustomer(${c.id})">
-            ✏️
+            ✏️${t("edit")}
           </button>
 
           <button
             class="px-3 py-1 bg-red-500 text-white rounded text-sm"
             onclick="deleteCustomer(${c.id})">
+            ${t("delete")}
             🗑
           </button>
         </div>
@@ -357,7 +358,7 @@ function saveCustomerEdit() {
   const passport_id = $("#editCustomerPassport").val().trim();
 
   if (!name) {
-    alert("Name is required");
+    alert(t("customer_name_required"));
     return;
   }
 
@@ -376,7 +377,7 @@ function saveCustomerEdit() {
       closeEditCustomer();
       loadCustomers();
     })
-    .catch(() => alert("Failed to update customer"));
+    .catch(() => alert(t("failed_to_update_customer")));
 }
 
 function closeEditCustomer() {
@@ -386,7 +387,7 @@ function closeEditCustomer() {
 
 
 function deleteCustomer(customerId) {
-  if (!confirm("Delete customer permanently?")) return;
+  if (!confirm(t("delete_customer_confirmation"))) return;
 
   fetch(`/api2/customers/${customerId}`, {
     method: "DELETE",
@@ -396,5 +397,5 @@ function deleteCustomer(customerId) {
       if (!r.ok) throw new Error();
       loadCustomers();
     })
-    .catch(() => alert("Failed to delete customer"));
+    .catch(() => alert(t("failed_to_delete_customer")));
 }

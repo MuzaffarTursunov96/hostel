@@ -250,8 +250,19 @@ TRANSLATIONS = {
         "room_name": "Название комнаты",
         "enter_room_name": "Введите название комнаты",
         "create":"Создать",
+        "failed_to_update_customer": "Ошибка при обновлении клиента",
+        "failed_to_delete_customer": "Ошибка при удалении клиента",
+        "delete_customer_confirmation": "Вы уверены, что хотите удалить этого клиента?",
+        "edit_customer": "Редактировать клиента",
         },
         "uz": {
+        "failed_to_update_customer": "Mijozni yangilashda xatolik",
+        "failed_to_delete_customer": "Mijozni o‘chirishda xatolik",
+        "delete_customer_confirmation": "Siz ushbu mijozni o‘chirmoqchimisiz?",
+        "edit_customer": "Mijozni tahrirlash",
+
+
+        
         "room_name": "Xona nomi",
         "enter_room_name": "Xona nomini kiriting",
         "create":"Yaratish",

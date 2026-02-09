@@ -38,26 +38,26 @@
      class="fixed inset-0 bg-black/50 hidden flex items-center justify-center z-50">
 
   <div class="bg-white rounded-xl w-11/12 max-w-md p-5">
-    <h3 class="text-lg font-semibold mb-4">✏️ Edit Customer</h3>
+    <h3 class="text-lg font-semibold mb-4">✏️ {{t("edit_customer")}}</h3>
 
     <input type="hidden" id="editCustomerId">
 
     <div class="mb-3">
-      <label class="text-sm">Name</label>
+      <label class="text-sm">{{t("customer_name")}}</label>
       <input id="editCustomerName"
              class="w-full border rounded px-3 py-2"
              placeholder="Customer name">
     </div>
 
     <div class="mb-3">
-      <label class="text-sm">Contact</label>
+      <label class="text-sm">{{t("contact_info")}}</label>
       <input id="editCustomerContact"
              class="w-full border rounded px-3 py-2"
              placeholder="+998...">
     </div>
 
     <div class="mb-4">
-      <label class="text-sm">Passport ID</label>
+      <label class="text-sm">{{t("passport_id")}}</label>
       <input id="editCustomerPassport"
              class="w-full border rounded px-3 py-2"
              placeholder="AB1234567">
@@ -66,12 +66,12 @@
     <div class="flex justify-end gap-2">
       <button onclick="closeEditCustomer()"
               class="px-4 py-2 border rounded">
-        Cancel
+        {{t("cancel")}}
       </button>
 
       <button onclick="saveCustomerEdit()"
               class="px-4 py-2 bg-tgButton text-white rounded">
-        Save
+        {{t("save")}}
       </button>
     </div>
   </div>
