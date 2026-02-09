@@ -260,49 +260,49 @@ function triggerPassportUpload(e) {
 }
 
 
-document
-  .getElementById("passportUploadInput")
-  .addEventListener("change", function () {
+// document
+//   .getElementById("passportUploadInput")
+//   .addEventListener("change", function () {
 
-    const files = Array.from(this.files || []);
+//     const files = Array.from(this.files || []);
 
-    if (!files.length) return;
+//     if (!files.length) return;
 
-    if (CURRENT_IMAGE_COUNT + files.length > 4) {
-      alert(t("maximum_4_images_allowed"));
-      this.value = "";
-      return;
-    }
+//     if (CURRENT_IMAGE_COUNT + files.length > 4) {
+//       alert(t("maximum_4_images_allowed"));
+//       this.value = "";
+//       return;
+//     }
 
-    const fd = new FormData();
-    files.forEach(f => fd.append("files", f));
+//     const fd = new FormData();
+//     files.forEach(f => fd.append("files", f));
 
-    // 🔥 START LOADING
-    setUploadLoading(true);
+//     // 🔥 START LOADING
+//     setUploadLoading(true);
 
-    fetch(`/api2/customers/${CURRENT_CUSTOMER_ID}/passport-images`, {
-      method: "POST",
-      credentials: "include",
-      body: fd
-    })
-      .then(async r => {
-        if (!r.ok) throw new Error(await r.text());
-        return r.json();
-      })
-      .then(() => {
-        closePassportModal();
-        loadCustomers();
-      })
-      .catch(err => {
-        console.error(err);
-        alert(t("upload_failed"));
-      })
-      .finally(() => {
-        // 🔥 STOP LOADING
-        setUploadLoading(false);
-        this.value = "";
-      });
-  });
+//     fetch(`/api2/customers/${CURRENT_CUSTOMER_ID}/passport-images`, {
+//       method: "POST",
+//       credentials: "include",
+//       body: fd
+//     })
+//       .then(async r => {
+//         if (!r.ok) throw new Error(await r.text());
+//         return r.json();
+//       })
+//       .then(() => {
+//         closePassportModal();
+//         loadCustomers();
+//       })
+//       .catch(err => {
+//         console.error(err);
+//         alert(t("upload_failed"));
+//       })
+//       .finally(() => {
+//         // 🔥 STOP LOADING
+//         setUploadLoading(false);
+//         this.value = "";
+//       });
+//   });
 
 
 
