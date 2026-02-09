@@ -31,7 +31,6 @@ function loadCustomers() {
   apiGet("/customers/", { branch_id: CURRENT_BRANCH })
     .done(function (rows) {
       ALL_CUSTOMERS = rows || [];
-      alert("Customers loaded: " + ALL_CUSTOMERS.length);
       renderCustomers(ALL_CUSTOMERS);
     });
 }

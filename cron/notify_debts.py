@@ -14,7 +14,7 @@ from bot.bot import bot   # aiogram Bot instance
 
 MESSAGES = {
     "uz": {
-        "title": "⚠️ Qarzdor bron bo‘yicha eslatma",
+        "title": "🔔 Qarzdor bron bo‘yicha eslatma",
         "today": "⏰ Bugun eslatma kuni",
         "overdue": "⚠️ Qarzdorlik muddati o‘tgan",
         "checkout": "🚨 Bron muddati o‘tgan",
@@ -26,7 +26,7 @@ MESSAGES = {
         "checkout_date": "🚪 Chiqib ketish sanasi"
     },
     "ru": {
-        "title": "⚠️ Напоминание о задолженности",
+        "title": "🔔 Напоминание о задолженности",
         "today": "⏰ Сегодня день напоминания",
         "overdue": "⚠️ Просроченная задолженность",
         "checkout": "🚨 Срок проживания истёк",

@@ -507,15 +507,19 @@ function setTodayDefault() {
 ================================ */
 window.openEditBooking = function (booking) {
   currentEditingBooking = booking;
+  alert("Editing booking for " + JSON.stringify(booking));
 
   $("#editBookingId").val(booking.id);
   $("#editCheckout").val(booking.checkout_date);
+  $("#editCheckin").val(booking.checkin_date);
   $("#editTotal").val(booking.total_amount);
 
   $("#editBookingModal").removeClass("hidden");
 
   loadEditRooms(booking);
 };
+
+
 
 window.closeEditBooking = function () {
   $("#editBookingModal").addClass("hidden");
