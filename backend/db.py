@@ -2782,3 +2782,34 @@ def get_user_preferences_db(user_id):
 
         return prefs
     
+
+def update_booking_db(customer_id, name, contact, passport_id, branch_id):
+    with get_connection() as conn:
+        conn.execute(text("""
+            UPDATE customers
+            SET
+                name = :name,
+                contact = :contact,
+                passport_id = :passport_id
+            WHERE id = :customer_id
+              AND branch_id = :branch_id
+        """), {
+            "customer_id": customer_id,
+            "branch_id": branch_id,
+            "name": name,
+            "contact": contact,
+            "passport_id": passport_id
+        })
+    return {"status": "success"}
+    
+def delete_customer_db(customer_id, branch_id):
+    with get_connection() as conn:
+        conn.execute(text("""
+            DELETE FROM customers
+            WHERE id = :customer_id
+              AND branch_id = :branch_id
+        """), {
+            "customer_id": customer_id,
+            "branch_id": branch_id
+        })
+    return {"status": "success"}

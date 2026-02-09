@@ -5,7 +5,7 @@ import uuid
 from api.ws_manager import ws_manager
 
 from api.deps import get_current_user
-from db import get_customers, delete_passport_image_db, image_path, get_image_paths, select_passport_image, upload_passport_image_db
+from db import delete_customer_db, get_customers, delete_passport_image_db, image_path, get_image_paths, select_passport_image, update_booking_db, upload_passport_image_db
 
 PASSPORT_DIR = os.path.abspath(
     os.path.join(os.getcwd(), "miniapp", "static", "passports")
@@ -111,5 +111,29 @@ async def delete_passport_image(
     "branch_id": user["branch_id"]
 })
 
+
+    return {"ok": True}
+
+
+
+@router.put("/{customer_id}")
+def update_customer(
+        customer_id: int,
+        name: str,
+        contact: str | None = None,
+        passport_id: str | None = None,
+        user=Depends(get_current_user)
+    ):
+    update_booking_db(customer_id, name, contact, passport_id, user['branch_id'])
+
+    return {"ok": True}
+
+
+@router.delete("/{customer_id}")
+def delete_customer(
+            customer_id: int,
+            user=Depends(get_current_user)
+        ):
+    delete_customer_db(customer_id, user['branch_id'])
 
     return {"ok": True}

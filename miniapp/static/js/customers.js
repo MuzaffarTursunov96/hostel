@@ -49,23 +49,35 @@ function renderCustomers(customers) {
 
   customers.forEach(c => {
     $list.append(`
-      <div class="p-4 flex justify-between items-center gap-3">
+      <div class="p-4 flex justify-between items-center gap-3 border-b">
 
         <div>
-          <div class="font-semibold text-lg">
-            👤 ${c.name}
-          </div>
-
+          <div class="font-semibold text-lg">👤 ${c.name}</div>
           <div class="text-sm text-gray-600">
             🪪 ${c.passport_id || "—"} <br>
             📞 ${c.contact || "—"}
           </div>
         </div>
 
+        <div class="flex gap-2">
+          <button
+            class="px-3 py-1 border rounded text-sm"
+            onclick="editCustomer(${c.id})">
+            ✏️
+          </button>
+
+          <button
+            class="px-3 py-1 bg-red-500 text-white rounded text-sm"
+            onclick="deleteCustomer(${c.id})">
+            🗑
+          </button>
+        </div>
+
       </div>
     `);
   });
 }
+
 
 
 // function renderCustomers(customers) {
@@ -324,4 +336,47 @@ function setUploadLoading(isLoading) {
     icon.classList.remove("hidden");
     spinner.classList.add("hidden");
   }
+}
+
+
+function editCustomer(customerId) {
+  const c = ALL_CUSTOMERS.find(x => x.id === customerId);
+  if (!c) return;
+
+  const name = prompt("Customer name:", c.name);
+  if (!name) return;
+
+  const contact = prompt("Contact:", c.contact || "") || "";
+  const passport_id = prompt("Passport ID:", c.passport_id || "") || "";
+
+  const params = new URLSearchParams({
+    name,
+    contact,
+    passport_id
+  });
+
+  fetch(`/api2/customers/${customerId}?${params.toString()}`, {
+    method: "PUT",
+    credentials: "include"
+  })
+    .then(r => {
+      if (!r.ok) throw new Error();
+      loadCustomers();
+    })
+    .catch(() => alert("Failed to update customer"));
+}
+
+
+function deleteCustomer(customerId) {
+  if (!confirm("Delete customer permanently?")) return;
+
+  fetch(`/api2/customers/${customerId}`, {
+    method: "DELETE",
+    credentials: "include"
+  })
+    .then(r => {
+      if (!r.ok) throw new Error();
+      loadCustomers();
+    })
+    .catch(() => alert("Failed to delete customer"));
 }
