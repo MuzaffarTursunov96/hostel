@@ -592,6 +592,7 @@ $("#editBookingForm").on("submit", function (e) {
       booking_id: Number($("#editBookingId").val()),
       room_id: Number($("#editRoom").val()),
       bed_id: Number($("#editBed").val()),
+      checkin_date: $("#editCheckin").val(),
       checkout_date: $("#editCheckout").val(),
       total_amount: Number($("#editTotal").val())
     })

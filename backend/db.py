@@ -1009,6 +1009,7 @@ def update_booking_admin(
     booking_id,
     room_id,
     bed_id,
+    checkin_date,
     checkout_date,
     total_amount
 ):
@@ -1018,12 +1019,14 @@ def update_booking_admin(
             SET
                 room_id = :room_id,
                 bed_id = :bed_id,
+                checkin_date = :checkin_date,
                 checkout_date = :checkout_date,
                 total_amount = :total_amount
             WHERE id = :booking_id
         """), {
             "room_id": room_id,
             "bed_id": bed_id,
+            "checkin_date": checkin_date,
             "checkout_date": checkout_date,
             "total_amount": total_amount,
             "booking_id": booking_id

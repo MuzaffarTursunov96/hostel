@@ -104,6 +104,7 @@ class AdminBookingUpdate(BaseModel):
     booking_id: int
     room_id: int
     bed_id: int
+    checkin_date: date
     checkout_date: date
     total_amount: float
 
@@ -117,6 +118,7 @@ async def admin_update_booking(
         data.booking_id,
         data.room_id,
         data.bed_id,
+        data.checkin_date,
         data.checkout_date,
         data.total_amount
     )
