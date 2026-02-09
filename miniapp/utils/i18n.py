@@ -254,8 +254,10 @@ TRANSLATIONS = {
         "failed_to_delete_customer": "Ошибка при удалении клиента",
         "delete_customer_confirmation": "Вы уверены, что хотите удалить этого клиента?",
         "edit_customer": "Редактировать клиента",
+        "select_or_type_customer": "Выберите клиента из списка или введите имя для нового клиента"
         },
         "uz": {
+        "select_or_type_customer": "Mijozni ro‘yxatdan tanlang yoki yangi mijoz uchun ismini kiriting",
         "failed_to_update_customer": "Mijozni yangilashda xatolik",
         "failed_to_delete_customer": "Mijozni o‘chirishda xatolik",
         "delete_customer_confirmation": "Siz ushbu mijozni o‘chirmoqchimisiz?",
