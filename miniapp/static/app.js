@@ -21,14 +21,7 @@ if (window.Telegram && Telegram.WebApp) {
   Telegram.WebApp.expand();
 }
 
-const current = window.location.pathname;
 
-document.querySelectorAll(".nav-item").forEach(link => {
-  link.classList.toggle(
-    "active",
-    link.getAttribute("href") === current
-  );
-});
 
 
 /**

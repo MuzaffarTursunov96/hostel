@@ -28,3 +28,16 @@
 
   </div>
 </nav>
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+  const current = window.location.pathname;
+
+  document.querySelectorAll(".nav-item").forEach(link => {
+    link.classList.toggle(
+      "active",
+      new URL(link.href).pathname === current
+    );
+  });
+});
+
+</script>
