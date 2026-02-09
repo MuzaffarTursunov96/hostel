@@ -246,9 +246,10 @@ TRANSLATIONS = {
         "notifications_enabled": "Уведомления включены",
         "notifications_disabled": "Уведомления отключены",
         "settings_saved": "Настройки сохранены",
-        "select_user": "Выберите пользователя"
-
-
+        "select_user": "Выберите пользователя",
+        "room_name": "Название комнаты",
+        "enter_room_name": "Введите название комнаты",
+        "create":"Создать",
         },
         "uz": {
         "room_name": "Xona nomi",
