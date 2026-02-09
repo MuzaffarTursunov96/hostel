@@ -1,34 +1,28 @@
-<!-- Bottom Navigation (Telegram Mini App style) -->
 <nav class="fixed bottom-0 left-0 right-0 bg-card border-t border-gray-200 dark:border-gray-800">
   <div class="max-w-md mx-auto grid grid-cols-5 py-2 text-xs">
 
-    <a href="/dashboard"
-       class="flex flex-col items-center gap-1 text-tgHint hover:text-tgButton">
-      <span class="text-xl">🏠</span>
+    <a href="/dashboard" class="nav-item active">
+      <img src="/static/icons/home_menu.png" class="nav-icon">
       <span>{{t("dashboard")}}</span>
     </a>
 
-    <a href="/rooms"
-       class="flex flex-col items-center gap-1 text-tgHint hover:text-tgButton">
-      <span class="text-xl">🛏</span>
+    <a href="/rooms" class="nav-item">
+      <img src="/static/icons/rooms_menu.png" class="nav-icon">
       <span>{{t("rooms")}}</span>
     </a>
 
-    <a href="/bookings"
-       class="flex flex-col items-center gap-1 text-tgHint hover:text-tgButton">
-      <span class="text-xl">📅</span>
+    <a href="/bookings" class="nav-item">
+      <img src="/static/icons/booking_menu.png" class="nav-icon">
       <span>{{t("bookings")}}</span>
     </a>
 
-    <a href="/payments"
-       class="flex flex-col items-center gap-1 text-tgHint hover:text-tgButton">
-      <span class="text-xl">💳</span>
+    <a href="/payments" class="nav-item">
+      <img src="/static/icons/payments_menu.png" class="nav-icon">
       <span>{{t("payments")}}</span>
     </a>
 
-    <a href="/settings"
-       class="flex flex-col items-center gap-1 text-tgHint hover:text-tgButton">
-      <span class="text-xl">⚙️</span>
+    <a href="/settings" class="nav-item">
+      <img src="/static/icons/settings_menu.png" class="nav-icon">
       <span>{{t("settings")}}</span>
     </a>
 
