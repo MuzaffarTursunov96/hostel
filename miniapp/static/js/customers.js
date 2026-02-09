@@ -6,8 +6,8 @@ let CURRENT_IMAGE_COUNT = 0;
 let CURRENT_BRANCH = null;
 
 $(document).ready(function () {
-  loadCustomers();
   CURRENT_BRANCH = localStorage.getItem("CURRENT_BRANCH");
+  loadCustomers();
   if (!CURRENT_BRANCH) {
     console.warn("Branch not set yet");
   }
