@@ -507,7 +507,6 @@ function setTodayDefault() {
 ================================ */
 window.openEditBooking = function (booking) {
   currentEditingBooking = booking;
-  alert("Editing booking for " + JSON.stringify(booking));
 
   $("#editBookingId").val(booking.id);
   $("#editCheckout").val(booking.checkout_date);
