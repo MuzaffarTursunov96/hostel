@@ -89,3 +89,17 @@ function handleApiError(xhr) {
 
 
 
+/* ---------- PUT ---------- */
+function apiPut(path, params = {}) {
+  const query = $.param(params);   // convert to query string
+
+  const url = query
+    ? `/api2${path}?${query}`
+    : `/api2${path}`;
+
+  return $.ajax({
+    url: url,
+    method: "PUT",
+    dataType: "json"
+  }).fail(handleApiError);
+}

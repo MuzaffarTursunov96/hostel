@@ -1,11 +1,11 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout,
-    QLabel, QLineEdit, QScrollArea, QFrame
+    QLabel, QLineEdit, QScrollArea, QFrame,QPushButton, QMessageBox,QDialog,QFormLayout
 )
 from PySide6.QtCore import Qt, QTimer
 
 from i18n import t
-from .api_client import api_get
+from .api_client import api_get, api_put, api_delete
 
 
 COL_WIDTHS = [260, 200, 200]
@@ -113,6 +113,7 @@ class CustomersPage(QWidget):
         row = QFrame()
         row.setObjectName("TableRow")
 
+        row.customer_id = c["id"]
         row.customer_name = c["name"].lower()
         row.passport_id = (c["passport_id"] or "").lower()
         row.contact = (c["contact"] or "").lower()
@@ -120,7 +121,6 @@ class CustomersPage(QWidget):
         hl = QHBoxLayout(row)
         hl.setContentsMargins(12, 6, 12, 6)
         row.setFixedHeight(40)
-
         hl.setSpacing(0)
 
         values = [
@@ -135,6 +135,24 @@ class CustomersPage(QWidget):
             hl.addWidget(lbl)
 
         hl.addStretch()
+
+        # ✏️ EDIT BUTTON
+        btn_edit = QPushButton("✏️")
+        btn_edit.setFixedWidth(36)
+        btn_edit.clicked.connect(
+            lambda _, cust=c: self.edit_customer(cust)
+        )
+
+        # 🗑 DELETE BUTTON
+        btn_delete = QPushButton("🗑")
+        btn_delete.setFixedWidth(36)
+        btn_delete.clicked.connect(
+            lambda _, cid=c["id"]: self.delete_customer(cid)
+        )
+
+        hl.addWidget(btn_edit)
+        hl.addWidget(btn_delete)
+
         self.list_layout.addWidget(row)
 
     # ================= SEARCH =================
@@ -157,3 +175,98 @@ class CustomersPage(QWidget):
     def set_branch(self, branch_id):
         self.branch_id = branch_id
         self.load()
+
+    
+    def edit_customer(self, customer):
+        dlg = QDialog(self)
+        dlg.setWindowTitle(t("edit_customer"))
+
+        form = QFormLayout(dlg)
+
+        name = QLineEdit(customer["name"])
+        passport = QLineEdit(customer.get("passport_id") or "")
+        contact = QLineEdit(customer.get("contact") or "")
+
+        form.addRow(t("customer"), name)
+        form.addRow(t("passport_id"), passport)
+        form.addRow(t("phone"), contact)
+
+        btn_save = QPushButton(t("save"))
+        btn_cancel = QPushButton(t("cancel"))
+
+        btn_save.clicked.connect(lambda: self.save_customer(
+            dlg,
+            customer["id"],
+            name.text(),
+            passport.text(),
+            contact.text()
+        ))
+
+
+        btn_cancel.clicked.connect(dlg.reject)
+
+        actions = QHBoxLayout()
+        actions.addStretch()
+        actions.addWidget(btn_cancel)
+        actions.addWidget(btn_save)
+
+        form.addRow(actions)
+
+        dlg.exec()
+
+
+    def save_customer(self, dlg, customer_id, name, passport_id, contact):
+        if not name.strip():
+            QMessageBox.warning(
+                self,
+                t("error"),
+                t("name_required")
+            )
+            return
+
+        try:
+            api_put(
+                self.app,
+                f"/customers/{customer_id}",
+                params={
+                    "name": name,
+                    "contact": contact,
+                    "passport_id": passport_id
+                }
+            )
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                t("error"),
+                str(e)
+            )
+            return
+
+        dlg.accept()
+        self.refresh()
+
+    def delete_customer(self, customer_id):
+        confirm = QMessageBox.question(
+            self,
+            t("delete_customer"),
+            t("delete_customer_confirm"),
+            QMessageBox.Yes | QMessageBox.No
+        )
+
+        if confirm != QMessageBox.Yes:
+            return
+
+        try:
+            api_delete(
+                self.app,
+                f"/customers/{customer_id}"
+            )
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                t("error"),
+                str(e)
+            )
+            return
+
+        self.refresh()

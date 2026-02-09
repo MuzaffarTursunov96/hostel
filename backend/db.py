@@ -79,6 +79,7 @@ def init_db():
             status TEXT DEFAULT 'free',
             branch_id INTEGER NOT NULL,
             bed_number INTEGER,
+            bed_type TEXT NOT NULL DEFAULT 'single',
             FOREIGN KEY(room_id) REFERENCES rooms(id) ON DELETE CASCADE,
             FOREIGN KEY(branch_id) REFERENCES branches(id) ON DELETE CASCADE
         )
@@ -2811,5 +2812,22 @@ def delete_customer_db(customer_id, branch_id):
         """), {
             "customer_id": customer_id,
             "branch_id": branch_id
+        })
+    return {"status": "success"}
+
+def update_bed_db(bed_id, bed_number, bed_type, branch_id):
+    with get_connection() as conn:
+        conn.execute(text("""
+            UPDATE beds
+            SET
+                bed_number = :bed_number,
+                bed_type = :bed_type
+            WHERE id = :bed_id
+              AND branch_id = :branch_id
+        """), {
+            "bed_id": bed_id,
+            "branch_id": branch_id,
+            "bed_number": bed_number,
+            "bed_type": bed_type
         })
     return {"status": "success"}

@@ -56,3 +56,20 @@ def api_delete(app, path, params=None):
 
     response.raise_for_status()
     return response.json() if response.content else {}
+
+
+def api_put(app, path, params=None):
+    if not getattr(app, "access_token", None):
+        raise Exception("User is not logged in")
+
+    response = SESSION.put(
+        f"{API_URL}{path}",
+        headers={
+            "Authorization": f"Bearer {app.access_token}"
+        },
+        params=params or {},   # 🔥 IMPORTANT: query params
+        timeout=TIMEOUT
+    )
+
+    response.raise_for_status()
+    return response.json() if response.content else {}

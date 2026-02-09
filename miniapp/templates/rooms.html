@@ -59,6 +59,11 @@
               class="w-full py-3 rounded-xl bg-red-500 text-white font-medium">
         🗑 {{t("delete_bed")}}
       </button>
+      <button onclick="openEditBed()"
+              class="w-full mt-2 py-3 rounded-xl bg-tgButton text-white font-medium">
+        ✏️ {{t("edit_bed")}}
+      </button>
+
     </div>
 
 
@@ -102,6 +107,42 @@
     </div>
   </div>
 </div>
+
+
+<div id="editBedModal"
+     class="fixed inset-0 bg-black/40 hidden items-center justify-center z-50">
+
+  <div class="bg-white rounded-2xl w-[90%] max-w-sm p-5 space-y-4">
+
+    <h2 class="text-lg font-semibold">
+      🛏 {{t("edit_bed")}}
+    </h2>
+
+    <div>
+      <label class="text-sm text-gray-600">{{t("bed_type")}}</label>
+      <select id="editBedType"
+              class="w-full mt-1 px-3 py-2 rounded-xl border">
+        <option value="single">{{t("single_bed")}}</option>
+        <option value="double">{{t("double_bed")}}</option>
+        <option value="child">{{t("child_bed")}}</option>
+      </select>
+    </div>
+
+    <div class="flex gap-2 pt-2">
+      <button onclick="closeEditBedModal()"
+              class="flex-1 py-2 rounded-xl border">
+        {{t("cancel")}}
+      </button>
+
+      <button onclick="saveBedType()"
+              class="flex-1 py-2 rounded-xl bg-tgButton text-white font-medium">
+        {{t("save")}}
+      </button>
+    </div>
+
+  </div>
+</div>
+
 
 
 <script src="/static/js/rooms.js?v={{version}}"></script>

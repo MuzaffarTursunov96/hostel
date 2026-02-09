@@ -203,5 +203,6 @@ UZ = {
     "user_deleted": "Foydalanuvchi muvaffaqiyatli o‘chirildi",
     "delete_user_confirm": "Siz ushbu foydalanuvchini o‘chirishni xohlaysizmi?",
     "delete": "O'chirish",
+    "delete_customer_confirm": "Siz rostadan ham ushbu mijozni o‘chirishni xohlaysizmi? Uning barcha band qilishlari bekor qilinadi.",
 
 }

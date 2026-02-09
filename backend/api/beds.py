@@ -12,7 +12,8 @@ from db import (
     get_busy_beds_from_db,
     check_bed_has_booked,
     remove_bed_db,
-    busy_beds_now
+    busy_beds_now,
+    update_bed_db
 )
 
 router = APIRouter(prefix="/beds", tags=["Beds"])
@@ -30,7 +31,8 @@ def list_beds(branch_id: int, room_id: int, user=Depends(get_current_user)):
     return [
                 {
                     "id": r["id"],
-                    "bed_number": r["bed_number"]
+                    "bed_number": r["bed_number"],
+                    "bed_type": r["bed_type"],
                 }
                 for r in rows
             ]
@@ -132,3 +134,17 @@ def busy_beds(
         checkin=today,
         checkout=today
     )
+
+
+@router.put("/{bed_id}")
+def update_bed(
+        bed_id: int,
+        bed_number: int,
+        bed_type: str,
+        user=Depends(get_current_user)
+    ):
+    if bed_type not in ("single", "double", "child"):
+        raise HTTPException(400, "Invalid bed type")
+    update_bed_db(bed_id, bed_number, bed_type, user["branch_id"])
+
+    return {"ok": True}

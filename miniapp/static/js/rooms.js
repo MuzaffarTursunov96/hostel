@@ -1,7 +1,9 @@
 let CURRENT_ROOM = null;
 let CURRENT_ROOM_ID = null;
-let SELECTED_BED_ID = null;
+// let SELECTED_BED_ID = null;
 let CURRENT_BRANCH = null;
+let SELECTED_BED = null;
+
 
 $(document).ready(function () {
   CURRENT_BRANCH = localStorage.getItem("CURRENT_BRANCH");
@@ -53,7 +55,7 @@ function loadRooms() {
 function selectRoom(room) {
   CURRENT_ROOM = room;
   CURRENT_ROOM_ID = room.id;
-  SELECTED_BED_ID = null;
+  // SELECTED_BED_ID = null;
 
   $("#bedsTitle").text(`${room.room_name || room.room_number} — ${t("beds")}`);
 
@@ -62,9 +64,17 @@ function selectRoom(room) {
 
 /* ================= BEDS ================= */
 
+const BED_TYPE_LABEL = {
+  single: "🛏 " + t("single_bed"),
+  double: "🛌 " + t("double_bed"),
+  child: "🧸 " + t("child_bed")
+};
+
+
 function loadBeds(roomId) {
   $("#bedsList").empty();
-  SELECTED_BED_ID = null;
+  SELECTED_BED = null;
+
 
   // 1️⃣ get all beds
   apiGet("/beds", {
@@ -90,7 +100,7 @@ function loadBeds(roomId) {
 
             <div class="flex justify-between items-center">
               <span class="font-medium">
-                🛏 ${t("bed")} ${bed.bed_number}
+                 ${BED_TYPE_LABEL[bed.bed_type] || "🛏"} · ${t("bed")} ${bed.bed_number}
               </span>
               <span class="text-xs px-2 py-0.5 rounded-full
                 ${busy ? "bg-red-500" : "bg-green-500"} text-white">
@@ -103,7 +113,8 @@ function loadBeds(roomId) {
         btn.on("click", function () {
           $(".bed-item").removeClass("ring-2 ring-tgButton");
           btn.addClass("ring-2 ring-tgButton");
-          SELECTED_BED_ID = bed.id;
+          // SELECTED_BED_ID = bed.id;
+          SELECTED_BED = bed;
         });
 
         $("#bedsList").append(btn);
@@ -116,30 +127,7 @@ function loadBeds(roomId) {
 
 /* ================= ACTIONS ================= */
 
-// function addRoom() {
-//   const $btn = $("#addRoomBtn");
 
-//   // ✅ disable immediately
-//   $btn.prop("disabled", true).addClass("opacity-50 cursor-not-allowed");
-
-//   apiGet("/rooms", { branch_id: CURRENT_BRANCH })
-//     .done(function (rooms) {
-//       const nextNumber = getNextRoomNumber(rooms || []);
-
-//       apiPost("/rooms", {
-//         branch_id: CURRENT_BRANCH,
-//         number: nextNumber
-//       }).done(function () {
-//         loadRooms();
-//       }).always(function () {
-//         // ✅ re-enable after everything finishes
-//         $btn.prop("disabled", false).removeClass("opacity-50 cursor-not-allowed");
-//       });
-//     })
-//     .fail(function () {
-//       $btn.prop("disabled", false).removeClass("opacity-50 cursor-not-allowed");
-//     });
-// }
 
 function addRoom() {
   $("#roomNameInput").val("");
@@ -280,4 +268,31 @@ function getNextRoomNumber(rooms) {
     if (!isNaN(n)) max = Math.max(max, n);
   });
   return String(max + 1);
+}
+
+
+function openEditBed() {
+  if (!SELECTED_BED) {
+    alert(t("select_a_bed_first"));
+    return;
+  }
+
+  $("#editBedType").val(SELECTED_BED.bed_type);
+  $("#editBedModal").removeClass("hidden").addClass("flex");
+}
+
+function closeEditBedModal() {
+  $("#editBedModal").addClass("hidden").removeClass("flex");
+}
+
+function saveBedType() {
+  const bedType = $("#editBedType").val();
+
+  apiPut(`/beds/${SELECTED_BED.id}`, {
+    bed_number: SELECTED_BED.bed_number,
+    bed_type: bedType
+  }).done(function () {
+    closeEditBedModal();
+    loadBeds(CURRENT_ROOM_ID);
+  });
 }

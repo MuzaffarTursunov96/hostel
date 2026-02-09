@@ -222,6 +222,11 @@ class EditBookingDialog(QDialog):
 
         
 
+        self.checkin = QDateEdit()
+        self.checkin.setCalendarPopup(True)
+        self.checkin.setDate(
+            QDate.fromString(booking["checkin_date"], "yyyy-MM-dd")
+        )
         self.checkout = QDateEdit()
         self.checkout.setCalendarPopup(True)
         self.checkout.setDate(
@@ -246,6 +251,7 @@ class EditBookingDialog(QDialog):
         save_btn.clicked.connect(self.save)
         save_btn.setCursor(QCursor(Qt.PointingHandCursor))
 
+        layout.addWidget(self.checkin)
         layout.addWidget(self.checkout)
         layout.addWidget(self.amount)
         layout.addWidget(save_btn)
@@ -285,44 +291,7 @@ class EditBookingDialog(QDialog):
 
 
 
-
-    # def load_beds(self):
-    #     room_id = self.room_box.currentData()
-    #     if not room_id:
-    #         return
-
-    #     beds = api_get(
-    #         self.app,
-    #         "/beds",
-    #         {
-    #             "branch_id": self.branch_id,
-    #             "room_id": room_id
-    #         }
-    #     )
-
-    #     busy = api_get(
-    #         self.app,
-    #         "/beds/busy",
-    #         {
-    #             "branch_id": self.branch_id,
-    #             "room_id": room_id,
-    #             "checkin": self.booking["checkin_date"],
-    #             "checkout": self.checkout.date().toString("yyyy-MM-dd"),
-    #             "exclude_booking_id": self.booking["id"]
-    #         }
-    #     )["busy_beds"]
-       
-
-    #     self.bed_box.clear()
-
-    #     for b in beds:
-    #         bed_id = b["id"] if isinstance(b, dict) else int(b)
-
-    #         if bed_id in busy:
-    #             continue  # ❌ DO NOT SHOW BUSY BEDS
-    #         bed_text = t("bed")
-    #         self.bed_box.addItem(f"{bed_text} {b['bed_number']}", bed_id)
-
+    
     def load_beds(self):
         room_id = self.room_box.currentData()
         if not room_id:
@@ -372,6 +341,7 @@ class EditBookingDialog(QDialog):
 
     
     def recalc_total(self):
+
         checkin = QDate.fromString(
             self.booking["checkin_date"], "yyyy-MM-dd"
         )
@@ -404,6 +374,7 @@ class EditBookingDialog(QDialog):
                 "booking_id": self.booking["id"],
                 "room_id": self.room_box.currentData(),
                 "bed_id": self.bed_box.currentData(),
+                "checkin_date": self.checkin.date().toString("yyyy-MM-dd"),
                 "checkout_date": self.checkout.date().toString("yyyy-MM-dd"),
                 "total_amount": float(self.amount.text())
             }
