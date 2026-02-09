@@ -6,7 +6,90 @@
 <!-- <script>
   let CURRENT_BRANCH = {{ current_branch_id }};
 </script> -->
+<style>
+  /* Customer card */
+.customer-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px;
+  margin-bottom: 12px;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
 
+/* Left block */
+.customer-left {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+/* Avatar */
+.avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #5b8cff, #7aa2ff);
+  color: white;
+  font-weight: 600;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Info */
+.customer-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.customer-name {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.customer-meta {
+  font-size: 13px;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+/* Actions */
+.customer-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-edit {
+  padding: 6px 12px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  font-size: 13px;
+}
+
+.btn-edit:active {
+  background: #f3f4f6;
+}
+
+.btn-delete {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: none;
+  background: #ef4444;
+  color: white;
+  font-size: 16px;
+}
+
+.btn-delete:active {
+  background: #dc2626;
+}
+
+</style>
 <div class="p-4 space-y-4">
 
   <!-- HEADER -->

@@ -49,27 +49,29 @@ function renderCustomers(customers) {
 
   customers.forEach(c => {
     $list.append(`
-      <div class="p-4 flex justify-between items-center gap-3 border-b">
+      <div class="customer-card">
 
-        <div>
-          <div class="font-semibold text-lg">👤 ${c.name}</div>
-          <div class="text-sm text-gray-600">
-            🪪 ${c.passport_id || "—"} <br>
-            📞 ${c.contact || "—"}
+        <div class="customer-left">
+          <div class="avatar">
+            ${c.name?.charAt(0).toUpperCase() || "?"}
+          </div>
+
+          <div class="customer-info">
+            <div class="customer-name">${c.name}</div>
+
+            <div class="customer-meta">
+              <div>🪪 ${c.passport_id || "—"}</div>
+              <div>📞 ${c.contact || "—"}</div>
+            </div>
           </div>
         </div>
 
-        <div class="flex gap-2">
-          <button
-            class="px-3 py-1 border rounded text-sm"
-            onclick="editCustomer(${c.id})">
-            ✏️${t("edit")}
+        <div class="customer-actions">
+          <button class="btn-edit" onclick="editCustomer(${c.id})">
+            ✏️ ${t("edit")}
           </button>
 
-          <button
-            class="px-3 py-1 bg-red-500 text-white rounded text-sm"
-            onclick="deleteCustomer(${c.id})">
-            ${t("delete")}
+          <button class="btn-delete" onclick="deleteCustomer(${c.id})">
             🗑
           </button>
         </div>
@@ -81,63 +83,7 @@ function renderCustomers(customers) {
 
 
 
-// function renderCustomers(customers) {
-//   const $list = $("#customersTable").empty();
 
-//   if (!customers.length) {
-//     $list.html(`
-//       <div class="text-center text-tgHint py-6">
-//         ${t("no_customers_found")}
-//       </div>
-//     `);
-//     return;
-//   }
-
-//   customers.forEach(c => {
-//     const hasImages = (c.passport_image_count || 0) > 0;
-
-//     $list.append(`
-//       <div class="p-4 flex justify-between items-center gap-3">
-
-//         <div>
-//           <div class="font-semibold text-lg">👤 ${c.name}</div>
-
-//           <div class="text-sm text-gray-600">
-//             🪪 ${c.passport_id || "—"}  <br>
-//             📞 ${c.contact || "—"}
-//           </div>
-//         </div>
-
-//         <div class="flex gap-2">
-//           ${
-//             hasImages
-//               ? `
-//                 <button
-//                   class="px-3 py-1 rounded-lg border text-sm"
-//                   onclick="openPassportImages(${c.id}, ${c.passport_image_count})">
-//                   👁 ${t("see")}
-//                 </button>
-
-//                 <button
-//                   class="px-3 py-1 rounded-lg border text-sm"
-//                   onclick="editPassportImages(${c.id}, ${c.passport_image_count})">
-//                   ✏️ ${t("edit")}
-//                 </button>
-//               `
-//               : `
-//                 <button
-//                   class="px-3 py-1 rounded-lg bg-tgButton text-white text-sm"
-//                   onclick="uploadPassportImages(${c.id})">
-//                   ⬆️ ${t("upload_images")}
-//                 </button>
-//               `
-//           }
-//         </div>
-
-//       </div>
-//     `);
-//   });
-// }
 
 /* ===============================
    FILTER
