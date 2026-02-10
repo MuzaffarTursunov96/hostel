@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
+from typing import Optional
 from datetime import date
 from api.deps import get_current_user
 from api.ws_manager import ws_manager
@@ -10,7 +11,8 @@ from db import (
     add_booking,
     add_or_get_customer,
     update_future_booking_admin,
-    cancel_future_booking
+    cancel_future_booking,
+    add_booking_guest
 )
 
 router = APIRouter(prefix="/booking", tags=["Booking"])
@@ -40,11 +42,23 @@ def booking_available_beds(
 
 
 # ---------- ADD BOOKING ----------
-class BookingCreate(BaseModel):
-    branch_id: int
+class SecondGuest(BaseModel):
     name: str
     passport_id: str
     contact: str
+
+
+class BookingCreate(BaseModel):
+    branch_id: int
+
+    # primary guest
+    name: str
+    passport_id: str
+    contact: str
+
+    # optional second guest
+    second_guest: Optional[SecondGuest] = None
+
     room_id: int
     bed_id: int
     total: float
@@ -56,7 +70,9 @@ class BookingCreate(BaseModel):
 
 @router.post("/")
 async def create_booking(data: BookingCreate, user=Depends(get_current_user)):
-    add_booking(
+
+    # 1️⃣ create booking (same as before)
+    booking_id = add_booking(
         data.branch_id,
         data.name,
         data.passport_id,
@@ -70,14 +86,29 @@ async def create_booking(data: BookingCreate, user=Depends(get_current_user)):
         data.notify_date or data.checkout
     )
 
+    # 2️⃣ save primary guest
     add_or_get_customer(
-    branch_id=data.branch_id,
-    name=data.name,
-    passport_id=data.passport_id,
-    contact=data.contact
-    )   
+        branch_id=data.branch_id,
+        name=data.name,
+        passport_id=data.passport_id,
+        contact=data.contact
+    )
 
+    # 3️⃣ save second guest (if exists)
+    if data.second_guest:
+        customer_id  = add_or_get_customer(
+            branch_id=data.branch_id,
+            name=data.second_guest.name,
+            passport_id=data.second_guest.passport_id,
+            contact=data.second_guest.contact
+        )
 
+        add_booking_guest(
+            booking_id=booking_id,
+            customer_id=customer_id
+        )
+
+    # 4️⃣ websocket updates
     await ws_manager.broadcast({
         "type": "beds_changed",
         "branch_id": data.branch_id,
@@ -96,8 +127,10 @@ async def create_booking(data: BookingCreate, user=Depends(get_current_user)):
         "room_id": data.room_id,
     })
 
-        
     return {"status": "ok"}
+
+
+
 
 
 class AdminBookingUpdateFuture(BaseModel):

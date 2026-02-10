@@ -34,6 +34,25 @@ def init_db():
         )
         """))
 
+        # ---------- GUESTS ----------
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS booking_guests (
+            id SERIAL PRIMARY KEY,
+            booking_id INTEGER NOT NULL,
+            customer_id INTEGER NOT NULL,
+            role TEXT DEFAULT 'secondary',
+
+            FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE,
+            FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE
+        );
+
+        """))
+
+
+
+
+
+
         # ---------- CUSTOMERS ----------
         conn.execute(text("""
         CREATE TABLE IF NOT EXISTS customers (
@@ -257,20 +276,31 @@ def get_available_beds(branch_id, room_id, checkin_date, checkout_date):
 
 
 
+def add_booking_guest(booking_id, customer_id):
+    with get_connection() as conn:
+        conn.execute(text("""
+            INSERT INTO booking_guests (booking_id, customer_id)
+            VALUES (:booking_id, :customer_id)
+        """), {
+            "booking_id": booking_id,
+            "customer_id": customer_id
+        })
+
+
 
 def add_booking(
-    branch_id,
-    customer_name,
-    passport_id,
-    contact,
-    room_id,
-    bed_id,
-    total_amount,
-    paid_amount,
-    checkin_date,
-    checkout_date,
-    notify_date,
-):
+            branch_id,
+            customer_name,
+            passport_id,
+            contact,
+            room_id,
+            bed_id,
+            total_amount,
+            paid_amount,
+            checkin_date,
+            checkout_date,
+            notify_date,
+        ):
     with get_connection() as conn:
 
         # -----------------------------
@@ -1140,7 +1170,7 @@ def get_active_bookings(branch_id):
     today = date.today().isoformat()
 
     with get_connection() as conn:
-        result = conn.execute(text("""
+        rows = conn.execute(text("""
             SELECT
                 bk.id,
                 bk.room_id,
@@ -1152,22 +1182,43 @@ def get_active_bookings(branch_id):
                 bk.customer_name,
                 bk.passport_id,
                 r.number AS room_number,
-                COALESCE(r.room_name, r.number) AS room_name
+                COALESCE(r.room_name, r.number) AS room_name,
+
+                -- 👇 THIS IS THE IMPORTANT PART
+                json_agg(
+                    json_build_object(
+                        'id', c.id,
+                        'name', c.name,
+                        'passport_id', c.passport_id,
+                        'contact', c.contact
+                    )
+                ) FILTER (WHERE bg.id IS NOT NULL) AS second_guests
+
             FROM bookings bk
             JOIN rooms r ON r.id = bk.room_id
             JOIN beds ON beds.id = bk.bed_id
+
+            LEFT JOIN booking_guests bg ON bg.booking_id = bk.id
+            LEFT JOIN customers c ON c.id = bg.customer_id
+
             WHERE bk.branch_id = :branch_id
               AND bk.status = 'active'
               AND bk.checkin_date <= :today
               AND bk.checkout_date > :today
+
+            GROUP BY
+                bk.id,
+                beds.bed_number,
+                r.number,
+                r.room_name
+
             ORDER BY bk.checkout_date
         """), {
             "branch_id": branch_id,
             "today": today
         })
 
-        return result.mappings().all()
-
+        return rows.mappings().all()
 
 def create_admin_if_not_exists():
     with get_connection() as conn:

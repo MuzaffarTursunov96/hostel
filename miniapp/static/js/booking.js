@@ -1,5 +1,5 @@
 let CURRENT_ROOM_ID = null;
-let SELECTED_BED_ID = null;
+let SELECTED_BED = null;
 let CURRENT_BRANCH = null;
 let notifyDateManuallyChanged = false;
 let BRANCH_CUSTOMERS = [];
@@ -141,7 +141,7 @@ function loadRooms() {
 /* ---------- BEDS ---------- */
 function loadAvailableBeds() {
   $("#bedsList").empty();
-  SELECTED_BED_ID = null;
+  SELECTED_BED = null;
 
   if (!CURRENT_ROOM_ID) return;
 
@@ -188,7 +188,9 @@ function loadAvailableBeds() {
         .removeClass("bg-gray-100 text-gray-700 border-gray-300")
         .addClass("bg-tgButton text-white border-tgButton");
 
-      SELECTED_BED_ID = b.id;
+      SELECTED_BED_ID = b;
+
+      handleBedTypeUI(b);
     });
 
 
@@ -196,6 +198,29 @@ function loadAvailableBeds() {
     });
   });
 }
+
+
+
+function handleBedTypeUI(bed) {
+  $("#enableSecondGuest").prop("checked", false);
+  $("#secondGuestForm").addClass("hidden");
+
+  if (bed && bed.bed_type === "double") {
+    $("#secondGuestToggle").removeClass("hidden");
+  } else {
+    $("#secondGuestToggle").addClass("hidden");
+  }
+}
+
+
+$("#enableSecondGuest").on("change", function () {
+  if (this.checked) {
+    $("#secondGuestForm").removeClass("hidden");
+  } else {
+    $("#secondGuestForm").addClass("hidden");
+  }
+});
+
 
 /* ---------- PAYMENT ---------- */
 function updateRemaining() {
@@ -206,56 +231,79 @@ function updateRemaining() {
 
 /* ---------- CONFIRM ---------- */
 function confirmBooking() {
-  if (!SELECTED_BED_ID) {
+  if (!SELECTED_BED) {
     alert(t("select_a_bed"));
     return;
   }
 
-  
-
   const name = $("#customerName").val().trim();
   const passport = $("#passport").val().trim();
   const contact = $("#contact").val().trim();
-  const total = $("#total").val()
-  const pai = $("#paid").val()
+  const total = $("#total").val();
+  const paid = $("#paid").val();
 
   if (!name || !passport || !contact || !total) {
     alert(t("fill_all_required_fields"));
     return;
   }
 
-  const btn = document.getElementById("confirmBookingBtn");
+  const isDouble = SELECTED_BED.bed_type === "double";
+  const secondEnabled = $("#enableSecondGuest").is(":checked");
 
-  // 🔒 disable immediately
+  let secondGuest = null;
+
+  if (isDouble && secondEnabled) {
+    const name2 = $("#customerName2").val().trim();
+    const passport2 = $("#passport2").val().trim();
+    const contact2 = $("#contact2").val().trim();
+
+    if (!name2 || !passport2 || !contact2) {
+      alert(t("fill_all_required_fields"));
+      return;
+    }
+
+    secondGuest = {
+      name: name2,
+      passport_id: passport2,
+      contact: contact2
+    };
+  }
+
+  const btn = document.getElementById("confirmBookingBtn");
   btn.disabled = true;
   btn.classList.add("opacity-60", "cursor-not-allowed");
 
   apiPost("/booking/", {
     branch_id: CURRENT_BRANCH,
+
+    // primary guest
     name: name,
     passport_id: passport,
-    contact: $("#contact").val(),
+    contact: contact,
+
+    // optional second guest
+    second_guest: secondGuest,
+
     room_id: CURRENT_ROOM_ID,
-    bed_id: SELECTED_BED_ID,
-    total: parseFloat($("#total").val()),
-    paid: pai ? pai : 0,
+    bed_id: SELECTED_BED.id,
+    total: parseFloat(total),
+    paid: paid ? parseFloat(paid) : 0,
     checkin: $("#checkin").val(),
     checkout: $("#checkout").val(),
     notify_date: $("#notifyDate").val()
   })
   .done(function () {
-  alert("✅ " + t("booking_created"));
-
-  SELECTED_BED_ID = null;
-
-  // refresh current page only
-  //  loadRooms();
-  btn.disabled = false;
-  btn.classList.remove("opacity-60", "cursor-not-allowed");
-  window.location.href = window.location.href;
-});
-
+    alert("✅ " + t("booking_created"));
+    btn.disabled = false;
+    btn.classList.remove("opacity-60", "cursor-not-allowed");
+    window.location.reload();
+  })
+  .fail(function () {
+    btn.disabled = false;
+    btn.classList.remove("opacity-60", "cursor-not-allowed");
+  });
 }
+
 
 
 /* ================= BOOKING HISTORY ================= */
