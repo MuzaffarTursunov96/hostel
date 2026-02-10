@@ -261,10 +261,11 @@ TRANSLATIONS = {
         "single_bed": "Одноместная кровать",
         "double_bed": "Двухместная кровать",
         "child_bed": "Детская кровать",
+        "second_guest": "Второй гость (необязательно)",
 
         },
         "uz": {
-            
+        "second_guest": "Ikkinchi mehmon (ixtiyoriy)",
         "create":"Yaratish",
         "edit_bed": "Krovatni tahrirlash",
         "bed_type": "Krovat turi",

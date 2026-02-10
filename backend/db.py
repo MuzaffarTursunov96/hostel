@@ -416,7 +416,7 @@ def add_booking(
                 "paid_amount": paid_amount,
                 "paid_by": "customer"
             })
-
+        return booking_id
 
 def get_default_branch_id(user_id: int):
     with get_connection() as conn:
