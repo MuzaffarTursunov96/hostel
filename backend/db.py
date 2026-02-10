@@ -1177,6 +1177,7 @@ def get_active_bookings(branch_id):
                 bk.room_id,
                 bk.bed_id,
                 beds.bed_number,
+                beds.bed_type,
                 bk.checkin_date,
                 bk.checkout_date,
                 bk.total_amount,
@@ -1210,6 +1211,7 @@ def get_active_bookings(branch_id):
             GROUP BY
                 bk.id,
                 beds.bed_number,
+                beds.bed_type,
                 r.number,
                 r.room_name
 
