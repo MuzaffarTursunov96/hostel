@@ -106,35 +106,37 @@ function loadBeds(roomId) {
         const ui = BED_TYPE_UI[bed.bed_type] || BED_TYPE_UI.single;
 
         const btn = $(`
-            <button
-              class="bed-item rounded-2xl p-4 border transition
-                flex flex-col gap-3
-                ${busy
-                  ? "border-red-300 bg-red-50"
-                  : "border-green-300 bg-green-50 hover:bg-green-100"}">
+              <button
+                class="bed-item relative rounded-2xl p-4 border transition
+                  flex flex-col items-center text-center gap-2
+                  ${busy
+                    ? "border-red-300 bg-red-50"
+                    : "border-green-300 bg-green-50 hover:bg-green-100"}">
 
-              <!-- TOP -->
-              <div class="flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                  <span class="text-xl">${ui.icon}</span>
-                  <span class="font-semibold text-sm">
-                    ${ui.title}
-                  </span>
-                </div>
-
-                <span class="text-xs px-3 py-1 rounded-full font-medium
+                <!-- STATUS BADGE -->
+                <span class="absolute -top-3 right-3
+                  text-xs px-3 py-1 rounded-full font-medium shadow
                   ${busy ? "bg-red-500" : "bg-green-500"} text-white">
                   ${busy ? t("busy") : t("free")}
                 </span>
-              </div>
 
-              <!-- BED NUMBER -->
-              <div class="text-sm text-gray-700">
-                ${t("bed")} <span class="font-semibold">${bed.bed_number}</span>
-              </div>
+                <!-- ICON -->
+                <span class="text-3xl mt-2">
+                  ${ui.icon}
+                </span>
 
-            </button>
-          `);
+                <!-- TYPE -->
+                <div class="font-semibold text-base leading-tight">
+                  ${ui.title}
+                </div>
+
+                <!-- BED NUMBER -->
+                <div class="text-sm text-gray-600">
+                  ${t("bed")} <span class="font-semibold">${bed.bed_number}</span>
+                </div>
+
+              </button>
+            `);
 
         btn.on("click", function () {
           $(".bed-item")
@@ -257,13 +259,12 @@ function addBed() {
 }
 
 function deleteBed() {
-  if (!SELECTED_BED_ID) {
+  if (!SELECTED_BED) {
     alert(t("select_a_bed_first"));
     return;
   }
 
-  // 1️⃣ CHECK IF BED IS BUSY
-  apiGet(`/beds/${SELECTED_BED_ID}/busy`, {
+  apiGet(`/beds/${SELECTED_BED.id}/busy`, {
     branch_id: CURRENT_BRANCH
   }).done(function (resp) {
 
@@ -272,23 +273,19 @@ function deleteBed() {
       return;
     }
 
-    // 2️⃣ CONFIRM DELETE
-    if (!confirm(t("delete_this_room_and_all_its_beds"))) {
+    if (!confirm(t("delete_this_bed"))) {
       return;
     }
 
-    // 3️⃣ DELETE
-    apiDelete(`/beds/${SELECTED_BED_ID}`)
-      .done(function (data) {
-        if(data.status == 500){
-          alert(t("cannot_delete_bed_reason"));
-        }
-        SELECTED_BED_ID = null;
+    apiDelete(`/beds/${SELECTED_BED.id}`)
+      .done(function () {
+        SELECTED_BED = null;
         loadBeds(CURRENT_ROOM_ID);
       });
 
   });
 }
+
 
 
 
