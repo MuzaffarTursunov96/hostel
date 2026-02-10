@@ -506,6 +506,11 @@ function setTodayDefault() {
    EDIT BOOKING (FIXED)
 ================================ */
 window.openEditBooking = function (booking) {
+
+  console.log("EDIT BOOKING RAW:", booking);
+  console.log("bed_type:", booking.bed_type);
+  console.log("second_guests:", booking.second_guests);
+  
   currentEditingBooking = booking;
 
   $("#editBookingId").val(booking.id);
