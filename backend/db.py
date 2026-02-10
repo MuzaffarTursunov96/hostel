@@ -1269,7 +1269,7 @@ def delete_bed(bed_id):
 def get_beds(branch_id, room_id):
     with get_connection() as conn:
         result = conn.execute(text("""
-            SELECT id, bed_number
+            SELECT id, bed_number,bed_type
             FROM beds
             WHERE branch_id = :branch_id
               AND room_id = :room_id
