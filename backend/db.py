@@ -528,24 +528,48 @@ def get_debts_by_range(branch_id, from_date, to_date):
                 b.customer_name,
                 b.passport_id,
                 b.contact,
+
                 r.number AS room_number,
                 COALESCE(r.room_name, r.number) AS room_name,
                 beds.bed_number,
+                beds.bed_type,
+
                 b.total_amount,
                 b.paid_amount,
                 b.remaining_amount,
                 b.checkin_date,
-                b.checkout_date
+                b.checkout_date,
+
+                -- 👇 second guests
+                json_agg(
+                    json_build_object(
+                        'id', c.id,
+                        'name', c.name
+                    )
+                ) FILTER (WHERE bg.id IS NOT NULL) AS second_guests
+
             FROM bookings b
             JOIN rooms r
                 ON r.id = b.room_id
                AND r.branch_id = b.branch_id
             JOIN beds
                 ON beds.id = b.bed_id
+
+            LEFT JOIN booking_guests bg ON bg.booking_id = b.id
+            LEFT JOIN customers c ON c.id = bg.customer_id
+
             WHERE b.branch_id = :branch_id
               AND b.remaining_amount > 0
               AND b.checkin_date >= :from_date
               AND b.checkin_date <= :to_date
+
+            GROUP BY
+                b.id,
+                r.number,
+                r.room_name,
+                beds.bed_number,
+                beds.bed_type
+
             ORDER BY b.checkin_date
         """), {
             "branch_id": branch_id,
@@ -554,6 +578,7 @@ def get_debts_by_range(branch_id, from_date, to_date):
         })
 
         return result.mappings().all()
+
 
 
 def pay_booking_amount(branch_id, booking_id, pay_amount, paid_by="customer"):
@@ -927,18 +952,44 @@ def get_payment_history_by_month(branch_id, year, month):
                 bp.paid_at,
                 bp.paid_amount,
                 bp.paid_by,
+
                 b.customer_name,
                 b.passport_id,
+
                 r.number AS room_number,
                 COALESCE(r.room_name, r.number) AS room_name,
-                beds.bed_number
+                beds.bed_number,
+
+                -- 👇 second guests (same pattern as active bookings)
+                json_agg(
+                    json_build_object(
+                        'id', c.id,
+                        'name', c.name
+                    )
+                ) FILTER (WHERE bg.id IS NOT NULL) AS second_guests
+
             FROM booking_payments bp
             JOIN bookings b ON b.id = bp.booking_id
             JOIN rooms r ON r.id = b.room_id
             JOIN beds ON beds.id = b.bed_id
+
+            LEFT JOIN booking_guests bg ON bg.booking_id = b.id
+            LEFT JOIN customers c ON c.id = bg.customer_id
+
             WHERE bp.branch_id = :branch_id
               AND EXTRACT(YEAR FROM bp.paid_at) = :year
               AND EXTRACT(MONTH FROM bp.paid_at) = :month
+
+            GROUP BY
+                bp.paid_at,
+                bp.paid_amount,
+                bp.paid_by,
+                b.customer_name,
+                b.passport_id,
+                r.number,
+                r.room_name,
+                beds.bed_number
+
             ORDER BY bp.paid_at DESC
         """), {
             "branch_id": branch_id,
@@ -947,6 +998,7 @@ def get_payment_history_by_month(branch_id, year, month):
         })
 
         return result.mappings().all()
+
 
 
 
@@ -1133,16 +1185,28 @@ def get_past_bookings(branch_id, from_date=None, to_date=None):
             bk.id,
             bk.bed_id,
             beds.bed_number,
+            beds.bed_type,
             bk.checkin_date,
             bk.checkout_date,
             bk.total_amount,
             bk.customer_name,
             bk.passport_id,
             r.number AS room_number,
-            COALESCE(r.room_name, r.number) AS room_name
+            COALESCE(r.room_name, r.number) AS room_name,
+
+            json_agg(
+                json_build_object(
+                    'id', c.id,
+                    'name', c.name
+                )
+            ) FILTER (WHERE bg.id IS NOT NULL) AS second_guests
+
         FROM bookings bk
         JOIN rooms r ON r.id = bk.room_id
         JOIN beds ON beds.id = bk.bed_id
+        LEFT JOIN booking_guests bg ON bg.booking_id = bk.id
+        LEFT JOIN customers c ON c.id = bg.customer_id
+
         WHERE bk.branch_id = :branch_id
           AND bk.checkout_date < :today
     """
@@ -1160,11 +1224,20 @@ def get_past_bookings(branch_id, from_date=None, to_date=None):
         sql += " AND bk.checkout_date <= :to_date"
         params["to_date"] = to_date
 
-    sql += " ORDER BY bk.checkout_date DESC"
+    sql += """
+        GROUP BY
+            bk.id,
+            beds.bed_number,
+            beds.bed_type,
+            r.number,
+            r.room_name
+        ORDER BY bk.checkout_date DESC
+    """
 
     with get_connection() as conn:
         result = conn.execute(text(sql), params)
         return result.mappings().all()
+
 
 
 def get_active_bookings(branch_id):
@@ -1819,7 +1892,7 @@ def get_dashboard_rooms(branch_id: int):
 def get_dashboard_beds(branch_id: int, room_id: int):
     with get_connection() as conn:
         return conn.execute(text("""
-            SELECT id, bed_number
+            SELECT id, bed_number,bed_type
             FROM beds
             WHERE room_id = :room_id
               AND branch_id = :branch_id

@@ -380,11 +380,24 @@ function renderBookingHistory(rows) {
       (r.passport_id || "").toLowerCase().includes(q)
     )
     .forEach(r => {
+      const secondGuestName =
+          Array.isArray(r.second_guests) && r.second_guests.length > 0
+            ? r.second_guests[0].name
+            : null;
+
       $c.append(`
         <div class="py-3 text-sm">
           <div class="font-semibold">
             👤 ${r.customer_name}
           </div>
+
+          ${
+            secondGuestName
+              ? `<div class="text-xs text-purple-600">
+                  👥 ${secondGuestName}
+                </div>`
+              : ``
+          }
 
           <div class="text-xs text-tgHint">
             🪪 ${r.passport_id || "—"}

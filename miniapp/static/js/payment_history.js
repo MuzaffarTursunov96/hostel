@@ -69,6 +69,12 @@ function renderTable(query) {
       p.paid_by === "card" ? "text-blue-500" :
       p.paid_by === "cash" ? "text-green-500" :
       "text-gray-500";
+
+      const secondGuestName =
+          Array.isArray(p.second_guests) && p.second_guests.length > 0
+            ? p.second_guests[0].name
+            : null;
+
     $list.append(`
       <div class="bg-card rounded-2xl shadow p-4 flex justify-between gap-3">
 
@@ -81,6 +87,14 @@ function renderTable(query) {
           <div class="font-semibold text-gray-900">
             ${p.customer_name || "—"}
           </div>
+
+          ${
+            secondGuestName
+              ? `<div class="text-xs text-purple-600">
+                  👥 ${secondGuestName}
+                </div>`
+              : ``
+          }
 
           <div class="text-sm text-gray-600">
             ${p.passport_id || "—"}

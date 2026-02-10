@@ -63,12 +63,24 @@ function renderDebts(query = "") {
       d.passport_id.toLowerCase().includes(q)
     )
     .forEach(d => {
+      const secondGuestName =
+          Array.isArray(d.second_guests) && d.second_guests.length > 0
+            ? d.second_guests[0].name
+            : null;
+
       $list.append(`
         <div class="p-4 flex flex-col gap-2">
 
           <div class="flex justify-between items-start">
             <div>
               <div class="font-semibold">${d.customer_name}</div>
+              ${
+                  secondGuestName
+                    ? `<div class="text-xs text-purple-600">
+                        👥 ${secondGuestName}
+                      </div>`
+                    : ``
+                }
               <div class="text-sm text-gray-500">${d.passport_id}</div>
               <div class="text-sm text-gray-500">
                 🏠 ${d.room_name || d.room_number} · 🛏 ${t("bed")} ${d.bed_number}

@@ -9,6 +9,22 @@ let ALL_ACTIVE_BOOKINGS = [];
 let CURRENT_BRANCH = null;
 
 
+
+function getDashboardBedIcon(bedType) {
+  switch (bedType) {
+    case "double":
+      return "🛌";   // double bed
+    case "child":
+      return "👶";   // child bed
+    case "single":
+    default:
+      return "🛏";   // single / fallback
+  }
+}
+
+
+
+
 /* ===============================
    LOAD DASHBOARD
 ================================ */
@@ -71,7 +87,11 @@ function loadDashboard(filter=false) {
                   <div class="bed-header flex justify-between items-center px-2 py-1 text-[11px] font-semibold
                       ${isBusy ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}">
 
-                    <span>${t("bed")} ${bed.bed_number}</span>
+                    <span>
+                      ${getDashboardBedIcon(bed.bed_type)}
+                      ${t("bed")} ${bed.bed_number}
+                    </span>
+
 
                     ${
                       bed.has_future
