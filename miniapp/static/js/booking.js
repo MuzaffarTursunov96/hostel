@@ -202,14 +202,18 @@ function loadAvailableBeds() {
 
 
 function handleBedTypeUI(bed) {
+
   if (bed && bed.bed_type === "double") {
+    // show checkbox
     $("#secondGuestToggle").removeClass("hidden");
   } else {
+    // hide everything for single bed
     $("#secondGuestToggle").addClass("hidden");
     $("#enableSecondGuest").prop("checked", false);
     $("#secondGuestForm").addClass("hidden");
   }
 }
+
 
 
 
