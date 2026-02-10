@@ -137,11 +137,16 @@ function loadBeds(roomId) {
           `);
 
         btn.on("click", function () {
-          $(".bed-item").removeClass("ring-2 ring-tgButton");
-          btn.addClass("ring-2 ring-tgButton");
-          // SELECTED_BED_ID = bed.id;
+          $(".bed-item")
+            .removeClass("ring-2 ring-tgButton scale-[1.02]")
+            .addClass("scale-100");
+
+          btn
+            .addClass("ring-2 ring-tgButton scale-[1.02]");
+
           SELECTED_BED = bed;
         });
+
 
         $("#bedsList").append(btn);
       });
