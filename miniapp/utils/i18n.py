@@ -254,9 +254,28 @@ TRANSLATIONS = {
         "failed_to_delete_customer": "Ошибка при удалении клиента",
         "delete_customer_confirmation": "Вы уверены, что хотите удалить этого клиента?",
         "edit_customer": "Редактировать клиента",
-        "select_or_type_customer": "Выберите клиента из списка или введите имя для нового клиента"
+        "select_or_type_customer": "Выберите клиента из списка или введите имя для нового клиента",
+        "create":"Создать",
+        "edit_bed": "Редактировать кровать",
+        "bed_type": "Тип кровати",
+        "single_bed": "Одноместная кровать",
+        "double_bed": "Двухместная кровать",
+        "child_bed": "Детская кровать",
+
         },
         "uz": {
+            
+        "create":"Yaratish",
+        "edit_bed": "Krovatni tahrirlash",
+        "bed_type": "Krovat turi",
+        "single_bed": "Bir kishilik krovat",
+        "double_bed": "Ikki kishilik krovat",
+        "child_bed": "Yosh bolalar uchun krovat",
+
+
+
+
+
         "select_or_type_customer": "Mijozni ro‘yxatdan tanlang yoki yangi mijoz uchun ismini kiriting",
         "failed_to_update_customer": "Mijozni yangilashda xatolik",
         "failed_to_delete_customer": "Mijozni o‘chirishda xatolik",

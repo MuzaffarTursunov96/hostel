@@ -64,11 +64,21 @@ function selectRoom(room) {
 
 /* ================= BEDS ================= */
 
-const BED_TYPE_LABEL = {
-  single: "🛏 " + t("single_bed"),
-  double: "🛌 " + t("double_bed"),
-  child: "🧸 " + t("child_bed")
+const BED_TYPE_UI = {
+  single: {
+    icon: "🛏",
+    title: t("single_bed") || "Одноместная"
+  },
+  double: {
+    icon: "🛌",
+    title: t("double_bed") || "Двухместная"
+  },
+  child: {
+    icon: "🧸",
+    title: t("child_bed") || "Детская"
+  }
 };
+
 
 
 function loadBeds(roomId) {
@@ -93,22 +103,38 @@ function loadBeds(roomId) {
       beds.forEach(bed => {
         const busy = busyBeds.has(bed.id);
 
-        const btn = $(`
-          <button
-            class="bed-item rounded-xl p-3 border flex flex-col gap-2
-              ${busy ? "border-red-400 bg-red-50" : "border-green-400 bg-green-50"}">
+        const ui = BED_TYPE_UI[bed.bed_type] || BED_TYPE_UI.single;
 
-            <div class="flex justify-between items-center">
-              <span class="font-medium">
-                 ${BED_TYPE_LABEL[bed.bed_type] || "🛏"} · ${t("bed")} ${bed.bed_number}
-              </span>
-              <span class="text-xs px-2 py-0.5 rounded-full
-                ${busy ? "bg-red-500" : "bg-green-500"} text-white">
-                ${busy ? t("busy") : t("free")}
-              </span>
-            </div>
-          </button>
-        `);
+        const btn = $(`
+            <button
+              class="bed-item rounded-2xl p-4 border transition
+                flex flex-col gap-3
+                ${busy
+                  ? "border-red-300 bg-red-50"
+                  : "border-green-300 bg-green-50 hover:bg-green-100"}">
+
+              <!-- TOP -->
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="text-xl">${ui.icon}</span>
+                  <span class="font-semibold text-sm">
+                    ${ui.title}
+                  </span>
+                </div>
+
+                <span class="text-xs px-3 py-1 rounded-full font-medium
+                  ${busy ? "bg-red-500" : "bg-green-500"} text-white">
+                  ${busy ? t("busy") : t("free")}
+                </span>
+              </div>
+
+              <!-- BED NUMBER -->
+              <div class="text-sm text-gray-700">
+                ${t("bed")} <span class="font-semibold">${bed.bed_number}</span>
+              </div>
+
+            </button>
+          `);
 
         btn.on("click", function () {
           $(".bed-item").removeClass("ring-2 ring-tgButton");
