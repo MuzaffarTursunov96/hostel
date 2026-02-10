@@ -429,6 +429,12 @@ function renderActiveBookings(bookings) {
   container.empty();
 
   bookings.forEach(b => {
+  
+  const secondGuestName =
+    Array.isArray(b.second_guests) && b.second_guests.length > 0
+      ? b.second_guests[0].name
+      : null;
+
   container.append(`
     <div class="bg-white rounded-xl shadow p-4 mb-3 space-y-2">
 
@@ -438,6 +444,14 @@ function renderActiveBookings(bookings) {
           <div class="font-semibold text-gray-900">
             👤 ${b.customer_name}
           </div>
+
+          ${
+            secondGuestName
+              ? `<div class="text-xs text-purple-600">
+                  👥 ${secondGuestName}
+                </div>`
+              : ``
+          }
 
           <div class="text-xs text-gray-500">
             🪪 ${b.passport_id}
@@ -507,9 +521,9 @@ function setTodayDefault() {
 ================================ */
 window.openEditBooking = function (booking) {
 
-  console.log("EDIT BOOKING RAW:", booking);
-  console.log("bed_type:", booking.bed_type);
-  console.log("second_guests:", booking.second_guests);
+  // console.log("EDIT BOOKING RAW:", booking);
+  // console.log("bed_type:", booking.bed_type);
+  // console.log("second_guests:", booking.second_guests);
   
   currentEditingBooking = booking;
 

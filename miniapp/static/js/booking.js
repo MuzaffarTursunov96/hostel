@@ -102,6 +102,20 @@ $(document).on("click", function (e) {
 });
 
 
+function getBedIcon(bedType) {
+  switch (bedType) {
+    case "double":
+      return "🛌";      // double bed
+    case "child":
+      return "👶";      // child bed
+    case "family":
+      return "👨‍👩‍👧"; // family
+    case "single":
+    default:
+      return "🛏";      // single / fallback
+  }
+}
+
 
 
 
@@ -171,7 +185,7 @@ function loadAvailableBeds() {
             class="bed-btn px-4 py-2 rounded-xl border
                   bg-gray-100 text-gray-700
                   font-medium transition-all">
-            🛏 ${t("bed")} ${b.bed_number}
+            ${getBedIcon} ${t("bed")} ${b.bed_number}
           </button>
         `);
 
