@@ -109,10 +109,14 @@ function loadDashboard(filter=false) {
                     <div><strong>00</strong><br>${t("seconds")}</div>
                   </div>
 
-                  <div class="px-2 pb-1 text-[10px] font-semibold">
+                  <div class="px-2 pb-1 text-[10px] font-semibold flex items-center gap-1">
+                    <span>
+                      ${getDashboardBedIcon(bed.bed_type)}
+                    </span>
+
                     ${
                       isBusy
-                        ? `🕒 <span class="text-red-700">${formatDate(bed.checkout_date)}</span>`
+                        ? `<span class="text-red-700">🕒 ${formatDate(bed.checkout_date)}</span>`
                         : `<span class="text-green-700">✔ ${t("free")}</span>`
                     }
                   </div>
