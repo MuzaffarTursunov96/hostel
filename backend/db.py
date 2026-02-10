@@ -251,7 +251,8 @@ def get_available_beds(branch_id, room_id, checkin_date, checkout_date):
             SELECT 
                 b.id,
                 b.bed_number,
-                b.room_id
+                b.room_id,
+                b.bed_type
             FROM beds b
             WHERE b.branch_id = :branch_id
               AND b.room_id = :room_id
