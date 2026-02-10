@@ -185,7 +185,7 @@ function loadAvailableBeds() {
             class="bed-btn px-4 py-2 rounded-xl border
                   bg-gray-100 text-gray-700
                   font-medium transition-all">
-            ${getBedIcon} ${t("bed")} ${b.bed_number}
+            ${getBedIcon(b.bed_type)} ${t("bed")} ${b.bed_number}
           </button>
         `);
 
