@@ -188,7 +188,7 @@ function loadAvailableBeds() {
         .removeClass("bg-gray-100 text-gray-700 border-gray-300")
         .addClass("bg-tgButton text-white border-tgButton");
 
-      SELECTED_BED_ID = b;
+      SELECTED_BED = b;
 
       handleBedTypeUI(b);
     });
@@ -202,15 +202,15 @@ function loadAvailableBeds() {
 
 
 function handleBedTypeUI(bed) {
-  $("#enableSecondGuest").prop("checked", false);
-  $("#secondGuestForm").addClass("hidden");
-
   if (bed && bed.bed_type === "double") {
     $("#secondGuestToggle").removeClass("hidden");
   } else {
     $("#secondGuestToggle").addClass("hidden");
+    $("#enableSecondGuest").prop("checked", false);
+    $("#secondGuestForm").addClass("hidden");
   }
 }
+
 
 
 $("#enableSecondGuest").on("change", function () {
