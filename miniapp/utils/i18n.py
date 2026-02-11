@@ -262,9 +262,17 @@ TRANSLATIONS = {
         "double_bed": "Двухместная кровать",
         "child_bed": "Детская кровать",
         "second_guest": "Второй гость (необязательно)",
+        "address_optional": "Адрес (необязательно)",
+        "latitude_optional": "Широта (необязательно)",
+        "longitude_optional": "Долгота (необязательно)",
 
         },
         "uz": {
+        "address_optional": "Manzil (ixtiyoriy)",
+        "latitude_optional": "Kenglik (ixtiyoriy)",
+        "longitude_optional": "Uzunlik (ixtiyoriy)",
+
+
         "second_guest": "Ikkinchi mehmon (ixtiyoriy)",
         "create":"Yaratish",
         "edit_bed": "Krovatni tahrirlash",
