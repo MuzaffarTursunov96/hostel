@@ -17,6 +17,9 @@ def init_db():
         CREATE TABLE IF NOT EXISTS branches (
             id SERIAL PRIMARY KEY,
             name TEXT NOT NULL UNIQUE,
+            address TEXT,
+            latitude DOUBLE PRECISION,
+            longitude DOUBLE PRECISION,
             created_by INTEGER
         )
         """))
@@ -2208,16 +2211,37 @@ def delete_admin_db(admin_id: int):
 
 
 
-def create_branch_db(name: str, created_by: int):
+def create_branch_db(
+            name: str,
+            created_by: int,
+            address: str | None = None,
+            latitude: float | None = None,
+            longitude: float | None = None
+        ):
     with get_connection() as conn:
         try:
             # 1️⃣ create branch
             branch_id = conn.execute(text("""
-                INSERT INTO branches (name, created_by)
-                VALUES (:name, :created_by)
+                INSERT INTO branches (
+                    name,
+                    address,
+                    latitude,
+                    longitude,
+                    created_by
+                )
+                VALUES (
+                    :name,
+                    :address,
+                    :latitude,
+                    :longitude,
+                    :created_by
+                )
                 RETURNING id
             """), {
                 "name": name,
+                "address": address,
+                "latitude": latitude,
+                "longitude": longitude,
                 "created_by": created_by
             }).scalar()
 
@@ -2233,10 +2257,11 @@ def create_branch_db(name: str, created_by: int):
 
             return branch_id
 
-        except IntegrityError as e:
-            # rollback transaction
+        except IntegrityError:
             conn.rollback()
             return None
+
+
 
 def delete_branch_db(branch_id: int):
     with get_connection() as conn:
@@ -2742,19 +2767,34 @@ def list_branches_by_admin_db(admin_id):
         """), {"aid": admin_id}).mappings().all()
     
 
-def update_branch_by_admin_db(admin_id, branch_id, name):
+def update_branch_by_admin_db(
+        admin_id,
+        branch_id,
+        name,
+        address=None,
+        latitude=None,
+        longitude=None
+    ):
     with get_connection() as conn:
         res = conn.execute(text("""
             UPDATE branches
-            SET name = :name
+            SET name = :name,
+                address = :address,
+                latitude = :latitude,
+                longitude = :longitude
             WHERE id = :bid
               AND created_by = :aid
         """), {
             "name": name,
+            "address": address,
+            "latitude": latitude,
+            "longitude": longitude,
             "bid": branch_id,
             "aid": admin_id
         })
+
         return res.rowcount > 0
+
 
 def delete_branch_by_admin_db(admin_id, branch_id):
     with get_connection() as conn:

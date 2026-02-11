@@ -181,15 +181,25 @@ $(document).on("change", "#branchSelect", function () {
 
 function createBranch() {
   const name = $("#newBranchName").val().trim();
+  const address = $("#newBranchAddress").val().trim();
+  const latitude = $("#newBranchLatitude").val().trim();
+  const longitude = $("#newBranchLongitude").val().trim();
 
   if (!name) {
     alert(t("branch_name_required"));
     return;
   }
 
-  apiPost("/branches/branches-admin", { name })
-    .done(function () {
+  apiPost("/branches/branches-admin", { 
+      name: name,
+      address: address || null,
+      latitude: latitude ? parseFloat(latitude) : null,
+      longitude: longitude ? parseFloat(longitude) : null 
+    }).done(function () {
       $("#newBranchName").val("");
+      $("#newBranchAddress").val("");
+      $("#newBranchLatitude").val("");
+      $("#newBranchLongitude").val("");
       alert(t("branch_created"));
       loadBranches();
     })

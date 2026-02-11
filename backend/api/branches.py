@@ -72,13 +72,21 @@ def create_branch_admin(data: dict, current_user=Depends(get_current_user)):
         raise HTTPException(403, "Admin only")
 
     name = data.get("name")
+    address = data.get("address", None)
+    latitude = data.get("latitude", None)
+    longitude = data.get("longitude", None)
+
     if not name:
         raise HTTPException(400, "name required")
 
     branch_id = create_branch_db(
         name=name,
+        address=address,
+        latitude=latitude,
+        longitude=longitude,
         created_by=current_user["user_id"]
     )
+
 
     if branch_id is None:
         raise HTTPException(
@@ -127,21 +135,29 @@ def list_branches_admin(current_user=Depends(get_current_user)):
 
 @router.put("/admin/{branch_id}")
 def update_branch(
-    branch_id: int,
-    data: dict,
-    current_user=Depends(get_current_user)
-):
+        branch_id: int,
+        data: dict,
+        current_user=Depends(get_current_user)
+    ):
     require_admin(current_user)
 
     name = data.get("name")
+    address = data.get("address", None)
+    latitude = data.get("latitude", None)
+    longitude = data.get("longitude", None)
+
     if not name:
         raise HTTPException(400, "name required")
 
     ok = update_branch_by_admin_db(
         admin_id=current_user["user_id"],
         branch_id=branch_id,
-        name=name
+        name=name,
+        address=address,
+        latitude=latitude,
+        longitude=longitude
     )
+
 
     if not ok:
         raise HTTPException(403, "Not your branch")
