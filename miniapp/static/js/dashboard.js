@@ -88,7 +88,6 @@ function loadDashboard(filter=false) {
                       ${isBusy ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}">
 
                     <span>
-                      ${getDashboardBedIcon(bed.bed_type)}
                       ${t("bed")} ${bed.bed_number}
                     </span>
 
@@ -109,19 +108,20 @@ function loadDashboard(filter=false) {
                     <div><strong>00</strong><br>${t("seconds")}</div>
                   </div>
 
-                  <div class="px-2 pb-1 text-[10px] font-semibold flex items-center gap-1">
-                    <span>
+                  <div class="px-2 pb-1 text-[10px] font-semibold flex items-center gap-1 whitespace-nowrap">
+                    <span class="inline-flex">
                       ${getDashboardBedIcon(bed.bed_type)}
                     </span>
 
                     ${
                       isBusy
-                        ? `<span class="text-red-700">🕒 ${formatDate(bed.checkout_date)}</span>`
-                        : `<span class="text-green-700">✔ ${t("free")}</span>`
+                        ? `<span class="text-red-700 inline-flex">🕒 ${formatDate(bed.checkout_date)}</span>`
+                        : `<span class="text-green-700 inline-flex">✔ ${t("free")}</span>`
                     }
                   </div>
 
                   <div class="bed-status h-1 ${isBusy ? 'bg-red-500' : 'bg-green-500'}"></div>
+
                 </div>
               `);
 
