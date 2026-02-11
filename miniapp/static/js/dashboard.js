@@ -78,7 +78,7 @@ function loadDashboard(filter=false) {
       $.each(room.beds || [], function (_, bed) {
         const isBusy = bed.is_busy === true;
 
-        console.log(`Rendering bed ${bed}`);
+        console.log(`Rendering bed ${JSON.stringify(bed)}`);
         
 
         const $bedEl = $(`
