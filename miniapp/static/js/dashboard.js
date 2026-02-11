@@ -13,12 +13,12 @@ let CURRENT_BRANCH = null;
 function getDashboardBedIcon(bedType) {
   switch (bedType) {
     case "double":
-      return "🛌";   // double bed
+      return "👥";   // double bed
     case "child":
       return "👶";   // child bed
     case "single":
     default:
-      return "🛏";   // single / fallback
+      return "👤";   // single / fallback
   }
 }
 
@@ -77,6 +77,8 @@ function loadDashboard(filter=false) {
 
       $.each(room.beds || [], function (_, bed) {
         const isBusy = bed.is_busy === true;
+
+        console.log(`Rendering bed ${bed}`);
         
 
         const $bedEl = $(`
