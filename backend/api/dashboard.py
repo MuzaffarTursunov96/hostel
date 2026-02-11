@@ -51,6 +51,7 @@ def dashboard_rooms(
             room_data["beds"].append({
                 "bed_id": bed["id"],
                 "bed_number": bed["bed_number"],
+                "bed_type": bed["bed_type"],
                 "is_busy": booking is not None,
                 "checkout_date": booking["checkout_date"] if booking else None,
                 "has_future": bed_future_exists(branch_id, bed["id"])
