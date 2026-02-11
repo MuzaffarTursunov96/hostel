@@ -1,12 +1,12 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QPushButton, QFrame, QScrollArea, QMessageBox
+    QPushButton, QFrame, QScrollArea, QMessageBox,QDialog,QComboBox
 )
 from PySide6.QtCore import Qt,QSize
 from PySide6.QtGui import QCursor,QIcon
 
 from i18n import t
-from .api_client import api_get, api_post, api_delete
+from .api_client import api_get, api_post, api_delete, api_put
 from .utils import resource_path
 
 
@@ -25,6 +25,8 @@ class RoomsPage(QWidget):
         self.current_room = None
         self.current_room_id = None
         self.selected_bed = None
+        self.selected_bed_data = None
+
 
         self.room_buttons = {}
         self.bed_buttons = {}
@@ -110,7 +112,18 @@ class RoomsPage(QWidget):
         btn_delete_bed.clicked.connect(self.delete_bed)
         btn_delete_bed.setCursor(QCursor(Qt.PointingHandCursor))
 
+
+
+        btn_edit_bed = QPushButton(t("edit_bed"))
+        btn_edit_bed.setIcon(QIcon(resource_path("assets/icons/edit.png")))
+        btn_edit_bed.setIconSize(QSize(18, 18))
+        btn_edit_bed.clicked.connect(self.open_edit_bed_modal)
+        btn_edit_bed.setCursor(QCursor(Qt.PointingHandCursor))
+
+
+
         bed_actions.addWidget(btn_add_bed)
+        bed_actions.addWidget(btn_edit_bed)
         bed_actions.addWidget(btn_delete_bed)
         bed_actions.addStretch()
 
@@ -118,6 +131,16 @@ class RoomsPage(QWidget):
         root.addWidget(beds_panel, 1)
 
         self.load_rooms()
+
+
+    def get_bed_icon(self, bed_type):
+        if bed_type == "double":
+            return "👥"
+        elif bed_type == "child":
+            return "🧸"
+        else:
+            return "👤"
+
 
         
     def set_branch(self, branch_id):
@@ -261,14 +284,16 @@ class RoomsPage(QWidget):
         for bed in beds:
             busy = bed["id"] in busy_beds
 
+            icon = self.get_bed_icon(bed.get("bed_type"))
+
             btn = QPushButton(
-                f"{t('bed')} {bed['bed_number']} — "
+                f"{icon} {t('bed')} {bed['bed_number']} — "
                 f"{t('busy') if busy else t('free')}"
             )
             btn.setFixedHeight(32)
             btn.setProperty("busy", busy)
             btn.clicked.connect(
-                lambda _, bid=bed["id"]: self.select_bed(bid)
+                lambda _, b=bed: self.select_bed(b)
             )
             btn.setCursor(QCursor(Qt.PointingHandCursor))
 
@@ -276,11 +301,15 @@ class RoomsPage(QWidget):
             self.bed_buttons[bed["id"]] = btn
 
 
-    def select_bed(self, bed_id):
-        self.selected_bed = bed_id
+    def select_bed(self, bed):
+        self.selected_bed = bed["id"]
+        self.selected_bed_data = bed
+
         for bid, btn in self.bed_buttons.items():
-            btn.setProperty("selected", bid == bed_id)
+            btn.setProperty("selected", bid == bed["id"])
             btn.style().polish(btn)
+
+
 
     def add_bed(self):
         if not self.current_room_id:
@@ -344,6 +373,26 @@ class RoomsPage(QWidget):
             self.selected_bed
         )
 
+    def open_edit_bed_modal(self):
+        if not self.selected_bed_data:
+            QMessageBox.warning(
+                self,
+                t("error"),
+                t("select_a_bed_first")
+            )
+            return
+
+        dlg = EditBedDialog(
+            self,
+            self.app,
+            self.selected_bed_data,
+            self.branch_id,
+            self.load_beds
+        )
+        dlg.exec()
+
+
+
     # ================= HELPERS =================
     def refresh_dashboard(self):
         dashboard = self.app.pages.get("dashboard")
@@ -355,3 +404,52 @@ class RoomsPage(QWidget):
         if self.current_room_id:
             self.load_beds()
 
+
+
+
+
+class EditBedDialog(QDialog):
+    def __init__(self, parent, app, bed, branch_id, refresh_callback):
+        super().__init__(parent)
+
+        self.app = app
+        self.bed = bed
+        self.branch_id = branch_id
+        self.refresh_callback = refresh_callback
+
+        self.setWindowTitle(t("edit_bed"))
+        self.resize(300, 180)
+
+        layout = QVBoxLayout(self)
+
+        layout.addWidget(QLabel(t("bed_type")))
+
+        self.type_dropdown = QComboBox()
+        self.type_dropdown.addItem(t("single_bed"), "single")
+        self.type_dropdown.addItem(t("double_bed"), "double")
+        self.type_dropdown.addItem(t("child_bed"), "child")
+
+        self.type_dropdown.setCurrentIndex(
+            self.type_dropdown.findData(bed["bed_type"])
+        )
+
+        layout.addWidget(self.type_dropdown)
+
+        btn_save = QPushButton(t("save"))
+        btn_save.clicked.connect(self.save)
+        layout.addWidget(btn_save)
+
+    def save(self):
+        new_type = self.type_dropdown.currentData()
+
+        api_put(
+            self.app,
+            f"/beds/{self.bed['id']}",
+            {
+                "bed_number": self.bed["bed_number"],
+                "bed_type": new_type
+            }
+        )
+
+        self.refresh_callback()
+        self.accept()

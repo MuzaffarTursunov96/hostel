@@ -149,21 +149,50 @@ class BookingHistoryPage(QDialog):
         row.setObjectName("ListRow")
 
         # store searchable data
-        row.customer_name = (r["customer_name"] or "").lower()
-        row.passport_id = (r["passport_id"] or "").lower()
+        main_name = r.get("customer_name") or ""
+        passport = r.get("passport_id") or ""
+        second_guests = r.get("second_guests") or []
+
+        row.customer_name = main_name.lower()
+        row.passport_id = passport.lower()
+        row.second_guest_names = " ".join(
+            [g.get("name", "") for g in second_guests]
+        ).lower()
 
         layout = QHBoxLayout(row)
         layout.setContentsMargins(12, 6, 12, 6)
         layout.setSpacing(20)
 
+        # ===== CUSTOMER COLUMN (STACKED LIKE WEB) =====
+        customer_widget = QFrame()
+        customer_layout = QVBoxLayout(customer_widget)
+        customer_layout.setContentsMargins(0, 0, 0, 0)
+        customer_layout.setSpacing(2)
+
+        main_lbl = QLabel(f"👤 {main_name}")
+        main_lbl.setStyleSheet("font-weight:600;")
+        customer_layout.addWidget(main_lbl)
+
+        for guest in second_guests:
+            name = guest.get("name")
+            if name:
+                second_lbl = QLabel(f"👥 {name}")
+                second_lbl.setStyleSheet(
+                    "font-size:10px;color:#7c3aed;margin-left:6px;"
+                )
+                customer_layout.addWidget(second_lbl)
+
+        customer_widget.setFixedWidth(180)
+        layout.addWidget(customer_widget)
+
+        # ===== OTHER COLUMNS =====
         def cell(text, width, align=Qt.AlignLeft):
             lbl = QLabel(text)
             lbl.setFixedWidth(width)
             lbl.setAlignment(align | Qt.AlignVCenter)
             return lbl
 
-        layout.addWidget(cell(r["customer_name"], 180))
-        layout.addWidget(cell(r["passport_id"], 120))
+        layout.addWidget(cell(passport, 120))
         layout.addWidget(cell(str(r["room_number"]), 60, Qt.AlignCenter))
         layout.addWidget(cell(str(r["bed_number"]), 60, Qt.AlignCenter))
         layout.addWidget(cell(self.format_date(r["checkin_date"]), 120, Qt.AlignCenter))
@@ -171,7 +200,7 @@ class BookingHistoryPage(QDialog):
         layout.addWidget(cell(f"{r['total_amount']:.2f}", 120, Qt.AlignRight))
 
         self.table.addWidget(row)
-        self.rows.append(row)  # 🔥 SAVE ROW
+        self.rows.append(row)
 
     # ================= LIVE FILTER (OLD LOGIC) =================
     def apply_customer_filter(self):
@@ -182,7 +211,9 @@ class BookingHistoryPage(QDialog):
                 not query
                 or query in row.customer_name
                 or query in row.passport_id
+                or query in row.second_guest_names
             )
+
 
     # ================= RESET =================
     def reset_filters(self):

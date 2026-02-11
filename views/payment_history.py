@@ -140,8 +140,15 @@ class PaymentHistoryDialog(QDialog):
         row = QFrame()
         row.setObjectName("ListRow")
 
-        row.customer_name = r["customer_name"]
-        row.passport_id = r["passport_id"]
+        main_name = r.get("customer_name") or ""
+        passport = r.get("passport_id") or ""
+        second_guests = r.get("second_guests") or []
+
+        row.customer_name = main_name.lower()
+        row.passport_id = passport.lower()
+        row.second_guest_names = " ".join(
+            [g.get("name", "") for g in second_guests]
+        ).lower()
 
         layout = QHBoxLayout(row)
         layout.setSpacing(6)
@@ -150,25 +157,35 @@ class PaymentHistoryDialog(QDialog):
             r["paid_at"]
         ).strftime("%d %b %Y %H:%M")
 
-        values = [
-            paid_at,
-            r["customer_name"],
-            r["passport_id"],
-            str(r["room_number"]),
-            str(r["bed_number"]),
-            f"{r['paid_amount']:.2f}",
-            r["paid_by"]
-        ]
+        # ===== CUSTOMER COLUMN STACKED =====
+        customer_widget = QFrame()
+        customer_layout = QVBoxLayout(customer_widget)
+        customer_layout.setContentsMargins(0, 0, 0, 0)
+        customer_layout.setSpacing(2)
 
-        widths = [160, 200, 100, 80, 80, 120, 120]
+        main_lbl = QLabel(f"👤 {main_name}")
+        main_lbl.setStyleSheet("font-weight:600;")
+        customer_layout.addWidget(main_lbl)
 
-        for v, w in zip(values, widths):
-            lbl = QLabel(v)
-            lbl.setFixedWidth(w)
-            layout.addWidget(lbl)
+        for guest in second_guests:
+            name = guest.get("name")
+            if name:
+                second_lbl = QLabel(f"👥 {name}")
+                second_lbl.setStyleSheet(
+                    "font-size:10px;color:#7c3aed;margin-left:6px;"
+                )
+                customer_layout.addWidget(second_lbl)
+
+        customer_widget.setFixedWidth(200)
+        layout.addWidget(QLabel(paid_at))
+        layout.addWidget(customer_widget)
+        layout.addWidget(QLabel(passport))
+        layout.addWidget(QLabel(str(r["room_number"])))
+        layout.addWidget(QLabel(str(r["bed_number"])))
+        layout.addWidget(QLabel(f"{r['paid_amount']:.2f}"))
+        layout.addWidget(QLabel(r["paid_by"]))
 
         self.table.addWidget(row)
-
 
     def apply_customer_filter(self):
         query = self.search_input.text().strip().lower()
@@ -182,5 +199,9 @@ class PaymentHistoryDialog(QDialog):
             passport = (row.passport_id or "").lower()
 
             row.setVisible(
-                not query or query in name or query in passport
+                not query
+                or query in name
+                or query in passport
+                or query in getattr(row, "second_guest_names", "")
             )
+

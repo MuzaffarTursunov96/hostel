@@ -86,7 +86,11 @@ class CalendarBedCell(QFrame):
         top_row = QHBoxLayout()
         top_row.setSpacing(6)
 
-        title = QLabel(f"{t('bed')} #{bed['bed_number']}")
+        icon = get_dashboard_bed_icon(bed.get("bed_type"))
+
+
+        title = QLabel(f"{icon} {t('bed')} #{bed['bed_number']}")
+        
         title.setObjectName("BedTitle")
         title.setStyleSheet("font-size:9px;font-weight:600;")
 
@@ -203,6 +207,15 @@ class CalendarBedCell(QFrame):
         for lbl in self.cells.values():
             lbl.setText("00")
         self.checkout_lbl.setText("")
+
+
+def get_dashboard_bed_icon(bed_type: str) -> str:
+    if bed_type == "double":
+        return "👥"
+    elif bed_type == "child":
+        return "👶"
+    else:
+        return "👤"
 
 
 class DashboardPage(QWidget):

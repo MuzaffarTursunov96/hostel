@@ -204,5 +204,17 @@ UZ = {
     "delete_user_confirm": "Siz ushbu foydalanuvchini o‘chirishni xohlaysizmi?",
     "delete": "O'chirish",
     "delete_customer_confirm": "Siz rostadan ham ushbu mijozni o‘chirishni xohlaysizmi? Uning barcha band qilishlari bekor qilinadi.",
+    "second_guest": "Ikkinchi mehmon",
 
+    "edit_bed": "Kravatni tahrirlash",
+    "bed_type": "Kravat turi",
+    "single_bed": "Bir kishilik",
+    "double_bed": "Ikki kishilik",
+    "child_bed": "Bolalar",
+    "notify_date": "Bildirishnoma sanasi",
+    "expense_history": "Xarajatlar tarixi",
+    "address_optional": "Manzil (ixtiyoriy)",
+    "latitude_optional": "Kenglik (ixtiyoriy)",
+    "longitude_optional": "Uzunlik (ixtiyoriy)",
+    "cannot_update_branch":"Filial ni o'zgartira olmaysiz"
 }

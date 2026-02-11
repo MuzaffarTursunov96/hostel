@@ -106,28 +106,59 @@ class ActiveBookingsDialog(QDialog):
     def add_row(self, r):
         row = QFrame()
         row.setObjectName("ListRow")
-        row.customer_name = r["customer_name"]
-        row.passport_id = r["passport_id"]
+
+        # Store searchable fields
+        row.customer_name = r.get("customer_name", "")
+        row.passport_id = r.get("passport_id", "")
+
+        second_guests = r.get("second_guests") or []
+        row.second_guest_names = " ".join(
+            [g.get("name", "") for g in second_guests]
+        )
 
         layout = QHBoxLayout(row)
         layout.setSpacing(6)
 
+        # ===== CUSTOMER COLUMN =====
+        customer_widget = QFrame()
+        customer_layout = QVBoxLayout(customer_widget)
+        customer_layout.setContentsMargins(0, 0, 0, 0)
+        customer_layout.setSpacing(2)
+
+        main_name = QLabel(f"👤 {r.get('customer_name','')}")
+        main_name.setStyleSheet("font-weight:600;")
+        customer_layout.addWidget(main_name)
+
+        # Show ALL second guests
+        for guest in second_guests:
+            name = guest.get("name")
+            if name:
+                second_lbl = QLabel(f"👥 {name}")
+                second_lbl.setStyleSheet(
+                    "font-size:10px;color:#7c3aed;margin-left:8px;"
+                )
+                customer_layout.addWidget(second_lbl)
+
+        customer_widget.setFixedWidth(220)
+        layout.addWidget(customer_widget)
+
+        # ===== OTHER COLUMNS =====
         values = [
-            r["customer_name"],
-            r["passport_id"],
-            str(r["room_number"]),
-            str(r["bed_number"]),
-            self.format_date(r["checkin_date"]),
-            self.format_date(r["checkout_date"]),
-            f"{r['total_amount']:.2f}"
+            r.get("passport_id", ""),
+            str(r.get("room_number", "")),
+            str(r.get("bed_number", "")),
+            self.format_date(r.get("checkin_date")),
+            self.format_date(r.get("checkout_date")),
+            f"{r.get('total_amount', 0):.2f}"
         ]
-        widths = [180, 100, 70, 70, 120, 120, 100]
+        widths = [120, 70, 70, 120, 120, 100]
 
         for v, w in zip(values, widths):
-            lbl = QLabel(v)
+            lbl = QLabel(str(v))
             lbl.setFixedWidth(w)
             layout.addWidget(lbl)
 
+        # ===== ACTION BUTTONS =====
         actions = QHBoxLayout()
 
         btn_edit = QPushButton(t("edit"))

@@ -1,7 +1,8 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QLineEdit, QScrollArea,
-    QComboBox, QMessageBox, QDateEdit,QCompleter
+    QComboBox, QMessageBox, QDateEdit,QCompleter,QCheckBox
+
 )
 from PySide6.QtCore import Qt, QDate, QSize
 from PySide6.QtGui import QCursor,QIcon
@@ -21,6 +22,7 @@ class BookingPage(QWidget):
         self.selected_bed_id = None
         self.prefilled_bed_id = None
         self.notify_date_manually_changed = False
+        self.selected_bed_data = None
 
 
         self.build_ui()
@@ -163,6 +165,41 @@ class BookingPage(QWidget):
         layout.addWidget(self.passport_entry)
         layout.addWidget(self.contact_entry)
 
+
+        # ===== SECOND GUEST CHECKBOX =====
+        self.second_guest_checkbox = QCheckBox(t("second_guest"))
+        self.second_guest_checkbox.setVisible(False)
+        self.second_guest_checkbox.stateChanged.connect(self.toggle_second_guest)
+
+        layout.addWidget(self.second_guest_checkbox)
+
+        # ===== SECOND GUEST FORM =====
+        self.second_guest_widget = QWidget()
+        second_layout = QVBoxLayout(self.second_guest_widget)
+        second_layout.setSpacing(8)
+
+        self.customer_box2 = QLineEdit()
+        self.customer_box2.setPlaceholderText(t("customer_name") + " (2)")
+        self.customer_box2.setFixedHeight(38)
+
+        self.passport_entry2 = QLineEdit()
+        self.passport_entry2.setPlaceholderText(t("passport_id") + " (2)")
+        self.passport_entry2.setFixedHeight(38)
+
+        self.contact_entry2 = QLineEdit()
+        self.contact_entry2.setPlaceholderText(t("contact_info") + " (2)")
+        self.contact_entry2.setFixedHeight(38)
+
+        second_layout.addWidget(self.customer_box2)
+        second_layout.addWidget(self.passport_entry2)
+        second_layout.addWidget(self.contact_entry2)
+
+        self.second_guest_widget.setVisible(False)
+
+        layout.addWidget(self.second_guest_widget)
+
+
+
         # ===== PAYMENT =====
         layout.addWidget(self.section_title(t("payment"), resource_path("assets/icons/usd.png")))
 
@@ -214,6 +251,12 @@ class BookingPage(QWidget):
 
     def on_notify_date_changed(self):
         self.notify_date_manually_changed = True
+
+    def toggle_second_guest(self):
+        self.second_guest_widget.setVisible(
+            self.second_guest_checkbox.isChecked()
+        )
+
 
 
     def on_checkout_changed(self, new_date):
@@ -295,7 +338,10 @@ class BookingPage(QWidget):
             return
 
         for b in beds:
-            btn = QPushButton(f"{t('bed')} {b['bed_number']}")
+            icon = self.get_bed_icon(b.get("bed_type"))
+
+            btn = QPushButton(f"{icon} {t('bed')} {b['bed_number']}")
+            
             btn.setCheckable(True)
             btn.setFixedHeight(44)
 
@@ -317,21 +363,46 @@ class BookingPage(QWidget):
                 }
             """)
 
-            btn.clicked.connect(lambda _, bid=b["id"], bbtn=btn: self.select_bed(bid, bbtn))
+            btn.clicked.connect(
+                lambda _, bed=b, bbtn=btn: self.select_bed(bed, bbtn)
+            )
+
             btn.setCursor(QCursor(Qt.PointingHandCursor))
             self.beds_container.addWidget(btn)
 
 
-    def select_bed(self, bed_id, clicked_button):
-        self.selected_bed_id = bed_id
+    def get_bed_icon(self, bed_type: str) -> str:
+        if bed_type == "double":
+            return "👥"
+        elif bed_type == "child":
+            return "👶"
+        elif bed_type == "family":
+            return "👨‍👩‍👧"
+        else:
+            return "👤"
 
-        # 🔥 uncheck all other bed buttons
+    def select_bed(self, bed, clicked_button):
+        self.selected_bed_id = bed["id"]
+        self.selected_bed_data = bed
+
+        # uncheck others
         for i in range(self.beds_container.count()):
             w = self.beds_container.itemAt(i).widget()
             if isinstance(w, QPushButton) and w is not clicked_button:
                 w.setChecked(False)
 
         clicked_button.setChecked(True)
+
+        # 🔥 BED TYPE LOGIC
+        bed_type = bed.get("bed_type")
+
+        if bed_type == "double":
+            self.second_guest_checkbox.setVisible(True)
+        else:
+            self.second_guest_checkbox.setChecked(False)
+            self.second_guest_checkbox.setVisible(False)
+            self.second_guest_widget.setVisible(False)
+
 
 
     def update_remaining(self):
@@ -361,6 +432,28 @@ class BookingPage(QWidget):
             paid = float(self.paid_entry.text())
         except:
             return QMessageBox.warning(self, t("error"), t("invalid_payment_values"))
+        
+        second_guest = None
+
+        if (
+            self.selected_bed_data
+            and self.selected_bed_data.get("bed_type") == "double"
+            and self.second_guest_checkbox.isChecked()
+        ):
+            name2 = self.customer_box2.text().strip()
+            passport2 = self.passport_entry2.text().strip().upper()
+            contact2 = self.contact_entry2.text().strip()
+
+            if not name2 or not passport2:
+                return QMessageBox.warning(
+                    self, t("error"), t("required_fields")
+                )
+
+            second_guest = {
+                "name": name2,
+                "passport_id": passport2,
+                "contact": contact2
+            }
 
         api_post(
             self.app,
@@ -377,6 +470,7 @@ class BookingPage(QWidget):
                 "checkin": self.checkin.date().toString("yyyy-MM-dd"),
                 "checkout": self.checkout.date().toString("yyyy-MM-dd"),
                 "notify_date": self.notify_date.date().toString("yyyy-MM-dd"),
+                "second_guest": second_guest
             }
         )
 

@@ -11,7 +11,7 @@ from PySide6.QtGui import QCursor,QIcon
 
 from utils.config import load_config, save_config
 from i18n import set_lang, t
-from .api_client import api_post,api_get,api_delete
+from .api_client import api_post,api_get,api_delete, api_put
 from .utils import resource_path
 
 
@@ -170,7 +170,22 @@ class SettingsPage(QWidget):
         add_btn.clicked.connect(self.add_branch_action)
         add_btn.setCursor(QCursor(Qt.PointingHandCursor))
 
+
+        self.new_branch_address = QLineEdit()
+        self.new_branch_address.setPlaceholderText(t("address_optional"))
+
+        self.new_branch_lat = QLineEdit()
+        self.new_branch_lat.setPlaceholderText(t("latitude_optional"))
+
+        self.new_branch_lng = QLineEdit()
+        self.new_branch_lng.setPlaceholderText(t("longitude_optional"))
+
+
         add_row.addWidget(self.new_branch)
+        add_row.addWidget(self.new_branch_address)
+        add_row.addWidget(self.new_branch_lat)
+        add_row.addWidget(self.new_branch_lng)
+
         add_row.addWidget(add_btn)
         layout.addLayout(add_row)
 
@@ -239,12 +254,15 @@ class SettingsPage(QWidget):
         
 
     def add_branch_action(self):
-
         if not self.is_admin:
             QMessageBox.warning(self, t("error"), t("permission_denied"))
             return
 
         name = self.new_branch.text().strip()
+        address = self.new_branch_address.text().strip()
+        lat = self.new_branch_lat.text().strip()
+        lng = self.new_branch_lng.text().strip()
+
         if not name:
             QMessageBox.warning(self, t("error"), t("branch_name_required"))
             return
@@ -252,22 +270,30 @@ class SettingsPage(QWidget):
         try:
             api_post(
                 self.app,
-                "/branches/",
-                {"name": name}
+                "/branches/branches-admin",
+                {
+                    "name": name,
+                    "address": address or None,
+                    "latitude": float(lat) if lat else None,
+                    "longitude": float(lng) if lng else None
+                }
             )
         except Exception:
             QMessageBox.critical(self, t("error"), t("cannot_create_branch"))
             return
 
         self.new_branch.clear()
+        self.new_branch_address.clear()
+        self.new_branch_lat.clear()
+        self.new_branch_lng.clear()
+
         self.load_branches()
 
         QMessageBox.information(
             self,
             t("success"),
-            t("branch_created_select_it")
+            t("branch_created")
         )
-
 
 
 
@@ -288,12 +314,14 @@ class SettingsPage(QWidget):
             return
 
         try:
-            api_post(
+            api_put(
                 self.app,
-                "/branches/update",
+                f"/branches/admin/{branch_id}",
                 {
-                    "branch_id": branch_id,
-                    "name": new_name
+                    "name": new_name,
+                    "address": self.new_branch_address.text().strip() or None,
+                    "latitude": float(self.new_branch_lat.text()) if self.new_branch_lat.text() else None,
+                    "longitude": float(self.new_branch_lng.text()) if self.new_branch_lng.text() else None
                 }
             )
         except Exception:
