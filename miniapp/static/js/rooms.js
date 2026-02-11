@@ -66,11 +66,11 @@ function selectRoom(room) {
 
 const BED_TYPE_UI = {
   single: {
-    icon: "🛏",
+    icon: "👤",
     title: t("single_bed") || "Одноместная"
   },
   double: {
-    icon: "🛌",
+    icon: "👥",
     title: t("double_bed") || "Двухместная"
   },
   child: {
@@ -78,6 +78,9 @@ const BED_TYPE_UI = {
     title: t("child_bed") || "Детская"
   }
 };
+
+
+
 
 
 
