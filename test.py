@@ -123,53 +123,60 @@
 # if __name__ == "__main__":
 #     main()
 
-import secrets
+# import secrets
 
-def generate_license():
-    return secrets.token_hex(16).upper()
+# def generate_license():
+#     return secrets.token_hex(16).upper()
 
-# example
-print(generate_license())
-# → A3F91C9E4A1D8B77F8E5C9D2A6B4E901
-
-
-
-import uuid
-import platform
-import hashlib
-
-def get_device_id():
-    raw = f"{uuid.getnode()}-{platform.system()}-{platform.machine()}"
-    return hashlib.sha256(raw.encode()).hexdigest()
+# # example
+# print(generate_license())
+# # → A3F91C9E4A1D8B77F8E5C9D2A6B4E901
 
 
 
-import requests
+# import uuid
+# import platform
+# import hashlib
 
-def check_license(license_key):
-    device_id = get_device_id()
-    r = requests.post(
-        "https://hmsuz.com/api/license/verify",
-        params={
-            "license_key": license_key,
-            "device_id": device_id
-        },
-        timeout=10
-    )
-
-    if r.status_code != 200:
-        raise Exception(r.text)
+# def get_device_id():
+#     raw = f"{uuid.getnode()}-{platform.system()}-{platform.machine()}"
+#     return hashlib.sha256(raw.encode()).hexdigest()
 
 
 
-import json
-from pathlib import Path
+# import requests
 
-LICENSE_FILE = Path.home() / ".hms_license"
+# def check_license(license_key):
+#     device_id = get_device_id()
+#     r = requests.post(
+#         "https://hmsuz.com/api/license/verify",
+#         params={
+#             "license_key": license_key,
+#             "device_id": device_id
+#         },
+#         timeout=10
+#     )
 
-def save_license(key):
-    LICENSE_FILE.write_text(json.dumps({"key": key}))
+#     if r.status_code != 200:
+#         raise Exception(r.text)
 
-def load_license():
-    if LICENSE_FILE.exists():
-        return json.loads(LICENSE_FILE.read_text())["key"]
+
+
+# import json
+# from pathlib import Path
+
+# LICENSE_FILE = Path.home() / ".hms_license"
+
+# def save_license(key):
+#     LICENSE_FILE.write_text(json.dumps({"key": key}))
+
+# def load_license():
+#     if LICENSE_FILE.exists():
+#         return json.loads(LICENSE_FILE.read_text())["key"]
+
+
+import requests, time
+
+start = time.time()
+r = requests.get("https://hmsuz.com/api/health")
+print("Time:", time.time() - start)

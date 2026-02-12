@@ -2262,83 +2262,80 @@ def create_branch_db(
             return None
 
 
-
 def delete_branch_db(branch_id: int):
     with get_connection() as conn:
-        with conn.begin():  # 🔥 atomic transaction
 
-            # 1️⃣ booking_refunds
-            conn.execute(text("""
-                DELETE FROM booking_refunds
-                WHERE branch_id = :bid
-            """), {"bid": branch_id})
+        # 1️⃣ booking_refunds
+        conn.execute(text("""
+            DELETE FROM booking_refunds
+            WHERE branch_id = :bid
+        """), {"bid": branch_id})
 
-            # 2️⃣ booking_payments
-            conn.execute(text("""
-                DELETE FROM booking_payments
-                WHERE branch_id = :bid
-            """), {"bid": branch_id})
+        # 2️⃣ booking_payments
+        conn.execute(text("""
+            DELETE FROM booking_payments
+            WHERE branch_id = :bid
+        """), {"bid": branch_id})
 
-            # 3️⃣ booking_guests (through bookings)
-            conn.execute(text("""
-                DELETE FROM booking_guests
-                WHERE booking_id IN (
-                    SELECT id FROM bookings WHERE branch_id = :bid
-                )
-            """), {"bid": branch_id})
+        # 3️⃣ booking_guests
+        conn.execute(text("""
+            DELETE FROM booking_guests
+            WHERE booking_id IN (
+                SELECT id FROM bookings WHERE branch_id = :bid
+            )
+        """), {"bid": branch_id})
 
-            # 4️⃣ bookings
-            conn.execute(text("""
-                DELETE FROM bookings
-                WHERE branch_id = :bid
-            """), {"bid": branch_id})
+        # 4️⃣ bookings
+        conn.execute(text("""
+            DELETE FROM bookings
+            WHERE branch_id = :bid
+        """), {"bid": branch_id})
 
-            # 5️⃣ customer passport images
-            conn.execute(text("""
-                DELETE FROM customer_passport_images
-                WHERE customer_id IN (
-                    SELECT id FROM customers WHERE branch_id = :bid
-                )
-            """), {"bid": branch_id})
+        # 5️⃣ passport images
+        conn.execute(text("""
+            DELETE FROM customer_passport_images
+            WHERE customer_id IN (
+                SELECT id FROM customers WHERE branch_id = :bid
+            )
+        """), {"bid": branch_id})
 
-            # 6️⃣ customers
-            conn.execute(text("""
-                DELETE FROM customers
-                WHERE branch_id = :bid
-            """), {"bid": branch_id})
+        # 6️⃣ customers
+        conn.execute(text("""
+            DELETE FROM customers
+            WHERE branch_id = :bid
+        """), {"bid": branch_id})
 
-            # 7️⃣ beds
-            conn.execute(text("""
-                DELETE FROM beds
-                WHERE branch_id = :bid
-            """), {"bid": branch_id})
+        # 7️⃣ beds
+        conn.execute(text("""
+            DELETE FROM beds
+            WHERE branch_id = :bid
+        """), {"bid": branch_id})
 
-            # 8️⃣ rooms
-            conn.execute(text("""
-                DELETE FROM rooms
-                WHERE branch_id = :bid
-            """), {"bid": branch_id})
+        # 8️⃣ rooms
+        conn.execute(text("""
+            DELETE FROM rooms
+            WHERE branch_id = :bid
+        """), {"bid": branch_id})
 
-            # 9️⃣ expenses
-            conn.execute(text("""
-                DELETE FROM expenses
-                WHERE branch_id = :bid
-            """), {"bid": branch_id})
+        # 9️⃣ expenses
+        conn.execute(text("""
+            DELETE FROM expenses
+            WHERE branch_id = :bid
+        """), {"bid": branch_id})
 
-            # 🔟 user-branches
-            conn.execute(text("""
-                DELETE FROM user_branches
-                WHERE branch_id = :bid
-            """), {"bid": branch_id})
+        # 🔟 user-branches
+        conn.execute(text("""
+            DELETE FROM user_branches
+            WHERE branch_id = :bid
+        """), {"bid": branch_id})
 
-            # 11️⃣ finally delete branch
-            conn.execute(text("""
-                DELETE FROM branches
-                WHERE id = :bid
-            """), {"bid": branch_id})
+        # 11️⃣ branch
+        conn.execute(text("""
+            DELETE FROM branches
+            WHERE id = :bid
+        """), {"bid": branch_id})
 
     return {"status": "success"}
-
 
 
 def list_branches_db_root():
