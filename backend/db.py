@@ -2708,21 +2708,21 @@ def assign_user_to_branch_db(admin_id, user_id, branch_id):
             return False  # ❌ admin does not manage this branch
 
         # 2️⃣ user must be created by this admin OR be unassigned
-        user_ok = conn.execute(text("""
-            SELECT 1
-            FROM users
-            WHERE id = :uid
-              AND (
-                  created_by = :admin_id
-                  OR created_by IS NULL
-              )
-        """), {
-            "uid": user_id,
-            "admin_id": admin_id
-        }).fetchone()
+        # user_ok = conn.execute(text("""
+        #     SELECT 1
+        #     FROM users
+        #     WHERE id = :uid
+        #       AND (
+        #           created_by = :admin_id
+        #           OR created_by IS NULL
+        #       )
+        # """), {
+        #     "uid": user_id,
+        #     "admin_id": admin_id
+        # }).fetchone()
 
-        if not user_ok:
-            return False
+        # if not user_ok:
+        #     return False
 
         # 3️⃣ assign user to branch
         conn.execute(text("""
