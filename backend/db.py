@@ -2699,18 +2699,18 @@ def assign_user_to_branch_db(admin_id, user_id, branch_id):
     with get_connection() as conn:
 
         # 1️⃣ admin must have access to this branch
-        admin_has_branch = conn.execute(text("""
-            SELECT 1
-            FROM user_branches
-            WHERE user_id = :admin_id
-              AND branch_id = :branch_id
-        """), {
-            "admin_id": admin_id,
-            "branch_id": branch_id
-        }).fetchone()
+        # admin_has_branch = conn.execute(text("""
+        #     SELECT 1
+        #     FROM user_branches
+        #     WHERE user_id = :admin_id
+        #       AND branch_id = :branch_id
+        # """), {
+        #     "admin_id": admin_id,
+        #     "branch_id": branch_id
+        # }).fetchone()
 
-        if not admin_has_branch:
-            return False  # ❌ admin does not manage this branch
+        # if not admin_has_branch:
+        #     return False  # ❌ admin does not manage this branch
 
         # 2️⃣ user must be created by this admin OR be unassigned
         # user_ok = conn.execute(text("""
