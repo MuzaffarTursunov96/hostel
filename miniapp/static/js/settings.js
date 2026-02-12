@@ -433,6 +433,7 @@ function saveUserBranches() {
   unchecked.forEach(branchId => {
     requests.push(
       apiDelete(`/branches/${branchId}/users/${SELECTED_USER_ID}`)
+      .catch(() => null)
     );
   });
 
