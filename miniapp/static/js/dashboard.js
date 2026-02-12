@@ -15,7 +15,7 @@ function getDashboardBedIcon(bedType) {
     case "double":
       return "👥";   // double bed
     case "child":
-      return "👶";   // child bed
+      return "🧸";   // child bed
     case "single":
     default:
       return "👤";   // single / fallback

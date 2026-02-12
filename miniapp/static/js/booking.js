@@ -105,14 +105,14 @@ $(document).on("click", function (e) {
 function getBedIcon(bedType) {
   switch (bedType) {
     case "double":
-      return "🛌";      // double bed
+      return "👥";      // double bed
     case "child":
-      return "👶";      // child bed
+      return "🧸";      // child bed
     case "family":
       return "👨‍👩‍👧"; // family
     case "single":
     default:
-      return "🛏";      // single / fallback
+      return "👤";      // single / fallback
   }
 }
 
