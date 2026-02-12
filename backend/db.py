@@ -2646,48 +2646,6 @@ def reset_password_db(new_password, user_id, admin_id):
         return res.rowcount > 0
 
 
-# def assign_user_to_branch_db(admin_id, user_id, branch_id):
-#     with get_connection() as conn:
-
-#         # ✅ user must belong to this admin
-#         user_ok = conn.execute(text("""
-#             SELECT 1
-#             FROM users
-#             WHERE id = :uid
-#               AND created_by = :aid
-#         """), {
-#             "uid": user_id,
-#             "aid": admin_id
-#         }).fetchone()
-
-#         if not user_ok:
-#             return False
-
-#         # ✅ branch must belong to this admin
-#         branch_ok = conn.execute(text("""
-#             SELECT 1
-#             FROM branches
-#             WHERE id = :bid
-#               AND created_by = :aid
-#         """), {
-#             "bid": branch_id,
-#             "aid": admin_id
-#         }).fetchone()
-
-#         if not branch_ok:
-#             return False
-
-#         # ✅ assign user to branch
-#         conn.execute(text("""
-#             INSERT INTO user_branches (user_id, branch_id)
-#             VALUES (:uid, :bid)
-#             ON CONFLICT DO NOTHING
-#         """), {
-#             "uid": user_id,
-#             "bid": branch_id
-#         })
-
-#     return True
 
 
 def assign_user_to_branch_db(admin_id, user_id, branch_id):
