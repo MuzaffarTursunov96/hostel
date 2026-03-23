@@ -1,40 +1,42 @@
-let ROOT_ADMINS = [];
+ï»¿let ROOT_ADMINS = [];
 let ROOT_BRANCHES = [];
 let CURRENT_ADMIN_ID = null;
+let CURRENT_SEARCH = '';
 
 const RM_I18N = {
   ru: {
-    title: 'Óïðàâëåíèå Root Admin',
-    back: 'Íàçàä â íàñòðîéêè',
-    add_admin: '+ Äîáàâèòü àäìèíà',
+    title: 'Ð£Ð¿Ñ€Ð°Ð²Ð»ÐµÐ½Ð¸Ðµ Root Admin',
+    back: 'ÐÐ°Ð·Ð°Ð´ Ð² Ð½Ð°ÑÑ‚Ñ€Ð¾Ð¹ÐºÐ¸',
+    add_admin: '+ Ð”Ð¾Ð±Ð°Ð²Ð¸Ñ‚ÑŒ Ð°Ð´Ð¼Ð¸Ð½Ð°',
     id: 'ID',
-    username: 'Èìÿ ïîëüçîâàòåëÿ',
+    username: 'Ð˜Ð¼Ñ Ð¿Ð¾Ð»ÑŒÐ·Ð¾Ð²Ð°Ñ‚ÐµÐ»Ñ',
     telegram_id: 'Telegram ID',
-    filials: 'Ôèëèàëû',
-    expiry: 'Äàòà îêîí÷àíèÿ',
-    active: 'Àêòèâíîñòü',
-    actions: 'Äåéñòâèÿ',
-    save: 'Ñîõðàíèòü',
-    clear: 'Î÷èñòèòü',
-    active_state: 'Àêòèâåí',
-    blocked_state: 'Çàáëîêèðîâàí',
-    filials_btn: 'Ôèëèàëû',
-    reset_pass: 'Ñáðîñ ïàðîëÿ',
-    delete: 'Óäàëèòü',
-    assign_filials: 'Íàçíà÷èòü ôèëèàëû',
-    cancel: 'Îòìåíà',
-    create_admin: 'Ñîçäàòü àäìèíà',
-    password: 'Ïàðîëü',
-    select_expiry: 'Ñíà÷àëà âûáåðèòå äàòó îêîí÷àíèÿ',
-    expiry_saved: 'Ñðîê äåéñòâèÿ ñîõðàíåí',
-    expiry_cleared: 'Ñðîê äåéñòâèÿ î÷èùåí',
-    delete_confirm: 'Óäàëèòü ýòîãî àäìèíà?',
-    admin_deleted: 'Àäìèí óäàëåí',
-    enter_new_password: 'Ââåäèòå íîâûé ïàðîëü:',
-    password_updated: 'Ïàðîëü îáíîâëåí',
-    filials_updated: 'Ôèëèàëû îáíîâëåíû',
-    telegram_password_required: 'Íóæíû Telegram ID è ïàðîëü',
-    admin_created: 'Àäìèí ñîçäàí'
+    filials: 'Ð¤Ð¸Ð»Ð¸Ð°Ð»Ñ‹',
+    expiry: 'Ð”Ð°Ñ‚Ð° Ð¾ÐºÐ¾Ð½Ñ‡Ð°Ð½Ð¸Ñ',
+    active: 'ÐÐºÑ‚Ð¸Ð²Ð½Ð¾ÑÑ‚ÑŒ',
+    actions: 'Ð”ÐµÐ¹ÑÑ‚Ð²Ð¸Ñ',
+    save: 'Ð¡Ð¾Ñ…Ñ€Ð°Ð½Ð¸Ñ‚ÑŒ',
+    clear: 'ÐžÑ‡Ð¸ÑÑ‚Ð¸Ñ‚ÑŒ',
+    active_state: 'ÐÐºÑ‚Ð¸Ð²ÐµÐ½',
+    blocked_state: 'Ð—Ð°Ð±Ð»Ð¾ÐºÐ¸Ñ€Ð¾Ð²Ð°Ð½',
+    filials_btn: 'Ð¤Ð¸Ð»Ð¸Ð°Ð»Ñ‹',
+    reset_pass: 'Ð¡Ð±Ñ€Ð¾Ñ Ð¿Ð°Ñ€Ð¾Ð»Ñ',
+    delete: 'Ð£Ð´Ð°Ð»Ð¸Ñ‚ÑŒ',
+    assign_filials: 'ÐÐ°Ð·Ð½Ð°Ñ‡Ð¸Ñ‚ÑŒ Ñ„Ð¸Ð»Ð¸Ð°Ð»Ñ‹',
+    cancel: 'ÐžÑ‚Ð¼ÐµÐ½Ð°',
+    create_admin: 'Ð¡Ð¾Ð·Ð´Ð°Ñ‚ÑŒ Ð°Ð´Ð¼Ð¸Ð½Ð°',
+    password: 'ÐŸÐ°Ñ€Ð¾Ð»ÑŒ',
+    select_expiry: 'Ð¡Ð½Ð°Ñ‡Ð°Ð»Ð° Ð²Ñ‹Ð±ÐµÑ€Ð¸Ñ‚Ðµ Ð´Ð°Ñ‚Ñƒ Ð¾ÐºÐ¾Ð½Ñ‡Ð°Ð½Ð¸Ñ',
+    expiry_saved: 'Ð¡Ñ€Ð¾Ðº Ð´ÐµÐ¹ÑÑ‚Ð²Ð¸Ñ ÑÐ¾Ñ…Ñ€Ð°Ð½ÐµÐ½',
+    expiry_cleared: 'Ð¡Ñ€Ð¾Ðº Ð´ÐµÐ¹ÑÑ‚Ð²Ð¸Ñ Ð¾Ñ‡Ð¸Ñ‰ÐµÐ½',
+    delete_confirm: 'Ð£Ð´Ð°Ð»Ð¸Ñ‚ÑŒ ÑÑ‚Ð¾Ð³Ð¾ Ð°Ð´Ð¼Ð¸Ð½Ð°?',
+    admin_deleted: 'ÐÐ´Ð¼Ð¸Ð½ ÑƒÐ´Ð°Ð»ÐµÐ½',
+    enter_new_password: 'Ð’Ð²ÐµÐ´Ð¸Ñ‚Ðµ Ð½Ð¾Ð²Ñ‹Ð¹ Ð¿Ð°Ñ€Ð¾Ð»ÑŒ:',
+    password_updated: 'ÐŸÐ°Ñ€Ð¾Ð»ÑŒ Ð¾Ð±Ð½Ð¾Ð²Ð»ÐµÐ½',
+    filials_updated: 'Ð¤Ð¸Ð»Ð¸Ð°Ð»Ñ‹ Ð¾Ð±Ð½Ð¾Ð²Ð»ÐµÐ½Ñ‹',
+    telegram_password_required: 'ÐÑƒÐ¶Ð½Ñ‹ Telegram ID Ð¸ Ð¿Ð°Ñ€Ð¾Ð»ÑŒ',
+    admin_created: 'ÐÐ´Ð¼Ð¸Ð½ ÑÐ¾Ð·Ð´Ð°Ð½',
+    search_placeholder: 'ÐŸÐ¾Ð¸ÑÐº Ð¿Ð¾ ID, Ð¸Ð¼ÐµÐ½Ð¸, Telegram Ð¸Ð»Ð¸ Ñ„Ð¸Ð»Ð¸Ð°Ð»Ñƒ...'
   },
   uz: {
     title: 'Root Admin boshqaruvi',
@@ -67,7 +69,8 @@ const RM_I18N = {
     password_updated: 'Parol yangilandi',
     filials_updated: 'Filiallar yangilandi',
     telegram_password_required: 'Telegram ID va parol kerak',
-    admin_created: 'Admin yaratildi'
+    admin_created: 'Admin yaratildi',
+    search_placeholder: 'ID, ism, Telegram yoki filial bo\'yicha qidirish...'
   }
 };
 
@@ -104,6 +107,7 @@ function applyRootTexts() {
   $('#newAdminPassword').attr('placeholder', rt('password'));
   $('#rmCreateSave').text(rt('create_admin'));
   $('#rmCreateCancel').text(rt('cancel'));
+  $('#rmSearch').attr('placeholder', rt('search_placeholder'));
 }
 
 function loadRootManagement() {
@@ -126,14 +130,19 @@ function toDateInputValue(iso) {
 
 function renderAdminRows() {
   const $tb = $('#rootAdminTable').empty();
+  const q = (CURRENT_SEARCH || '').trim().toLowerCase();
 
   ROOT_ADMINS.forEach((a) => {
+    const filialsText = branchNames(a.branches);
+    const searchable = `${a.id} ${a.username || ''} ${a.telegram_id || ''} ${filialsText}`.toLowerCase();
+    if (q && !searchable.includes(q)) return;
+
     const row = `
       <tr class="border-b align-top">
         <td class="py-2">${a.id}</td>
         <td class="py-2">${a.username || ''}</td>
         <td class="py-2">${a.telegram_id || ''}</td>
-        <td class="py-2">${branchNames(a.branches)}</td>
+        <td class="py-2">${filialsText}</td>
         <td class="py-2">
           <input type="date" id="exp_${a.id}" value="${toDateInputValue(a.admin_expires_at)}" class="px-2 py-1 rounded border">
           <div class="flex gap-1 mt-2">
@@ -158,6 +167,11 @@ function renderAdminRows() {
     `;
     $tb.append(row);
   });
+}
+
+function onRootSearch(value) {
+  CURRENT_SEARCH = value || '';
+  renderAdminRows();
 }
 
 function saveAdminExpiry(userId) {

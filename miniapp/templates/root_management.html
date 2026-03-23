@@ -12,6 +12,13 @@
   </div>
 
   <div class="bg-white rounded-2xl shadow p-4 overflow-x-auto">
+    <div class="mb-3">
+      <input id="rmSearch"
+             type="text"
+             oninput="onRootSearch(this.value)"
+             class="w-full md:w-[420px] px-3 py-2 rounded-xl border border-gray-300"
+             placeholder="Search...">
+    </div>
     <table class="w-full min-w-[980px] text-sm">
       <thead>
         <tr class="text-left text-gray-700 border-b">
