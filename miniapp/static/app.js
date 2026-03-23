@@ -21,7 +21,7 @@ function isExpiryErrorMessage(msg) {
 
 function buildExpiryContactMessage(baseMessage) {
   const tg = window.ROOT_ADMIN_TELEGRAM || "muzaffar_developer";
-  const phone = window.ROOT_ADMIN_PHONE || "+998901234567";
+  const phone = window.ROOT_ADMIN_PHONE || "+998991422110";
   return (
     (baseMessage || "Application access expired.") +
     "\n\nPlease contact admin:\n" +

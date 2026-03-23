@@ -9,9 +9,9 @@ import jwt
 
 
 API_URL = "http://backend:8000"
-VERSION ="2026-23-03-18-01"
+VERSION ="2026-23-03-18-44"
 ROOT_ADMIN_TELEGRAM = os.getenv("ROOT_ADMIN_TELEGRAM", "muzaffar_developer")
-ROOT_ADMIN_PHONE = os.getenv("ROOT_ADMIN_PHONE", "+998901234567")
+ROOT_ADMIN_PHONE = os.getenv("ROOT_ADMIN_PHONE", "+998991422110")
 
 
 load_dotenv()

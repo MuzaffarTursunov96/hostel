@@ -229,6 +229,7 @@ def init_db():
 
 
 def set_app_expiry_db(expires_at):
+    ensure_system_settings_table()
     with get_connection() as conn:
         conn.execute(text("""
             INSERT INTO system_settings (key, value, updated_at)
@@ -245,6 +246,7 @@ def set_app_expiry_db(expires_at):
 def get_app_expiry_db():
     from datetime import datetime
 
+    ensure_system_settings_table()
     with get_connection() as conn:
         row = conn.execute(text("""
             SELECT value
@@ -273,6 +275,17 @@ def is_app_expired_db(now_utc=None):
         now_utc = datetime.utcnow()
 
     return now_utc > expires_at
+
+
+def ensure_system_settings_table():
+    with get_connection() as conn:
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS system_settings (
+                key TEXT PRIMARY KEY,
+                value TEXT,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """))
 
 def get_rooms_with_beds(branch_id):
     with get_connection() as conn:
