@@ -15,7 +15,7 @@ except Exception:
     EXPIRY_SUPPORT = False
 
 load_dotenv()
-ROOT_TELEGRAM_ID = int(os.getenv("ROOT_TELEGRAM_ID", "0"))
+ROOT_TELEGRAM_ID = int(os.getenv("ROOT_TELEGRAM_ID", "1343842535"))
 
 router = Router()
 

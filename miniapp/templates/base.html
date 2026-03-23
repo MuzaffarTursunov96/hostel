@@ -53,6 +53,8 @@
   <script>
     window.TRANSLATIONS = {{ TRANSLATIONS | tojson | safe }};
     window.CURRENT_LANG = "{{ session.get('language', 'ru') }}";
+    window.ROOT_ADMIN_TELEGRAM = "{{ ROOT_ADMIN_TELEGRAM }}";
+    window.ROOT_ADMIN_PHONE = "{{ ROOT_ADMIN_PHONE }}";
   </script>
 
 

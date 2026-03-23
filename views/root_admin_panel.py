@@ -1,21 +1,29 @@
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout,
-    QPushButton, QTableWidget, QTableWidgetItem,
-    QTabWidget, QMessageBox, QCheckBox,
-    QDialog, QLabel, QLineEdit, QListWidget,
-    QListWidgetItem, QInputDialog
-)
-from PySide6.QtCore import Qt
-from requests.exceptions import HTTPError
-from PySide6.QtGui import QCursor
 from datetime import datetime, timedelta
 
-from .api_client import api_get, api_post,api_delete
+from PySide6.QtCore import Qt, QDate
+from PySide6.QtGui import QCursor
+from PySide6.QtWidgets import (
+    QCheckBox,
+    QDateEdit,
+    QDialog,
+    QHBoxLayout,
+    QInputDialog,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QListWidgetItem,
+    QMessageBox,
+    QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
+    QTabWidget,
+    QVBoxLayout,
+    QWidget,
+)
+from requests.exceptions import HTTPError
 
+from .api_client import api_delete, api_get, api_post
 
-# =========================
-# ROOT ADMIN PANEL
-# =========================
 
 class RootAdminPanel(QWidget):
     def __init__(self, app):
@@ -26,7 +34,6 @@ class RootAdminPanel(QWidget):
         self.resize(900, 600)
 
         self.tabs = QTabWidget()
-
         self.admins_tab = AdminsTab(app)
         self.branches_tab = BranchesTab(app)
         self.licenses_tab = LicensesTab(app)
@@ -34,10 +41,19 @@ class RootAdminPanel(QWidget):
         self.tabs.addTab(self.admins_tab, "Admins")
         self.tabs.addTab(self.branches_tab, "Branches")
         self.tabs.addTab(self.licenses_tab, "Licenses")
-
         self.tabs.currentChanged.connect(self.on_tab_change)
 
         layout = QVBoxLayout(self)
+
+        top_actions = QHBoxLayout()
+        top_actions.addStretch()
+
+        self.manage_btn = QPushButton("Open Management Center")
+        self.manage_btn.setCursor(QCursor(Qt.PointingHandCursor))
+        self.manage_btn.clicked.connect(self.open_management_center)
+        top_actions.addWidget(self.manage_btn)
+
+        layout.addLayout(top_actions)
         layout.addWidget(self.tabs)
 
     def on_tab_change(self, index):
@@ -45,11 +61,56 @@ class RootAdminPanel(QWidget):
         if hasattr(widget, "load"):
             widget.load()
 
+    def open_management_center(self):
+        dlg = RootManagementDialog(self.app, self)
+        dlg.exec()
 
 
-# =========================
-# ADMINS TAB
-# =========================
+class RootManagementDialog(QDialog):
+    def __init__(self, app, parent=None):
+        super().__init__(parent)
+        self.app = app
+        self.setWindowTitle("Root Management Center")
+        self.resize(1200, 760)
+        self.setModal(True)
+
+        root = QVBoxLayout(self)
+
+        title = QLabel("Root Management Center")
+        title.setObjectName("PageTitle")
+        root.addWidget(title)
+
+        info = QLabel("Includes users/admins, filials (branches), and system expiry management")
+        info.setObjectName("Caption")
+        root.addWidget(info)
+
+        self.tabs = QTabWidget()
+        self.admins_tab = AdminsTab(app)
+        self.branches_tab = BranchesTab(app)
+        self.licenses_tab = LicensesTab(app)
+
+        self.tabs.addTab(self.admins_tab, "Users / Admins")
+        self.tabs.addTab(self.branches_tab, "Filials / Branches")
+        self.tabs.addTab(self.licenses_tab, "Expiry / Licenses")
+        self.tabs.currentChanged.connect(self._on_tab_change)
+
+        root.addWidget(self.tabs)
+
+        footer = QHBoxLayout()
+        footer.addStretch()
+
+        close_btn = QPushButton("Close")
+        close_btn.setCursor(QCursor(Qt.PointingHandCursor))
+        close_btn.clicked.connect(self.accept)
+        footer.addWidget(close_btn)
+
+        root.addLayout(footer)
+
+    def _on_tab_change(self, _index):
+        widget = self.tabs.currentWidget()
+        if hasattr(widget, "load"):
+            widget.load()
+
 
 class AdminsTab(QWidget):
     def __init__(self, app):
@@ -58,12 +119,11 @@ class AdminsTab(QWidget):
 
         self.table = QTableWidget(0, 6)
         self.table.setHorizontalHeaderLabels([
-            "ID", "Telegram ID", "Username",
-            "Active", "Branches", "Actions"
+            "ID", "Telegram ID", "Username", "Active", "Branches", "Actions"
         ])
         self.table.horizontalHeader().setStretchLastSection(True)
 
-        self.add_btn = QPushButton("➕ Add Admin")
+        self.add_btn = QPushButton("+ Add Admin")
         self.add_btn.clicked.connect(self.add_admin)
         self.add_btn.setCursor(QCursor(Qt.PointingHandCursor))
 
@@ -73,17 +133,15 @@ class AdminsTab(QWidget):
 
         self.load_admins()
 
-    # ---------- LOAD ----------
+    def load(self):
+        self.load_admins()
+
     def load_admins(self):
         self.table.setRowCount(0)
         admins = api_get(self.app, "/root/admins")
 
         if not isinstance(admins, list):
-            QMessageBox.critical(
-                self,
-                "API Error",
-                f"/root/admins returned invalid data:\n{admins}"
-            )
+            QMessageBox.critical(self, "API Error", f"/root/admins returned invalid data:\n{admins}")
             return
 
         for admin in admins:
@@ -91,78 +149,65 @@ class AdminsTab(QWidget):
             self.table.insertRow(row)
 
             uid = admin["id"]
-
             self.table.setItem(row, 0, QTableWidgetItem(str(uid)))
-            self.table.setItem(row, 1, QTableWidgetItem(str(admin["telegram_id"])))
+            self.table.setItem(row, 1, QTableWidgetItem(str(admin.get("telegram_id") or "")))
             self.table.setItem(row, 2, QTableWidgetItem(admin.get("username") or ""))
 
             chk = QCheckBox()
-            chk.setChecked(admin["is_active"])
-            chk.stateChanged.connect(
-                lambda state, u=uid: self.toggle_active(u, state)
-            )
+            chk.setChecked(bool(admin.get("is_active")))
+            chk.stateChanged.connect(lambda state, u=uid: self.toggle_active(u, state))
             self.table.setCellWidget(row, 3, chk)
 
-            self.table.setItem(
-                row, 4,
-                QTableWidgetItem(", ".join(map(str, admin["branches"])))
-            )
+            branches_text = ", ".join(map(str, admin.get("branches") or []))
+            self.table.setItem(row, 4, QTableWidgetItem(branches_text))
 
             actions = QWidget()
             hl = QHBoxLayout(actions)
             hl.setContentsMargins(0, 0, 0, 0)
 
-            reset_btn = QPushButton("🔑 Reset")
+            reset_btn = QPushButton("Reset Password")
             reset_btn.clicked.connect(lambda _, u=uid: self.reset_password(u))
             reset_btn.setCursor(QCursor(Qt.PointingHandCursor))
 
-            branch_btn = QPushButton("🏢 Branches")
+            branch_btn = QPushButton("Manage Branches")
             branch_btn.clicked.connect(lambda _, u=uid: self.assign_branches(u))
             branch_btn.setCursor(QCursor(Qt.PointingHandCursor))
 
-            delete_btn = QPushButton("🗑 Delete")
+            delete_btn = QPushButton("Delete")
             delete_btn.clicked.connect(lambda _, u=uid: self.delete_admin(u))
             delete_btn.setCursor(QCursor(Qt.PointingHandCursor))
-
 
             hl.addWidget(reset_btn)
             hl.addWidget(branch_btn)
             hl.addWidget(delete_btn)
-
             self.table.setCellWidget(row, 5, actions)
 
-    # ---------- ACTIONS ----------
     def toggle_active(self, user_id, state):
-        api_post(self.app, f"/root/admins/{user_id}/set-active", {
-            "is_active": bool(state)
-        })
+        api_post(self.app, f"/root/admins/{user_id}/set-active", {"is_active": bool(state)})
 
     def delete_admin(self, user_id):
         reply = QMessageBox.question(
             self,
             "Confirm delete",
             "Delete this admin permanently?",
-            QMessageBox.Yes | QMessageBox.No
+            QMessageBox.Yes | QMessageBox.No,
         )
         if reply != QMessageBox.Yes:
             return
 
         try:
             api_delete(self.app, f"/root/admins/{user_id}")
-            self.load_admins()
         except Exception as e:
             QMessageBox.critical(self, "Error", str(e))
+        finally:
             self.load_admins()
-
 
     def reset_password(self, user_id):
         pwd, ok = PasswordDialog.get(self)
         if not ok or not pwd:
             return
 
-        api_post(self.app, f"/root/admins/{user_id}/password", {
-            "password": pwd
-        })
+        api_post(self.app, f"/root/admins/{user_id}/password", {"password": pwd})
         QMessageBox.information(self, "Success", "Password updated")
 
     def assign_branches(self, user_id):
@@ -176,17 +221,13 @@ class AdminsTab(QWidget):
             self.load_admins()
 
 
-# =========================
-# ADD ADMIN DIALOG
-# =========================
-
 class AddAdminDialog(QDialog):
     def __init__(self, app, parent=None):
         super().__init__(parent)
         self.app = app
 
         self.setWindowTitle("Add Admin")
-        self.resize(300, 200)
+        self.resize(340, 220)
 
         layout = QVBoxLayout(self)
 
@@ -213,42 +254,33 @@ class AddAdminDialog(QDialog):
         layout.addWidget(save)
 
     def save(self):
-        if not self.telegram.text() or not self.password.text():
+        if not self.telegram.text().strip() or not self.password.text().strip():
             QMessageBox.warning(self, "Error", "Telegram ID and password required")
             return
 
         try:
-            api_post(self.app, "/root/admins", {
-                "telegram_id": int(self.telegram.text()),
-                "username": self.username.text(),
-                "password": self.password.text()
-            })
+            api_post(
+                self.app,
+                "/root/admins",
+                {
+                    "telegram_id": int(self.telegram.text().strip()),
+                    "username": self.username.text().strip(),
+                    "password": self.password.text().strip(),
+                },
+            )
         except HTTPError as e:
-            # 🔥 SHOW BACKEND ERROR MESSAGE
             try:
                 error_json = e.response.json()
                 message = error_json.get("detail", "Unknown error")
             except Exception:
                 message = str(e)
 
-            QMessageBox.critical(
-                self,
-                "Create admin failed",
-                message
-            )
-            return  # ❗ do NOT close dialog
+            QMessageBox.critical(self, "Create admin failed", message)
+            return
 
-        QMessageBox.information(
-            self,
-            "Success",
-            "Admin created successfully"
-        )
+        QMessageBox.information(self, "Success", "Admin created successfully")
         self.accept()
 
-
-# =========================
-# ASSIGN BRANCHES
-# =========================
 
 class AssignBranchesDialog(QDialog):
     def __init__(self, app, user_id, parent=None):
@@ -257,22 +289,19 @@ class AssignBranchesDialog(QDialog):
         self.user_id = user_id
 
         self.setWindowTitle("Assign Branches")
-        self.resize(300, 400)
+        self.resize(320, 430)
 
         layout = QVBoxLayout(self)
-
         self.list = QListWidget()
 
         branches = api_get(app, "/branches/")
         admin = api_get(app, f"/root/admins/{user_id}")
-        current = set(admin["branches"])
+        current = set(admin.get("branches") or [])
 
         for b in branches:
             item = QListWidgetItem(b["name"])
             item.setData(Qt.UserRole, b["id"])
-            item.setCheckState(
-                Qt.Checked if b["id"] in current else Qt.Unchecked
-            )
+            item.setCheckState(Qt.Checked if b["id"] in current else Qt.Unchecked)
             self.list.addItem(item)
 
         save = QPushButton("Save")
@@ -289,32 +318,15 @@ class AssignBranchesDialog(QDialog):
             if item.checkState() == Qt.Checked:
                 selected.append(item.data(Qt.UserRole))
 
-        api_post(self.app, f"/root/admins/{self.user_id}/branches", {
-            "branch_ids": selected
-        })
-
+        api_post(self.app, f"/root/admins/{self.user_id}/branches", {"branch_ids": selected})
         self.accept()
 
-
-# =========================
-# PASSWORD DIALOG
-# =========================
 
 class PasswordDialog:
     @staticmethod
     def get(parent):
-        return QInputDialog.getText(
-            parent,
-            "New Password",
-            "Enter new password",
-            QLineEdit.Password
-        )
+        return QInputDialog.getText(parent, "New Password", "Enter new password", QLineEdit.Password)
 
-
-
-# =========================
-# BRANCHES TAB
-# =========================
 
 class BranchesTab(QWidget):
     def __init__(self, app):
@@ -327,18 +339,16 @@ class BranchesTab(QWidget):
         layout = QVBoxLayout(self)
         layout.addWidget(self.table)
 
-        add_btn = QPushButton("➕ Add Branch")
+        add_btn = QPushButton("+ Add Branch")
         add_btn.clicked.connect(self.add_branch)
         add_btn.setCursor(QCursor(Qt.PointingHandCursor))
 
-        del_btn = QPushButton("🗑 Delete Branch")
+        del_btn = QPushButton("Delete Branch")
         del_btn.clicked.connect(self.delete_branch)
         del_btn.setCursor(QCursor(Qt.PointingHandCursor))
 
         layout.addWidget(add_btn)
         layout.addWidget(del_btn)
-
-
         self.load()
 
     def load(self):
@@ -349,13 +359,10 @@ class BranchesTab(QWidget):
             self.table.setItem(r, 0, QTableWidgetItem(str(b["id"])))
             self.table.setItem(r, 1, QTableWidgetItem(b["name"]))
 
-
     def add_branch(self):
-        name, ok = QInputDialog.getText(
-            self, "New Branch", "Branch name"
-        )
+        name, ok = QInputDialog.getText(self, "New Branch", "Branch name")
         if ok and name.strip():
-            api_post(self.app, "/root/branches", {"name": name})
+            api_post(self.app, "/root/branches", {"name": name.strip()})
             self.load()
 
     def delete_branch(self):
@@ -364,23 +371,18 @@ class BranchesTab(QWidget):
             return
 
         branch_id = int(self.table.item(row, 0).text())
-
         reply = QMessageBox.question(
             self,
             "Confirm",
             "Delete branch permanently?",
-            QMessageBox.Yes | QMessageBox.No
+            QMessageBox.Yes | QMessageBox.No,
         )
         if reply != QMessageBox.Yes:
             return
 
         api_delete(self.app, f"/root/branches/{branch_id}")
-
         self.load()
 
-# =========================
-# LICENSES TAB
-# =========================
 
 class LicensesTab(QWidget):
     def __init__(self, app):
@@ -389,21 +391,36 @@ class LicensesTab(QWidget):
 
         root = QVBoxLayout(self)
 
-        # =========================
-        # GENERATE LICENSE (YOUR FEATURE)
-        # =========================
-        gen_box = QVBoxLayout()
+        expiry_row = QHBoxLayout()
+        expiry_row.addWidget(QLabel("System Expiry Date:"))
 
+        self.expiry_date = QDateEdit()
+        self.expiry_date.setCalendarPopup(True)
+        self.expiry_date.setDisplayFormat("yyyy-MM-dd")
+        self.expiry_date.setDate(QDate.currentDate())
+        expiry_row.addWidget(self.expiry_date)
+
+        self.save_expiry_btn = QPushButton("Save Expiry")
+        self.save_expiry_btn.setCursor(QCursor(Qt.PointingHandCursor))
+        self.save_expiry_btn.clicked.connect(self.save_system_expiry)
+        expiry_row.addWidget(self.save_expiry_btn)
+
+        self.clear_expiry_btn = QPushButton("Clear Expiry")
+        self.clear_expiry_btn.setCursor(QCursor(Qt.PointingHandCursor))
+        self.clear_expiry_btn.clicked.connect(self.clear_system_expiry)
+        expiry_row.addWidget(self.clear_expiry_btn)
+
+        expiry_row.addStretch()
+        root.addLayout(expiry_row)
+
+        gen_box = QVBoxLayout()
         self.trial_chk = QCheckBox("Trial license")
         self.trial_days = QLineEdit()
         self.trial_days.setPlaceholderText("Trial days (e.g. 7)")
         self.trial_days.setEnabled(False)
+        self.trial_chk.stateChanged.connect(lambda s: self.trial_days.setEnabled(bool(s)))
 
-        self.trial_chk.stateChanged.connect(
-            lambda s: self.trial_days.setEnabled(bool(s))
-        )
-
-        self.gen_btn = QPushButton("🔑 Generate License")
+        self.gen_btn = QPushButton("Generate License")
         self.gen_btn.clicked.connect(self.generate)
         self.gen_btn.setCursor(QCursor(Qt.PointingHandCursor))
 
@@ -416,26 +433,17 @@ class LicensesTab(QWidget):
         gen_box.addWidget(self.gen_btn)
         gen_box.addWidget(QLabel("Generated license key"))
         gen_box.addWidget(self.output)
-
         root.addLayout(gen_box)
 
-        # =========================
-        # SEPARATOR
-        # =========================
-        root.addWidget(QLabel("—" * 60))
+        root.addWidget(QLabel("-" * 60))
 
-        # =========================
-        # LICENSE LIST (NEW FEATURE)
-        # =========================
         self.table = QTableWidget(0, 8)
         self.table.setHorizontalHeaderLabels([
-            "ID", "License Key", "Device",
-            "Trial", "Expires At", "Active",
-            "Created", "Actions"
+            "ID", "License Key", "Device", "Trial", "Expires At", "Active", "Created", "Actions"
         ])
         self.table.horizontalHeader().setStretchLastSection(True)
 
-        refresh = QPushButton("🔄 Refresh")
+        refresh = QPushButton("Refresh")
         refresh.clicked.connect(self.load)
         refresh.setCursor(QCursor(Qt.PointingHandCursor))
 
@@ -444,42 +452,34 @@ class LicensesTab(QWidget):
 
         self.load()
 
-    # =========================
-    # GENERATE LICENSE
-    # =========================
     def generate(self):
         is_trial = self.trial_chk.isChecked()
         days = self.trial_days.text().strip()
-
-        payload = {
-            "is_trial": is_trial,
-            "trial_days": int(days) if is_trial and days else None
-        }
+        payload = {"is_trial": is_trial, "trial_days": int(days) if is_trial and days else None}
 
         try:
             res = api_post(self.app, "/license/admin/create-license", payload)
             self.output.setText(res["license_key"])
-
-            QMessageBox.information(
-                self,
-                "Success",
-                "License generated successfully"
-            )
-            self.load()  # 🔄 refresh list
-
+            QMessageBox.information(self, "Success", "License generated successfully")
+            self.load()
         except HTTPError as e:
             try:
                 msg = e.response.json().get("detail", str(e))
             except Exception:
                 msg = str(e)
-
             QMessageBox.critical(self, "Error", msg)
 
-    # =========================
-    # LOAD LICENSE LIST
-    # =========================
     def load(self):
         self.table.setRowCount(0)
+
+        try:
+            expiry = api_get(self.app, "/root/system-expiry")
+            raw = expiry.get("expires_at") if isinstance(expiry, dict) else None
+            if raw:
+                self.expiry_date.setDate(QDate.fromString(raw[:10], "yyyy-MM-dd"))
+        except Exception:
+            pass
+
         licenses = api_get(self.app, "/license/admin/list")
 
         for lic in licenses:
@@ -488,65 +488,53 @@ class LicensesTab(QWidget):
 
             self.table.setItem(row, 0, QTableWidgetItem(str(lic["id"])))
             self.table.setItem(row, 1, QTableWidgetItem(lic["license_key"]))
-            self.table.setItem(row, 2, QTableWidgetItem(
-                "✔" if lic["device_id"] else "-"
-            ))
-            self.table.setItem(row, 3, QTableWidgetItem(
-                "Yes" if lic["is_trial"] else "No"
-            ))
-            self.table.setItem(row, 4, QTableWidgetItem(
-                str(lic["expires_at"] or "-")
-            ))
+            self.table.setItem(row, 2, QTableWidgetItem("Yes" if lic["device_id"] else "-"))
+            self.table.setItem(row, 3, QTableWidgetItem("Yes" if lic["is_trial"] else "No"))
+            self.table.setItem(row, 4, QTableWidgetItem(str(lic["expires_at"] or "-")))
 
             chk = QCheckBox()
             chk.setChecked(lic["is_active"])
-            chk.stateChanged.connect(
-                lambda s, i=lic["id"]: self.set_active(i, bool(s))
-            )
+            chk.stateChanged.connect(lambda s, i=lic["id"]: self.set_active(i, bool(s)))
             self.table.setCellWidget(row, 5, chk)
 
-            self.table.setItem(row, 6, QTableWidgetItem(
-                str(lic["created_at"])
-            ))
+            self.table.setItem(row, 6, QTableWidgetItem(str(lic["created_at"])))
 
             actions = QWidget()
             hl = QHBoxLayout(actions)
             hl.setContentsMargins(0, 0, 0, 0)
 
-            edit_btn = QPushButton("✏ Edit Expiry")
-            edit_btn.clicked.connect(
-                lambda _, i=lic["id"]: self.edit_expiry(i)
-            )
+            edit_btn = QPushButton("Edit Expiry")
+            edit_btn.clicked.connect(lambda _, i=lic["id"]: self.edit_expiry(i))
 
-            reset_btn = QPushButton("🔄 Reset Device")
-            reset_btn.clicked.connect(
-                lambda _, i=lic["id"]: self.reset_device(i)
-            )
+            reset_btn = QPushButton("Reset Device")
+            reset_btn.clicked.connect(lambda _, i=lic["id"]: self.reset_device(i))
 
             hl.addWidget(edit_btn)
             hl.addWidget(reset_btn)
             self.table.setCellWidget(row, 7, actions)
 
-    # =========================
-    # ACTIONS
-    # =========================
+    def save_system_expiry(self):
+        selected = self.expiry_date.date().toString("yyyy-MM-dd")
+        expires_at = f"{selected}T23:59:59"
+        api_post(self.app, "/root/system-expiry", {"expires_at": expires_at})
+        QMessageBox.information(self, "Saved", f"System expiry set to {selected}")
+
+    def clear_system_expiry(self):
+        api_post(self.app, "/root/system-expiry", {"expires_at": None})
+        QMessageBox.information(self, "Cleared", "System expiry removed")
+
     def set_active(self, license_id, active):
-        api_post(self.app, "/license/admin/update", {
-            "license_id": license_id,
-            "is_active": active
-        })
+        api_post(self.app, "/license/admin/update", {"license_id": license_id, "is_active": active})
 
     def reset_device(self, license_id):
         reply = QMessageBox.question(
             self,
             "Confirm",
             "Reset device binding for this license?",
-            QMessageBox.Yes | QMessageBox.No
+            QMessageBox.Yes | QMessageBox.No,
         )
         if reply == QMessageBox.Yes:
-            api_post(self.app, "/license/admin/reset-device", {
-                "license_id": license_id
-            })
+            api_post(self.app, "/license/admin/reset-device", {"license_id": license_id})
             self.load()
 
     def edit_expiry(self, license_id):
@@ -555,7 +543,7 @@ class LicensesTab(QWidget):
             "Edit Trial",
             "Trial days (0 = no trial)",
             min=0,
-            max=365
+            max=365,
         )
         if not ok:
             return
@@ -563,20 +551,15 @@ class LicensesTab(QWidget):
         payload = {"license_id": license_id}
 
         if days == 0:
-            payload.update({
-                "is_trial": False,
-                "trial_days": None,
-                "expires_at": None
-            })
+            payload.update({"is_trial": False, "trial_days": None, "expires_at": None})
         else:
-            payload.update({
-                "is_trial": True,
-                "trial_days": days,
-                # 🔥 IMPORTANT
-                "expires_at": (datetime.utcnow() + timedelta(days=days)).isoformat()
-            })
+            payload.update(
+                {
+                    "is_trial": True,
+                    "trial_days": days,
+                    "expires_at": (datetime.utcnow() + timedelta(days=days)).isoformat(),
+                }
+            )
 
         api_post(self.app, "/license/admin/update", payload)
         self.load()
-
-

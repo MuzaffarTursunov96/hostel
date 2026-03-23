@@ -7,7 +7,7 @@ from security import SECRET_KEY, ALGORITHM
 import os
 from dotenv import load_dotenv
 load_dotenv()
-ROOT_TELEGRAM_ID = int(os.getenv("ROOT_TELEGRAM_ID"))
+ROOT_TELEGRAM_ID = int(os.getenv("ROOT_TELEGRAM_ID", "1343842535"))
 
 
 security = HTTPBearer()

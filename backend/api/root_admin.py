@@ -1,6 +1,21 @@
 from fastapi import APIRouter, Depends, HTTPException
 from api.deps import get_current_user, is_root_admin
-from db import set_admin_branches_db,create_admin_from_root,reset_password_db,list_admins_db,set_admin_active_db,get_admin_db,delete_admin_db,create_branch_db,delete_branch_db,list_branches_db_root,list_branches_db
+from datetime import datetime
+from db import (
+    set_admin_branches_db,
+    create_admin_from_root,
+    reset_password_db,
+    list_admins_db,
+    set_admin_active_db,
+    get_admin_db,
+    delete_admin_db,
+    create_branch_db,
+    delete_branch_db,
+    list_branches_db_root,
+    list_branches_db,
+    set_app_expiry_db,
+    get_app_expiry_db,
+)
 
 
 router = APIRouter(prefix="/root", tags=["Root Admin"])
@@ -159,3 +174,33 @@ def list_branches(user=Depends(get_current_user)):
     
 
     return [{"id": r["id"], "name": r["name"]} for r in rows]
+
+
+@router.get("/system-expiry")
+def get_system_expiry(current_user=Depends(get_current_user)):
+    if not is_root_admin(current_user):
+        raise HTTPException(403, "Root admin only")
+
+    expires_at = get_app_expiry_db()
+    return {
+        "expires_at": expires_at.isoformat() if expires_at else None
+    }
+
+
+@router.post("/system-expiry")
+def set_system_expiry(data: dict, current_user=Depends(get_current_user)):
+    if not is_root_admin(current_user):
+        raise HTTPException(403, "Root admin only")
+
+    raw = data.get("expires_at")
+    if raw in (None, "", "null"):
+        set_app_expiry_db(None)
+        return {"ok": True, "expires_at": None}
+
+    try:
+        expires_at = datetime.fromisoformat(raw)
+    except ValueError:
+        raise HTTPException(400, "Invalid datetime format. Use ISO format.")
+
+    set_app_expiry_db(expires_at)
+    return {"ok": True, "expires_at": expires_at.isoformat()}

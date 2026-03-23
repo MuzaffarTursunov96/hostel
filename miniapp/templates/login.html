@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Loading…</title>
+  <title>Loading...</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
   <style>
@@ -17,7 +17,6 @@
       color: var(--tg-theme-text-color, #000000);
       z-index: 9999;
       transition: opacity 0.25s ease;
-
     }
 
     .spinner {
@@ -33,24 +32,27 @@
       margin-top: 12px;
       font-size: 15px;
       opacity: 0.8;
+      white-space: pre-line;
+      text-align: center;
+      max-width: 90vw;
     }
 
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
-    </style>
-
+  </style>
 </head>
 <body>
 
 <div id="app-loading" class="loading-screen">
   <div class="spinner"></div>
-  <div class="loading-text">Connecting to Telegram…</div>
+  <div class="loading-text">Connecting to Telegram...</div>
 </div>
-
 
 <script>
 const tg = window.Telegram.WebApp;
+const ROOT_ADMIN_TELEGRAM = "muzaffar_developer";
+const ROOT_ADMIN_PHONE = "+998901234567";
 
 // Telegram init
 tg.ready();
@@ -59,38 +61,48 @@ tg.expand();
 const loader = document.getElementById("app-loading");
 const text = loader.querySelector(".loading-text");
 
-// helper
 function showError(message) {
   text.innerText = message;
 }
 
-// safety check
+function withAdminContact(message) {
+  return (
+    message +
+    "\n\nContact admin:" +
+    "\nTelegram: @" + ROOT_ADMIN_TELEGRAM +
+    "\nPhone: " + ROOT_ADMIN_PHONE
+  );
+}
+
 if (!tg.initData) {
-  showError("❌ Please open this app from Telegram");
+  showError(withAdminContact("Please open this app from Telegram"));
 } else {
   fetch("/auth/telegram", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify({ initData: tg.initData })
   })
-  .then(r => r.json())
-  .then(res => {
-    if (res.ok) {
-      // smooth fade out
+  .then(async (r) => {
+    const data = await r.json().catch(() => ({}));
+    return { ok: r.ok, status: r.status, data };
+  })
+  .then(({ ok, data }) => {
+    if (ok && data.ok) {
       loader.style.opacity = "0";
       setTimeout(() => {
         window.location.href = "/dashboard?v=" + Date.now();
       }, 250);
-    } else {
-      showError("❌ Telegram authentication failed");
+      return;
     }
+
+    const msg = data.error || data.detail || "Telegram authentication failed";
+    showError(withAdminContact(msg));
   })
   .catch(() => {
-    showError("❌ Network error. Please try again.");
+    showError(withAdminContact("Network error. Please try again."));
   });
 }
 </script>
-
 
 </body>
 </html>

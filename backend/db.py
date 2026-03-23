@@ -210,6 +210,15 @@ def init_db():
         )
         """))
 
+        # ---------- SYSTEM SETTINGS ----------
+        conn.execute(text("""
+        CREATE TABLE IF NOT EXISTS system_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """))
+
         # ---------- DEFAULT BRANCH ----------
         conn.execute(text("""
         INSERT INTO branches (name)
@@ -217,6 +226,53 @@ def init_db():
         WHERE NOT EXISTS (SELECT 1 FROM branches)
         """))
     print("✅ Database initialized successfully.")
+
+
+def set_app_expiry_db(expires_at):
+    with get_connection() as conn:
+        conn.execute(text("""
+            INSERT INTO system_settings (key, value, updated_at)
+            VALUES ('app_expires_at', :value, CURRENT_TIMESTAMP)
+            ON CONFLICT (key)
+            DO UPDATE SET
+                value = EXCLUDED.value,
+                updated_at = CURRENT_TIMESTAMP
+        """), {
+            "value": expires_at.isoformat() if expires_at else None
+        })
+
+
+def get_app_expiry_db():
+    from datetime import datetime
+
+    with get_connection() as conn:
+        row = conn.execute(text("""
+            SELECT value
+            FROM system_settings
+            WHERE key = 'app_expires_at'
+        """)).mappings().fetchone()
+
+    raw = row["value"] if row else None
+    if not raw:
+        return None
+
+    try:
+        return datetime.fromisoformat(raw)
+    except Exception:
+        return None
+
+
+def is_app_expired_db(now_utc=None):
+    from datetime import datetime
+
+    expires_at = get_app_expiry_db()
+    if not expires_at:
+        return False
+
+    if now_utc is None:
+        now_utc = datetime.utcnow()
+
+    return now_utc > expires_at
 
 def get_rooms_with_beds(branch_id):
     with get_connection() as conn:

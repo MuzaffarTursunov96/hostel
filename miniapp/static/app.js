@@ -8,6 +8,28 @@ window.t = function (key) {
   );
 };
 
+let __expiryAlertShown = false;
+
+function isExpiryErrorMessage(msg) {
+  const m = String(msg || "").toLowerCase();
+  return (
+    m.includes("expired") ||
+    m.includes("access expired") ||
+    m.includes("application access expired")
+  );
+}
+
+function buildExpiryContactMessage(baseMessage) {
+  const tg = window.ROOT_ADMIN_TELEGRAM || "muzaffar_developer";
+  const phone = window.ROOT_ADMIN_PHONE || "+998901234567";
+  return (
+    (baseMessage || "Application access expired.") +
+    "\n\nPlease contact admin:\n" +
+    "Telegram: @" + tg + "\n" +
+    "Phone: " + phone
+  );
+}
+
 function openPage(id) {
   document.querySelectorAll(".page").forEach(p => {
     p.classList.remove("active");
@@ -16,37 +38,22 @@ function openPage(id) {
   document.getElementById(id).classList.add("active");
 }
 
-// Telegram UX improvement
 if (window.Telegram && Telegram.WebApp) {
   Telegram.WebApp.expand();
 }
 
-
-
-
-/**
- * WEB API CLIENT
- * Equivalent to desktop api_client.py
- * Uses Flask proxy: /api/...
- */
-
-
-
-/* ---------- GET ---------- */
 function apiGet(path, params = {}) {
-  // alert('/api2'+path)
   return $.ajax({
-    url: "/api2" + path,          // 🔥 Flask proxy
+    url: "/api2" + path,
     method: "GET",
     data: params,
     dataType: "json"
   }).fail(handleApiError);
 }
 
-/* ---------- POST ---------- */
 function apiPost(path, body = {}) {
   return $.ajax({
-    url: "/api2" + path,          // 🔥 Flask proxy
+    url: "/api2" + path,
     method: "POST",
     contentType: "application/json",
     data: JSON.stringify(body),
@@ -54,13 +61,9 @@ function apiPost(path, body = {}) {
   }).fail(handleApiError);
 }
 
-/* ---------- DELETE ---------- */
 function apiDelete(path, params = {}) {
-
-  const query = $.param(params);   // 🔥 convert to query string
-  const url = query
-    ? `/api2${path}?${query}`
-    : `/api2${path}`;
+  const query = $.param(params);
+  const url = query ? `/api2${path}?${query}` : `/api2${path}`;
 
   return $.ajax({
     url: url,
@@ -69,14 +72,23 @@ function apiDelete(path, params = {}) {
   }).fail(handleApiError);
 }
 
+function apiPut(path, params = {}) {
+  const query = $.param(params);
+  const url = query ? `/api2${path}?${query}` : `/api2${path}`;
 
-/* ---------- ERROR HANDLER (same as desktop) ---------- */
+  return $.ajax({
+    url: url,
+    method: "PUT",
+    dataType: "json"
+  }).fail(handleApiError);
+}
+
 function handleApiError(xhr) {
   let msg = t("request_failed");
 
   try {
     const data = JSON.parse(xhr.responseText);
-    msg = data.detail || msg;
+    msg = data.detail || data.error || msg;
   } catch (e) {
     if (xhr.responseText) {
       msg = xhr.responseText;
@@ -84,22 +96,15 @@ function handleApiError(xhr) {
   }
 
   console.error(t("api_error"), msg);
-  alert(msg);   // 🔥 same behavior as desktop Exception
-}
 
+  if ((xhr && xhr.status === 403 && isExpiryErrorMessage(msg)) || isExpiryErrorMessage(msg)) {
+    if (!__expiryAlertShown) {
+      __expiryAlertShown = true;
+      alert(buildExpiryContactMessage(msg));
+      window.location.href = "/";
+    }
+    return;
+  }
 
-
-/* ---------- PUT ---------- */
-function apiPut(path, params = {}) {
-  const query = $.param(params);   // convert to query string
-
-  const url = query
-    ? `/api2${path}?${query}`
-    : `/api2${path}`;
-
-  return $.ajax({
-    url: url,
-    method: "PUT",
-    dataType: "json"
-  }).fail(handleApiError);
+  alert(msg);
 }

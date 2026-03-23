@@ -1,10 +1,20 @@
 from fastapi import APIRouter, HTTPException,Depends
 from .schemas import LoginIn,TelegramLoginIn
 from security import verify_password, create_token
-from db import login as db_login,telegram_login_db,get_default_branch_id
+from db import login as db_login,telegram_login_db,get_default_branch_id,is_app_expired_db,get_app_expiry_db
 from api.deps import get_current_user
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
+
+
+def _assert_not_expired():
+    if is_app_expired_db():
+        expires_at = get_app_expiry_db()
+        expiry_text = expires_at.strftime("%Y-%m-%d %H:%M:%S") if expires_at else "unknown"
+        raise HTTPException(
+            status_code=403,
+            detail=f"Application access expired on {expiry_text}. Please contact root admin."
+        )
 
 @router.get("/me")
 def me(user=Depends(get_current_user)):
@@ -20,6 +30,7 @@ def me(user=Depends(get_current_user)):
 
 @router.post("/login")
 def login(data: LoginIn):
+    _assert_not_expired()
     u = db_login(data.username)
 
     if not u or not verify_password(data.password, u["password_hash"]):
@@ -47,6 +58,7 @@ def login(data: LoginIn):
 
 @router.post("/telegram")
 def telegram_login(data: TelegramLoginIn):
+    _assert_not_expired()
 
     u = telegram_login_db(data.telegram_id)
 

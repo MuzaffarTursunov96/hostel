@@ -9,7 +9,9 @@ import jwt
 
 
 API_URL = "http://backend:8000"
-VERSION ="2026-23-03-16-01"
+VERSION ="2026-23-03-18-01"
+ROOT_ADMIN_TELEGRAM = os.getenv("ROOT_ADMIN_TELEGRAM", "muzaffar_developer")
+ROOT_ADMIN_PHONE = os.getenv("ROOT_ADMIN_PHONE", "+998901234567")
 
 
 load_dotenv()
@@ -41,7 +43,9 @@ def inject_globals():
     return {
         "t": t,                       # for HTML
         "TRANSLATIONS": TRANSLATIONS, # for JS
-        "CURRENT_LANG": lang          # for JS
+        "CURRENT_LANG": lang,         # for JS
+        "ROOT_ADMIN_TELEGRAM": ROOT_ADMIN_TELEGRAM,
+        "ROOT_ADMIN_PHONE": ROOT_ADMIN_PHONE,
     }
 
 
@@ -102,7 +106,12 @@ def telegram_auth():
     )
 
     if r.status_code != 200:
-        return jsonify({"error": "Backend auth failed"}), 401
+        try:
+            payload = r.json()
+        except Exception:
+            payload = {}
+        detail = payload.get("detail") or payload.get("error") or "Backend auth failed"
+        return jsonify({"error": detail}), r.status_code
 
     payload = r.json()
     token_payload = jwt.decode(
