@@ -2,7 +2,7 @@
    GLOBAL STATE
 ================================ */
 let rooms = [];
-let countdownTimers = {};
+let countdownTimers = new Map();
 let currentEditingBooking = null;
 
 let ALL_ACTIVE_BOOKINGS = [];
@@ -43,8 +43,8 @@ function loadDashboard(filter=false) {
         var params ={branch_id: CURRENT_BRANCH}
     }
 
-    Object.values(countdownTimers).forEach(t => clearInterval(t));
-     countdownTimers = {};
+    countdownTimers.forEach((timerId) => clearInterval(timerId));
+    countdownTimers.clear();
 
 
   $("#roomsGrid").empty();
@@ -161,15 +161,17 @@ window.closeFutureBookings = function () {
    COUNTDOWN TIMER
 ================================ */
 function startCountdown(container, checkoutDate) {
-  clearInterval(countdownTimers[container]);
+  const existingTimer = countdownTimers.get(container);
+  if (existingTimer) clearInterval(existingTimer);
 
-  countdownTimers[container] = setInterval(() => {
+  const timerId = setInterval(() => {
     const now = new Date();
     const end = new Date(checkoutDate);
     const diff = end - now;
 
     if (diff <= 0) {
-      clearInterval(countdownTimers[container]);
+      clearInterval(timerId);
+      countdownTimers.delete(container);
       container.innerHTML =
         `<div class="col-span-2 text-green-600 font-semibold">✔ ${t("free")}</div>`;
       return;
@@ -186,6 +188,8 @@ function startCountdown(container, checkoutDate) {
     boxes[2].innerText = m;
     boxes[3].innerText = s;
   }, 1000);
+
+  countdownTimers.set(container, timerId);
 }
 
 /* ===============================
@@ -665,8 +669,8 @@ window.cancelBooking = function (id) {
     loadActiveBookings();
 
     // ✅ clear old countdown timers
-    Object.values(countdownTimers).forEach(t => clearInterval(t));
-    countdownTimers = {};
+    countdownTimers.forEach((timerId) => clearInterval(timerId));
+    countdownTimers.clear();
 
     // ✅ reload dashboard grid
     loadDashboard();
@@ -793,4 +797,6 @@ function confirmCancelFuture() {
 function closeCancelFuture() {
   $("#cancelFutureModal").addClass("hidden");
 }
+
+
 
