@@ -6,7 +6,13 @@ from aiogram import Router
 from aiogram.filters import Command
 from aiogram.types import Message
 
-from db import set_app_expiry_db, get_app_expiry_db
+try:
+    from db import set_app_expiry_db, get_app_expiry_db
+    EXPIRY_SUPPORT = True
+except Exception:
+    set_app_expiry_db = None
+    get_app_expiry_db = None
+    EXPIRY_SUPPORT = False
 
 load_dotenv()
 ROOT_TELEGRAM_ID = int(os.getenv("ROOT_TELEGRAM_ID", "0"))
@@ -18,10 +24,20 @@ def _is_root(message: Message) -> bool:
     return bool(message.from_user and message.from_user.id == ROOT_TELEGRAM_ID)
 
 
+def _feature_unavailable_text() -> str:
+    return (
+        "Expiry feature is not available on this server build. "
+        "Please update backend db.py and restart backend."
+    )
+
+
 @router.message(Command("getexpiry"))
 async def get_expiry_cmd(message: Message):
     if not _is_root(message):
         await message.answer("Not allowed.")
+        return
+    if not EXPIRY_SUPPORT:
+        await message.answer(_feature_unavailable_text())
         return
 
     expires_at = get_app_expiry_db()
@@ -39,6 +55,9 @@ async def clear_expiry_cmd(message: Message):
     if not _is_root(message):
         await message.answer("Not allowed.")
         return
+    if not EXPIRY_SUPPORT:
+        await message.answer(_feature_unavailable_text())
+        return
 
     set_app_expiry_db(None)
     await message.answer("App expiry cleared.")
@@ -48,6 +67,9 @@ async def clear_expiry_cmd(message: Message):
 async def set_expiry_cmd(message: Message):
     if not _is_root(message):
         await message.answer("Not allowed.")
+        return
+    if not EXPIRY_SUPPORT:
+        await message.answer(_feature_unavailable_text())
         return
 
     # Expected: /setexpiry 2026-12-31
@@ -70,4 +92,3 @@ async def set_expiry_cmd(message: Message):
     await message.answer(
         f"App expiry saved: {expires_at.strftime('%Y-%m-%d %H:%M:%S')} UTC"
     )
-
