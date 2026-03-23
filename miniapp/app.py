@@ -105,11 +105,17 @@ def telegram_auth():
         return jsonify({"error": "Backend auth failed"}), 401
 
     payload = r.json()
+    token_payload = jwt.decode(
+        payload["access_token"],
+        options={"verify_signature": False}
+    )
 
     # 🔐 STORE SESSION
     session["access_token"] = payload["access_token"]
     session["user_id"] = payload["user_id"]
     session["is_admin"] = payload["is_admin"]
+    session["language"] = token_payload.get("language", "ru")
+    session["branch_id"] = token_payload.get("branch_id")
     # session["branch_id"] = payload["branch_id"]
 
     with open("/tmp/telegram_payload.log", "a") as f:
@@ -135,10 +141,15 @@ def do_login():
 
     if r.status_code == 200:
         payload = r.json()
+        token_payload = jwt.decode(
+            payload["access_token"],
+            options={"verify_signature": False}
+        )
         session["access_token"] = payload["access_token"]
         session["user_id"] = payload["user_id"]
         session["is_admin"] = payload["is_admin"]
-        session["branch_id"] = payload["branch_id"]
+        session["branch_id"] = token_payload.get("branch_id", payload.get("branch_id"))
+        session["language"] = token_payload.get("language", payload.get("language", "ru"))
 
     return jsonify(r.json()), r.status_code
 
