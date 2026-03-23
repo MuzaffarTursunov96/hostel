@@ -1,5 +1,3 @@
-from datetime import datetime, timedelta
-
 from PySide6.QtCore import Qt, QDate
 from PySide6.QtGui import QCursor
 from PySide6.QtWidgets import (
@@ -36,11 +34,11 @@ class RootAdminPanel(QWidget):
         self.tabs = QTabWidget()
         self.admins_tab = AdminsTab(app)
         self.branches_tab = BranchesTab(app)
-        self.licenses_tab = LicensesTab(app)
+        self.expiry_tab = ExpiryTab(app)
 
         self.tabs.addTab(self.admins_tab, "Admins")
         self.tabs.addTab(self.branches_tab, "Branches")
-        self.tabs.addTab(self.licenses_tab, "Licenses")
+        self.tabs.addTab(self.expiry_tab, "Expiry")
         self.tabs.currentChanged.connect(self.on_tab_change)
 
         layout = QVBoxLayout(self)
@@ -87,11 +85,11 @@ class RootManagementDialog(QDialog):
         self.tabs = QTabWidget()
         self.admins_tab = AdminsTab(app)
         self.branches_tab = BranchesTab(app)
-        self.licenses_tab = LicensesTab(app)
+        self.expiry_tab = ExpiryTab(app)
 
         self.tabs.addTab(self.admins_tab, "Users / Admins")
         self.tabs.addTab(self.branches_tab, "Filials / Branches")
-        self.tabs.addTab(self.licenses_tab, "Expiry / Licenses")
+        self.tabs.addTab(self.expiry_tab, "System Expiry")
         self.tabs.currentChanged.connect(self._on_tab_change)
 
         root.addWidget(self.tabs)
@@ -384,7 +382,7 @@ class BranchesTab(QWidget):
         self.load()
 
 
-class LicensesTab(QWidget):
+class ExpiryTab(QWidget):
     def __init__(self, app):
         super().__init__()
         self.app = app
@@ -413,65 +411,15 @@ class LicensesTab(QWidget):
         expiry_row.addStretch()
         root.addLayout(expiry_row)
 
-        gen_box = QVBoxLayout()
-        self.trial_chk = QCheckBox("Trial license")
-        self.trial_days = QLineEdit()
-        self.trial_days.setPlaceholderText("Trial days (e.g. 7)")
-        self.trial_days.setEnabled(False)
-        self.trial_chk.stateChanged.connect(lambda s: self.trial_days.setEnabled(bool(s)))
-
-        self.gen_btn = QPushButton("Generate License")
-        self.gen_btn.clicked.connect(self.generate)
-        self.gen_btn.setCursor(QCursor(Qt.PointingHandCursor))
-
-        self.output = QLineEdit()
-        self.output.setReadOnly(True)
-        self.output.setPlaceholderText("Generated license will appear here")
-
-        gen_box.addWidget(self.trial_chk)
-        gen_box.addWidget(self.trial_days)
-        gen_box.addWidget(self.gen_btn)
-        gen_box.addWidget(QLabel("Generated license key"))
-        gen_box.addWidget(self.output)
-        root.addLayout(gen_box)
-
-        root.addWidget(QLabel("-" * 60))
-
-        self.table = QTableWidget(0, 8)
-        self.table.setHorizontalHeaderLabels([
-            "ID", "License Key", "Device", "Trial", "Expires At", "Active", "Created", "Actions"
-        ])
-        self.table.horizontalHeader().setStretchLastSection(True)
-
-        refresh = QPushButton("Refresh")
-        refresh.clicked.connect(self.load)
-        refresh.setCursor(QCursor(Qt.PointingHandCursor))
-
-        root.addWidget(refresh)
-        root.addWidget(self.table)
+        help_text = QLabel(
+            "License operations removed.\n"
+            "Access control is now based on expiry checks during login."
+        )
+        root.addWidget(help_text)
 
         self.load()
 
-    def generate(self):
-        is_trial = self.trial_chk.isChecked()
-        days = self.trial_days.text().strip()
-        payload = {"is_trial": is_trial, "trial_days": int(days) if is_trial and days else None}
-
-        try:
-            res = api_post(self.app, "/license/admin/create-license", payload)
-            self.output.setText(res["license_key"])
-            QMessageBox.information(self, "Success", "License generated successfully")
-            self.load()
-        except HTTPError as e:
-            try:
-                msg = e.response.json().get("detail", str(e))
-            except Exception:
-                msg = str(e)
-            QMessageBox.critical(self, "Error", msg)
-
     def load(self):
-        self.table.setRowCount(0)
-
         try:
             expiry = api_get(self.app, "/root/system-expiry")
             raw = expiry.get("expires_at") if isinstance(expiry, dict) else None
@@ -479,39 +427,6 @@ class LicensesTab(QWidget):
                 self.expiry_date.setDate(QDate.fromString(raw[:10], "yyyy-MM-dd"))
         except Exception:
             pass
-
-        licenses = api_get(self.app, "/license/admin/list")
-
-        for lic in licenses:
-            row = self.table.rowCount()
-            self.table.insertRow(row)
-
-            self.table.setItem(row, 0, QTableWidgetItem(str(lic["id"])))
-            self.table.setItem(row, 1, QTableWidgetItem(lic["license_key"]))
-            self.table.setItem(row, 2, QTableWidgetItem("Yes" if lic["device_id"] else "-"))
-            self.table.setItem(row, 3, QTableWidgetItem("Yes" if lic["is_trial"] else "No"))
-            self.table.setItem(row, 4, QTableWidgetItem(str(lic["expires_at"] or "-")))
-
-            chk = QCheckBox()
-            chk.setChecked(lic["is_active"])
-            chk.stateChanged.connect(lambda s, i=lic["id"]: self.set_active(i, bool(s)))
-            self.table.setCellWidget(row, 5, chk)
-
-            self.table.setItem(row, 6, QTableWidgetItem(str(lic["created_at"])))
-
-            actions = QWidget()
-            hl = QHBoxLayout(actions)
-            hl.setContentsMargins(0, 0, 0, 0)
-
-            edit_btn = QPushButton("Edit Expiry")
-            edit_btn.clicked.connect(lambda _, i=lic["id"]: self.edit_expiry(i))
-
-            reset_btn = QPushButton("Reset Device")
-            reset_btn.clicked.connect(lambda _, i=lic["id"]: self.reset_device(i))
-
-            hl.addWidget(edit_btn)
-            hl.addWidget(reset_btn)
-            self.table.setCellWidget(row, 7, actions)
 
     def save_system_expiry(self):
         selected = self.expiry_date.date().toString("yyyy-MM-dd")
@@ -522,44 +437,3 @@ class LicensesTab(QWidget):
     def clear_system_expiry(self):
         api_post(self.app, "/root/system-expiry", {"expires_at": None})
         QMessageBox.information(self, "Cleared", "System expiry removed")
-
-    def set_active(self, license_id, active):
-        api_post(self.app, "/license/admin/update", {"license_id": license_id, "is_active": active})
-
-    def reset_device(self, license_id):
-        reply = QMessageBox.question(
-            self,
-            "Confirm",
-            "Reset device binding for this license?",
-            QMessageBox.Yes | QMessageBox.No,
-        )
-        if reply == QMessageBox.Yes:
-            api_post(self.app, "/license/admin/reset-device", {"license_id": license_id})
-            self.load()
-
-    def edit_expiry(self, license_id):
-        days, ok = QInputDialog.getInt(
-            self,
-            "Edit Trial",
-            "Trial days (0 = no trial)",
-            min=0,
-            max=365,
-        )
-        if not ok:
-            return
-
-        payload = {"license_id": license_id}
-
-        if days == 0:
-            payload.update({"is_trial": False, "trial_days": None, "expires_at": None})
-        else:
-            payload.update(
-                {
-                    "is_trial": True,
-                    "trial_days": days,
-                    "expires_at": (datetime.utcnow() + timedelta(days=days)).isoformat(),
-                }
-            )
-
-        api_post(self.app, "/license/admin/update", payload)
-        self.load()

@@ -1,7 +1,7 @@
 import sys
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget,
-    QHBoxLayout, QStackedWidget,QDialog
+    QHBoxLayout, QStackedWidget
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
@@ -19,9 +19,6 @@ from views.ws_client import WSClient
 from views.customers import CustomersPage
 from views.booking_history import BookingHistoryPage
 from views.root_admin_panel import RootAdminPanel
-from views.license_dialog import LicenseDialog
-from views.utils import load_license, get_device_id
-import requests
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -43,33 +40,6 @@ def resource_path(relative_path: str) -> str:
     if hasattr(sys, "_MEIPASS"):
         return os.path.join(sys._MEIPASS, relative_path)
     return os.path.join(os.path.abspath("."), relative_path)
-
-
-def should_skip_license():
-    # root machine bootstrap (first setup)
-    return os.getenv("ROOT_BOOTSTRAP") == "1"
-
-
-def verify_saved_license():
-    license_key = load_license()
-
-    if not license_key:
-        return False
-
-    try:
-        r = requests.post(
-            f"{API_URL}/license/verify",
-            params={
-                "license_key": license_key,
-                "device_id": get_device_id()
-            },
-            timeout=(10,20)
-        )
-        return r.status_code == 200
-
-    except Exception:
-        return False
-
 
 
 class App(QMainWindow):
@@ -336,14 +306,6 @@ if __name__ == "__main__":
     app.setWindowIcon(QIcon(icon_path))
 
     load_style(app)
-
-    # 🔐 LICENSE CHECK
-    if not should_skip_license():
-        if not verify_saved_license():
-            dlg = LicenseDialog()
-            if dlg.exec() != QDialog.Accepted:
-                sys.exit(0)
-
 
     window = App()
     window.showMaximized()

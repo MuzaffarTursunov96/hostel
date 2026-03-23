@@ -55,6 +55,10 @@ $(document).ready(function () {
 
     CURRENT_LANG = prefs.language || "ru";
     setActiveLangUI(CURRENT_LANG);
+    const rootBtn = $("#openRootManagementBtn");
+    if (rootBtn.length) {
+      rootBtn.text(CURRENT_LANG === "uz" ? "Root boshqaruvini ochish" : "Открыть Root управление");
+    }
 
     if (prefs.notify_enabled !== undefined) {
       $("#myNotifyToggle").prop("checked", prefs.notify_enabled);
