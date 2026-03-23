@@ -191,6 +191,7 @@ def init_db():
             telegram_id BIGINT UNIQUE,
             is_admin BOOLEAN DEFAULT FALSE,
             is_active BOOLEAN DEFAULT TRUE,
+            admin_expires_at TIMESTAMP NULL,
             branch_id INTEGER,
             created_by INTEGER,
             language TEXT DEFAULT 'ru',
@@ -285,6 +286,14 @@ def ensure_system_settings_table():
                 value TEXT,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
+        """))
+
+
+def ensure_admin_expiry_column():
+    with get_connection() as conn:
+        conn.execute(text("""
+            ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS admin_expires_at TIMESTAMP NULL
         """))
 
 def get_rooms_with_beds(branch_id):
@@ -1863,9 +1872,10 @@ def check_bed_has_booked(bed_id: int, branch_id: int):
 
 
 def login(username: str):
+    ensure_admin_expiry_column()
     with get_connection() as conn:
         return conn.execute(text("""
-            SELECT id, password_hash, is_admin, branch_id, language, telegram_id
+            SELECT id, password_hash, is_admin, branch_id, language, telegram_id, admin_expires_at
             FROM users
             WHERE username = :username
               AND is_active = TRUE
@@ -1873,9 +1883,10 @@ def login(username: str):
 
 
 def telegram_login_db(telegram_id: int):
+    ensure_admin_expiry_column()
     with get_connection() as conn:
         return conn.execute(text("""
-            SELECT id, is_admin, language
+            SELECT id, is_admin, language, admin_expires_at
             FROM users
             WHERE telegram_id = :telegram_id
               AND is_active = TRUE
@@ -2123,10 +2134,12 @@ def reset_password_db(new_password: str, user_id: int):
 
 
 def list_admins_db():
+    ensure_admin_expiry_column()
     with get_connection() as conn:
         admins = conn.execute(text("""
-            SELECT id, telegram_id, username, is_active
+            SELECT id, telegram_id, username, is_active, is_admin, admin_expires_at
             FROM users
+            WHERE is_admin = TRUE
             ORDER BY id
         """)).mappings().all()
 
@@ -2143,7 +2156,8 @@ def list_admins_db():
                 "telegram_id": a["telegram_id"],
                 "username": a["username"],
                 "is_active": bool(a["is_active"]),
-                "branches": branches
+                "branches": branches,
+                "admin_expires_at": a["admin_expires_at"].isoformat() if a["admin_expires_at"] else None
             })
 
     return result
@@ -2168,9 +2182,10 @@ def set_admin_active_db(user_id: int, is_active: bool):
 
 
 def get_admin_db(user_id: int):
+    ensure_admin_expiry_column()
     with get_connection() as conn:
         admin = conn.execute(text("""
-            SELECT id, telegram_id, username, is_active
+            SELECT id, telegram_id, username, is_active, admin_expires_at
             FROM users
             WHERE id = :user_id
               AND is_admin = TRUE
@@ -2191,7 +2206,8 @@ def get_admin_db(user_id: int):
         "telegram_id": admin["telegram_id"],
         "username": admin["username"],
         "is_active": bool(admin["is_active"]),
-        "branches": branches
+        "branches": branches,
+        "admin_expires_at": admin["admin_expires_at"].isoformat() if admin["admin_expires_at"] else None
     }
 
 def delete_admin_db(admin_id: int):
@@ -2746,8 +2762,19 @@ def delete_user_by_admin_db(user_id, admin_id):
         return res.rowcount > 0
 
 
-def reset_password_db(new_password, user_id, admin_id):
+def reset_password_db(new_password, user_id, admin_id=None):
     with get_connection() as conn:
+        if admin_id is None:
+            res = conn.execute(text("""
+                UPDATE users
+                SET password_hash = :p
+                WHERE id = :uid
+            """), {
+                "p": hash_password(new_password),
+                "uid": user_id,
+            })
+            return res.rowcount > 0
+
         res = conn.execute(text("""
             UPDATE users
             SET password_hash = :p
@@ -3072,3 +3099,17 @@ def update_bed_db(bed_id, bed_number, bed_type, branch_id):
             "bed_type": bed_type
         })
     return {"status": "success"}
+
+
+def set_admin_expiry_db(user_id: int, expires_at):
+    ensure_admin_expiry_column()
+    with get_connection() as conn:
+        conn.execute(text("""
+            UPDATE users
+            SET admin_expires_at = :expires_at
+            WHERE id = :user_id
+              AND is_admin = TRUE
+        """), {
+            "expires_at": expires_at,
+            "user_id": user_id
+        })

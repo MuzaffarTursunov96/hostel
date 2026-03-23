@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Root Management{% endblock %}
+
+{% block content %}
+<div class="p-4 space-y-4">
+  <div class="flex items-center justify-between">
+    <h1 class="text-2xl font-bold">Root Admin Management</h1>
+    <div class="flex gap-2">
+      <a href="/settings" class="px-4 py-2 rounded-xl border border-gray-300">Back to Settings</a>
+      <button onclick="openCreateAdmin()" class="px-4 py-2 rounded-xl bg-blue-600 text-white font-semibold">+ Add Admin</button>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-2xl shadow p-4 overflow-x-auto">
+    <table class="w-full min-w-[980px] text-sm">
+      <thead>
+        <tr class="text-left text-gray-700 border-b">
+          <th class="py-2">ID</th>
+          <th class="py-2">Username</th>
+          <th class="py-2">Telegram ID</th>
+          <th class="py-2">Filials</th>
+          <th class="py-2">Expiry Date</th>
+          <th class="py-2">Active</th>
+          <th class="py-2">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="rootAdminTable"></tbody>
+    </table>
+  </div>
+</div>
+
+<div id="branchModal" class="fixed inset-0 hidden z-50 bg-black/40 items-center justify-center">
+  <div class="bg-white w-[92%] max-w-lg rounded-2xl p-4 space-y-3">
+    <h3 class="text-lg font-semibold">Assign Filials</h3>
+    <div id="branchModalList" class="max-h-72 overflow-auto space-y-2"></div>
+    <div class="flex gap-2">
+      <button onclick="saveAdminBranches()" class="flex-1 py-2 rounded-xl bg-blue-600 text-white">Save</button>
+      <button onclick="closeBranchModal()" class="flex-1 py-2 rounded-xl bg-gray-200">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div id="createAdminModal" class="fixed inset-0 hidden z-50 bg-black/40 items-center justify-center">
+  <div class="bg-white w-[92%] max-w-lg rounded-2xl p-4 space-y-3">
+    <h3 class="text-lg font-semibold">Create Admin</h3>
+    <input id="newAdminUsername" class="w-full px-3 py-2 rounded-lg border" placeholder="Username">
+    <input id="newAdminTelegram" class="w-full px-3 py-2 rounded-lg border" placeholder="Telegram ID">
+    <input id="newAdminPassword" type="password" class="w-full px-3 py-2 rounded-lg border" placeholder="Password">
+    <div class="flex gap-2">
+      <button onclick="createAdmin()" class="flex-1 py-2 rounded-xl bg-blue-600 text-white">Create</button>
+      <button onclick="closeCreateAdmin()" class="flex-1 py-2 rounded-xl bg-gray-200">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/js/root_management.js?v={{version}}"></script>
+{% endblock %}

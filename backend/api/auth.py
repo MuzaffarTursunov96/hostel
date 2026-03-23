@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException,Depends
+from datetime import datetime
 from .schemas import LoginIn,TelegramLoginIn
 from security import verify_password, create_token
 from db import login as db_login,telegram_login_db,get_default_branch_id,is_app_expired_db,get_app_expiry_db
@@ -14,6 +15,22 @@ def _assert_not_expired():
         raise HTTPException(
             status_code=403,
             detail=f"Application access expired on {expiry_text}. Please contact root admin."
+        )
+
+
+def _assert_user_not_expired(u):
+    expires_at = u.get("admin_expires_at") if isinstance(u, dict) else None
+    if not expires_at:
+        return
+    if isinstance(expires_at, str):
+        try:
+            expires_at = datetime.fromisoformat(expires_at)
+        except Exception:
+            return
+    if datetime.utcnow() > expires_at:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Your admin access expired on {expires_at.strftime('%Y-%m-%d %H:%M:%S')}. Please contact root admin."
         )
 
 @router.get("/me")
@@ -35,6 +52,7 @@ def login(data: LoginIn):
 
     if not u or not verify_password(data.password, u["password_hash"]):
         raise HTTPException(401, "Invalid credentials")
+    _assert_user_not_expired(u)
     
     default_branch = get_default_branch_id(u["id"])
 
@@ -70,6 +88,7 @@ def telegram_login(data: TelegramLoginIn):
             detail="User is not registered. Please contact administrator."
         )
     else:
+        _assert_user_not_expired(u)
         user_id = u["id"]
         is_admin = u["is_admin"]
 

@@ -9,12 +9,11 @@ import jwt
 
 
 API_URL = "http://backend:8000"
-VERSION ="2026-23-03-18-44"
+VERSION ="2026-23-03-18-51"
+load_dotenv()
 ROOT_ADMIN_TELEGRAM = os.getenv("ROOT_ADMIN_TELEGRAM", "muzaffar_developer")
 ROOT_ADMIN_PHONE = os.getenv("ROOT_ADMIN_PHONE", "+998991422110")
-
-
-load_dotenv()
+ROOT_TELEGRAM_ID = int(os.getenv("ROOT_TELEGRAM_ID", "1343842535"))
 
 
 app = Flask(__name__,static_folder="static", static_url_path="/static")
@@ -59,6 +58,10 @@ def login_required(f):
             return redirect("/")
         return f(*args, **kwargs)
     return wrapper
+
+
+def is_root_admin_session():
+    return bool(session.get("is_admin")) and int(session.get("telegram_id") or 0) == ROOT_TELEGRAM_ID
 
 @app.route("/")
 def login_page():   # 🔥 renamed
@@ -123,6 +126,7 @@ def telegram_auth():
     session["access_token"] = payload["access_token"]
     session["user_id"] = payload["user_id"]
     session["is_admin"] = payload["is_admin"]
+    session["telegram_id"] = payload.get("telegram_id")
     session["language"] = token_payload.get("language", "ru")
     session["branch_id"] = token_payload.get("branch_id")
     # session["branch_id"] = payload["branch_id"]
@@ -157,6 +161,7 @@ def do_login():
         session["access_token"] = payload["access_token"]
         session["user_id"] = payload["user_id"]
         session["is_admin"] = payload["is_admin"]
+        session["telegram_id"] = payload.get("telegram_id")
         session["branch_id"] = token_payload.get("branch_id", payload.get("branch_id"))
         session["language"] = token_payload.get("language", payload.get("language", "ru"))
 
@@ -306,6 +311,14 @@ def settings():
         current_branch_id=session.get("branch_id", 1),
         version = VERSION
     )
+
+
+@app.route("/root-management")
+@login_required
+def root_management():
+    if not is_root_admin_session():
+        return redirect("/settings")
+    return render_template("root_management.html", version=VERSION)
 
 
 @app.post("/auth/save-context")
