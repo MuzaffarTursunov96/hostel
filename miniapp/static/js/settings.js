@@ -2,6 +2,7 @@ let BRANCHES = [];
 let CURRENT_BRANCH = null;
 let CURRENT_LANG = "ru";
 let SELECTED_USER_ID = null;
+let IS_ROOT_ADMIN = false;
 
 
 $(document).ready(function () {
@@ -28,9 +29,11 @@ $(document).ready(function () {
 
     if (me.is_admin) {
       loadUsers();     // already done
-      loadBranches();  // 🔥 new
+      loadBranches();  // new
+      loadRootSystemExpiry();
     } else {
       $(".admin-only").hide();
+      $(".root-only").addClass("hidden");
     }
     
 
@@ -447,3 +450,62 @@ function saveUserBranches() {
 function closeUserBranchModal() {
   $("#userBranchModal").addClass("hidden");
 }
+
+
+function loadRootSystemExpiry() {
+  // raw ajax to avoid noisy global errors for non-root admins
+  $.ajax({
+    url: "/api2/root/system-expiry",
+    method: "GET",
+    dataType: "json"
+  })
+    .done(function (res) {
+      IS_ROOT_ADMIN = true;
+      $(".root-only").removeClass("hidden");
+
+      const raw = res && res.expires_at ? String(res.expires_at) : "";
+      if (!raw) {
+        $("#appExpiryDate").val("");
+        return;
+      }
+
+      const d = raw.split("T")[0];
+      $("#appExpiryDate").val(d);
+    })
+    .fail(function () {
+      IS_ROOT_ADMIN = false;
+      $(".root-only").addClass("hidden");
+    });
+}
+
+window.saveSystemExpiry = function () {
+  if (!IS_ROOT_ADMIN) return;
+
+  const d = ($("#appExpiryDate").val() || "").trim();
+  if (!d) {
+    alert("Please select expiry date");
+    return;
+  }
+
+  const expiresAt = `${d}T23:59:59`;
+
+  apiPost("/root/system-expiry", {
+    expires_at: expiresAt
+  }).done(function () {
+    alert("Expiry date saved");
+    loadRootSystemExpiry();
+  });
+};
+
+window.clearSystemExpiry = function () {
+  if (!IS_ROOT_ADMIN) return;
+
+  apiPost("/root/system-expiry", {
+    expires_at: null
+  }).done(function () {
+    $("#appExpiryDate").val("");
+    alert("Expiry cleared");
+    loadRootSystemExpiry();
+  });
+};
+
