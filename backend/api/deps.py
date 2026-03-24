@@ -3,7 +3,7 @@ from fastapi.security import HTTPBearer
 from jose import jwt, JWTError
 from security import SECRET_KEY, ALGORITHM
 from datetime import datetime
-from db import get_user_auth_state_db, get_app_expiry_db
+from db import get_user_auth_state_db, get_app_expiry_db, sync_admin_active_by_expiry_db
 
 
 import os
@@ -42,6 +42,7 @@ def _is_root(user_row):
         return False
 
 def get_current_user(token=Depends(security)):
+    sync_admin_active_by_expiry_db(ROOT_TELEGRAM_ID)
     try:
         payload = jwt.decode(token.credentials, SECRET_KEY, algorithms=[ALGORITHM])
     except JWTError:

@@ -3,7 +3,13 @@ from datetime import datetime
 import os
 from .schemas import LoginIn,TelegramLoginIn
 from security import verify_password, create_token
-from db import login as db_login,telegram_login_db,get_default_branch_id,get_app_expiry_db
+from db import (
+    login as db_login,
+    telegram_login_db,
+    get_default_branch_id,
+    get_app_expiry_db,
+    sync_admin_active_by_expiry_db,
+)
 from api.deps import get_current_user
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -110,6 +116,7 @@ def me(user=Depends(get_current_user)):
 
 @router.post("/login")
 def login(data: LoginIn):
+    sync_admin_active_by_expiry_db(ROOT_TELEGRAM_ID)
     u = db_login(data.username)
     if not _is_root_user(u):
         _assert_not_expired((u or {}).get("language", "ru"))
@@ -146,6 +153,7 @@ def login(data: LoginIn):
 
 @router.post("/telegram")
 def telegram_login(data: TelegramLoginIn):
+    sync_admin_active_by_expiry_db(ROOT_TELEGRAM_ID)
     u = telegram_login_db(data.telegram_id)
     # Root admin can always log in even if global expiry is missing/expired
     if not (u and _is_root_user(u)) and int(data.telegram_id) != ROOT_TELEGRAM_ID:

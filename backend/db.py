@@ -3152,3 +3152,22 @@ def set_admin_expiry_db(user_id: int, expires_at):
             "expires_at": expires_at,
             "user_id": user_id
         })
+
+
+def sync_admin_active_by_expiry_db(root_telegram_id: int):
+    """
+    If admin expiry is NULL or expired -> force is_active = FALSE.
+    Root admin is excluded from this rule.
+    """
+    with get_connection() as conn:
+        conn.execute(text("""
+            UPDATE users
+            SET is_active = FALSE
+            WHERE is_admin = TRUE
+              AND COALESCE(telegram_id, 0) != :root_tg
+              AND (
+                    admin_expires_at IS NULL
+                    OR admin_expires_at <= CURRENT_TIMESTAMP
+              )
+              AND is_active = TRUE
+        """), {"root_tg": int(root_telegram_id)})
