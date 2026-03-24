@@ -1,21 +1,56 @@
 from fastapi import APIRouter, HTTPException,Depends
 from datetime import datetime
+import os
 from .schemas import LoginIn,TelegramLoginIn
 from security import verify_password, create_token
-from db import login as db_login,telegram_login_db,get_default_branch_id,is_app_expired_db,get_app_expiry_db
+from db import login as db_login,telegram_login_db,get_default_branch_id,get_app_expiry_db
 from api.deps import get_current_user
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
+ROOT_ADMIN_TELEGRAM = os.getenv("ROOT_ADMIN_TELEGRAM", "muzaffar_developer")
+ROOT_ADMIN_PHONE = os.getenv("ROOT_ADMIN_PHONE", "+998991422110")
 
-def _assert_not_expired():
-    if is_app_expired_db():
-        expires_at = get_app_expiry_db()
-        expiry_text = expires_at.strftime("%Y-%m-%d %H:%M:%S") if expires_at else "unknown"
-        raise HTTPException(
-            status_code=403,
-            detail=f"Application access expired on {expiry_text}. Please contact root admin."
+def _lang_code(lang_hint):
+    return "uz" if str(lang_hint or "ru").lower().startswith("uz") else "ru"
+
+
+def _contact_block(lang_hint="ru"):
+    if _lang_code(lang_hint) == "uz":
+        return (
+            f"Admin bilan bog'laning:\n"
+            f"Telegram: @{ROOT_ADMIN_TELEGRAM}\n"
+            f"Telefon: {ROOT_ADMIN_PHONE}"
         )
+    return (
+        f"Свяжитесь с администратором:\n"
+        f"Telegram: @{ROOT_ADMIN_TELEGRAM}\n"
+        f"Телефон: {ROOT_ADMIN_PHONE}"
+    )
+
+
+def _assert_not_expired(lang_hint="ru"):
+    expires_at = get_app_expiry_db()
+    lang = _lang_code(lang_hint)
+
+    # Block login if expiry is not configured (None)
+    if not expires_at:
+        msg = (
+            "Срок доступа не настроен. Вход временно запрещен.\n\n"
+            if lang == "ru" else
+            "Muddat sozlanmagan. Kirish vaqtincha taqiqlangan.\n\n"
+        )
+        raise HTTPException(status_code=403, detail=msg + _contact_block(lang))
+
+    # Block login if expired
+    if datetime.utcnow() > expires_at:
+        expiry_text = expires_at.strftime("%Y-%m-%d %H:%M:%S")
+        msg = (
+            f"Срок доступа истек: {expiry_text}.\n\n"
+            if lang == "ru" else
+            f"Kirish muddati tugagan: {expiry_text}.\n\n"
+        )
+        raise HTTPException(status_code=403, detail=msg + _contact_block(lang))
 
 
 def _assert_user_not_expired(u):
@@ -28,9 +63,15 @@ def _assert_user_not_expired(u):
         except Exception:
             return
     if datetime.utcnow() > expires_at:
+        lang = _lang_code(u.get("language") if isinstance(u, dict) else "ru")
+        msg = (
+            f"Срок действия вашей учетной записи администратора истек: {expires_at.strftime('%Y-%m-%d %H:%M:%S')}.\n\n"
+            if lang == "ru" else
+            f"Admin hisobingiz muddati tugagan: {expires_at.strftime('%Y-%m-%d %H:%M:%S')}.\n\n"
+        )
         raise HTTPException(
             status_code=403,
-            detail=f"Your admin access expired on {expires_at.strftime('%Y-%m-%d %H:%M:%S')}. Please contact root admin."
+            detail=msg + _contact_block(lang)
         )
 
 @router.get("/me")
@@ -47,8 +88,8 @@ def me(user=Depends(get_current_user)):
 
 @router.post("/login")
 def login(data: LoginIn):
-    _assert_not_expired()
     u = db_login(data.username)
+    _assert_not_expired((u or {}).get("language", "ru"))
 
     if not u or not verify_password(data.password, u["password_hash"]):
         # Default language is Russian. If user exists, use their saved language.
@@ -81,9 +122,8 @@ def login(data: LoginIn):
 
 @router.post("/telegram")
 def telegram_login(data: TelegramLoginIn):
-    _assert_not_expired()
-
     u = telegram_login_db(data.telegram_id)
+    _assert_not_expired((u or {}).get("language", "ru"))
 
     if not u:
         # AUTO CREATE USER (VERY IMPORTANT)
