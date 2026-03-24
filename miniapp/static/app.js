@@ -15,7 +15,10 @@ function isExpiryErrorMessage(msg) {
   return (
     m.includes("expired") ||
     m.includes("access expired") ||
-    m.includes("application access expired")
+    m.includes("application access expired") ||
+    m.includes("истек") ||
+    m.includes("срок") ||
+    m.includes("доступ")
   );
 }
 
@@ -23,10 +26,10 @@ function buildExpiryContactMessage(baseMessage) {
   const tg = window.ROOT_ADMIN_TELEGRAM || "muzaffar_developer";
   const phone = window.ROOT_ADMIN_PHONE || "+998991422110";
   return (
-    (baseMessage || "Application access expired.") +
-    "\n\nPlease contact admin:\n" +
+    (baseMessage || "Срок доступа к приложению истек.") +
+    "\n\nСвяжитесь с администратором:\n" +
     "Telegram: @" + tg + "\n" +
-    "Phone: " + phone
+    "Телефон: " + phone
   );
 }
 

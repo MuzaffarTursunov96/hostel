@@ -51,7 +51,12 @@ def login(data: LoginIn):
     u = db_login(data.username)
 
     if not u or not verify_password(data.password, u["password_hash"]):
-        raise HTTPException(401, "Invalid credentials")
+        # Default language is Russian. If user exists, use their saved language.
+        lang = (u.get("language") if isinstance(u, dict) else None) or "ru"
+        msg = "Неверный логин или пароль."
+        if str(lang).lower().startswith("uz"):
+            msg = "Login yoki parol noto'g'ri."
+        raise HTTPException(401, msg)
     _assert_user_not_expired(u)
     
     default_branch = get_default_branch_id(u["id"])
@@ -85,7 +90,7 @@ def telegram_login(data: TelegramLoginIn):
 
         raise HTTPException(
             status_code=401,
-            detail="User is not registered. Please contact administrator."
+            detail="Пользователь не зарегистрирован. Пожалуйста, свяжитесь с администратором."
         )
     else:
         _assert_user_not_expired(u)

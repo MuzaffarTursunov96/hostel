@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout,
     QLabel, QFrame, QScrollArea,
-    QComboBox, QLineEdit, QPushButton
+    QComboBox, QLineEdit, QPushButton, QSizePolicy
 )
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QCursor
@@ -135,6 +135,7 @@ class PaymentHistoryDialog(QDialog):
 
         for r in rows:
             self.add_row(r)
+        self.table.addStretch()
 
     def add_row(self, r):
         row = QFrame()
@@ -149,9 +150,12 @@ class PaymentHistoryDialog(QDialog):
         row.second_guest_names = " ".join(
             [g.get("name", "") for g in second_guests]
         ).lower()
+        row.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        row.setFixedHeight(84)
 
         layout = QHBoxLayout(row)
-        layout.setSpacing(6)
+        layout.setContentsMargins(10, 6, 10, 6)
+        layout.setSpacing(10)
 
         paid_at = datetime.fromisoformat(
             r["paid_at"]
@@ -159,6 +163,7 @@ class PaymentHistoryDialog(QDialog):
 
         # ===== CUSTOMER COLUMN STACKED =====
         customer_widget = QFrame()
+        customer_widget.setStyleSheet("background: transparent; border: none;")
         customer_layout = QVBoxLayout(customer_widget)
         customer_layout.setContentsMargins(0, 0, 0, 0)
         customer_layout.setSpacing(2)

@@ -2,7 +2,7 @@ from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout,
     QLabel, QScrollArea, QFrame, QPushButton, 
     QWidget, QLineEdit,
-    QMessageBox, QDateEdit,QComboBox
+    QMessageBox, QDateEdit,QComboBox, QSizePolicy
 )
 from PySide6.QtCore import Qt,QDate
 from PySide6.QtGui import QCursor
@@ -81,7 +81,7 @@ class FutureBookingsDialog(QDialog):
 
         body = QWidget()
         body_layout = QVBoxLayout(body)
-        body_layout.setSpacing(4)
+        body_layout.setSpacing(8)
         body_layout.setContentsMargins(0, 0, 0, 0)
 
         rows = api_get(
@@ -102,9 +102,12 @@ class FutureBookingsDialog(QDialog):
             for i, r in enumerate(rows):
                 row = QFrame()
                 row.setObjectName("ListRow")
+                row.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+                row.setFixedHeight(72)
 
                 rl = QHBoxLayout(row)
                 rl.setContentsMargins(10, 6, 10, 6)
+                rl.setSpacing(10)
 
                 # DATA CELLS
                 cells = [
@@ -144,6 +147,7 @@ class FutureBookingsDialog(QDialog):
                 rl.addStretch()
 
                 body_layout.addWidget(row)
+            body_layout.addStretch()
 
 
         scroll.setWidget(body)

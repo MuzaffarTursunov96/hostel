@@ -120,7 +120,7 @@ class CalendarBedCell(QFrame):
         # --- CHECKOUT (NEW LINE ✅) ---
         self.checkout_lbl = QLabel()
         self.checkout_lbl.setObjectName("BedCheckout")
-        self.checkout_lbl.setStyleSheet("font-size:9px;color:#6b7280;")
+        self.checkout_lbl.setProperty("busy", "true" if bed.get("is_busy") else "false")
 
         header_layout.addWidget(self.checkout_lbl)
 

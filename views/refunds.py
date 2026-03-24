@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QFrame, QPushButton,
-    QScrollArea, QDateEdit
+    QScrollArea, QDateEdit, QSizePolicy
 )
 from PySide6.QtCore import Qt, QDate
 from PySide6.QtGui import QCursor
@@ -60,6 +60,7 @@ class RefundsPage(QDialog):
         self.container = QWidget()
         self.table = QVBoxLayout(self.container)
         self.table.setSpacing(6)
+        self.table.setContentsMargins(0, 0, 0, 0)
 
         self.scroll.setWidget(self.container)
         main.addWidget(self.scroll, 1)
@@ -119,11 +120,17 @@ class RefundsPage(QDialog):
         self.draw_header()
         for r in refunds:
             self.add_row(r)
+        self.table.addStretch()
 
 
     def add_row(self, r):
         row = QFrame()
+        row.setObjectName("ListRow")
+        row.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        row.setFixedHeight(74)
         layout = QHBoxLayout(row)
+        layout.setContentsMargins(10, 6, 10, 6)
+        layout.setSpacing(10)
 
         values = [
             f"#{r['booking_id']}",

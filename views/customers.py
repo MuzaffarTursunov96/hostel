@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout,
-    QLabel, QLineEdit, QScrollArea, QFrame,QPushButton, QMessageBox,QDialog,QFormLayout
+    QLabel, QLineEdit, QScrollArea, QFrame, QPushButton, QMessageBox, QDialog, QFormLayout, QSizePolicy
 )
 from PySide6.QtCore import Qt, QTimer
 
@@ -76,7 +76,7 @@ class CustomersPage(QWidget):
 
         self.container = QWidget()
         self.list_layout = QVBoxLayout(self.container)
-        self.list_layout.setSpacing(2)
+        self.list_layout.setSpacing(6)
         self.list_layout.setContentsMargins(0, 0, 0, 0)
 
         self.scroll.setWidget(self.container)
@@ -104,6 +104,7 @@ class CustomersPage(QWidget):
 
         for c in customers:
             self.add_row(c)
+        self.list_layout.addStretch()
     
     def refresh(self):
         self.load()
@@ -121,6 +122,7 @@ class CustomersPage(QWidget):
         hl = QHBoxLayout(row)
         hl.setContentsMargins(12, 6, 12, 6)
         row.setFixedHeight(40)
+        row.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         hl.setSpacing(0)
 
         values = [

@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QLineEdit, QScrollArea,
-    QComboBox, QMessageBox, QDateEdit,QCompleter,QCheckBox
+    QComboBox, QMessageBox, QDateEdit, QCompleter, QCheckBox, QFrame
 
 )
 from PySide6.QtCore import Qt, QDate, QSize
@@ -35,7 +35,7 @@ class BookingPage(QWidget):
         icon.setPixmap(QIcon(icon_path).pixmap(18, 18))
 
         label = QLabel(text)
-        label.setStyleSheet("font-size:15px;font-weight:600;")
+        label.setStyleSheet("font-size:18px;font-weight:700;color:#0f172a;")
 
         row.addWidget(icon)
         row.addWidget(label)
@@ -48,9 +48,11 @@ class BookingPage(QWidget):
     # ================= UI =================
     def build_ui(self):
         main = QVBoxLayout(self)
+        main.setContentsMargins(8, 8, 8, 8)
+        main.setSpacing(12)
 
         title = QLabel(t("book_a_room"))
-        title.setStyleSheet("font-size:26px;font-weight:600;")
+        title.setStyleSheet("font-size:40px;font-weight:800;color:#0f172a;")
         main.addWidget(title)
 
         # ===== SCROLL =====
@@ -63,10 +65,10 @@ class BookingPage(QWidget):
         wrapper_layout.addStretch()
 
         content = QWidget()
-        content.setMaximumWidth(900)
+        content.setMaximumWidth(1240)
         content.setStyleSheet("""
             QWidget {
-                background:white;
+                background:#f8fafc;
                 border-radius:16px;
             }
         """)
@@ -75,20 +77,33 @@ class BookingPage(QWidget):
         wrapper_layout.addStretch()
         scroll.setWidget(wrapper)
 
-        layout = QVBoxLayout(content)
+        layout = QHBoxLayout(content)
         layout.setSpacing(18)
         layout.setContentsMargins(24, 24, 24, 24)
 
+        left_card = QFrame()
+        left_card.setStyleSheet("QFrame{background:white;border:1px solid #dbe3ee;border-radius:16px;}")
+        left_layout = QVBoxLayout(left_card)
+        left_layout.setSpacing(14)
+        left_layout.setContentsMargins(18, 18, 18, 18)
+
+        right_card = QFrame()
+        right_card.setFixedWidth(420)
+        right_card.setStyleSheet("QFrame{background:white;border:1px solid #dbe3ee;border-radius:16px;}")
+        right_layout = QVBoxLayout(right_card)
+        right_layout.setSpacing(14)
+        right_layout.setContentsMargins(18, 18, 18, 18)
+
         # ===== ROOM =====
-        layout.addWidget(self.section_title(t("room"), resource_path("assets/icons/room.png")))
+        left_layout.addWidget(self.section_title(t("room"), resource_path("assets/icons/room.png")))
 
         self.room_dropdown = QComboBox()
         self.room_dropdown.setFixedHeight(38)
         self.room_dropdown.currentTextChanged.connect(self.room_selected)
-        layout.addWidget(self.room_dropdown)
+        left_layout.addWidget(self.room_dropdown)
 
         # ===== DATES =====
-        layout.addWidget(self.section_title(t("dates"), resource_path("assets/icons/google-calendar.png")))
+        left_layout.addWidget(self.section_title(t("dates"), resource_path("assets/icons/google-calendar.png")))
 
         self.checkin = QDateEdit(QDate.currentDate())
         self.checkout = QDateEdit(QDate.currentDate().addDays(1))
@@ -110,12 +125,12 @@ class BookingPage(QWidget):
 
         dates.addLayout(left)
         dates.addLayout(right)
-        layout.addLayout(dates)
+        left_layout.addLayout(dates)
 
 
 
         # ===== NOTIFY DATE =====
-        layout.addWidget(
+        left_layout.addWidget(
             self.section_title(t("notify_date"), resource_path("assets/icons/bell.png"))
         )
 
@@ -123,14 +138,14 @@ class BookingPage(QWidget):
         self.notify_date.setCalendarPopup(True)
         self.notify_date.setFixedHeight(38)
 
-        layout.addWidget(self.notify_date)
+        left_layout.addWidget(self.notify_date)
 
 
         self.notify_date.dateChanged.connect(self.on_notify_date_changed)
         self.checkout.dateChanged.connect(self.on_checkout_changed)
 
         # ===== BEDS =====
-        layout.addWidget(self.section_title(t("available_beds"), resource_path("assets/icons/bed.png")))
+        left_layout.addWidget(self.section_title(t("available_beds"), resource_path("assets/icons/bed.png")))
 
         beds_scroll = QScrollArea()
         beds_scroll.setWidgetResizable(True)
@@ -141,17 +156,17 @@ class BookingPage(QWidget):
         self.beds_container.setSpacing(8)
 
         beds_scroll.setWidget(beds_widget)
-        layout.addWidget(beds_scroll)
+        left_layout.addWidget(beds_scroll)
 
         # ===== CUSTOMER =====
-        layout.addWidget(self.section_title(t("customer"), resource_path("assets/icons/account.png")))
+        right_layout.addWidget(self.section_title(t("customer"), resource_path("assets/icons/account.png")))
 
         self.customer_box = QComboBox()
         self.customer_box.setEditable(True)
         self.customer_box.setInsertPolicy(QComboBox.NoInsert)
         self.customer_box.setFixedHeight(38)
         self.customer_box.activated.connect(self.on_customer_selected)
-        layout.addWidget(self.customer_box)
+        right_layout.addWidget(self.customer_box)
 
         self.passport_entry = QLineEdit()
         self.passport_entry.setPlaceholderText(t("passport_id"))
@@ -162,8 +177,8 @@ class BookingPage(QWidget):
         self.contact_entry.setPlaceholderText(t("contact_info"))
         self.contact_entry.setFixedHeight(38)
 
-        layout.addWidget(self.passport_entry)
-        layout.addWidget(self.contact_entry)
+        right_layout.addWidget(self.passport_entry)
+        right_layout.addWidget(self.contact_entry)
 
 
         # ===== SECOND GUEST CHECKBOX =====
@@ -171,7 +186,7 @@ class BookingPage(QWidget):
         self.second_guest_checkbox.setVisible(False)
         self.second_guest_checkbox.stateChanged.connect(self.toggle_second_guest)
 
-        layout.addWidget(self.second_guest_checkbox)
+        right_layout.addWidget(self.second_guest_checkbox)
 
         # ===== SECOND GUEST FORM =====
         self.second_guest_widget = QWidget()
@@ -196,12 +211,12 @@ class BookingPage(QWidget):
 
         self.second_guest_widget.setVisible(False)
 
-        layout.addWidget(self.second_guest_widget)
+        right_layout.addWidget(self.second_guest_widget)
 
 
 
         # ===== PAYMENT =====
-        layout.addWidget(self.section_title(t("payment"), resource_path("assets/icons/usd.png")))
+        right_layout.addWidget(self.section_title(t("payment"), resource_path("assets/icons/usd.png")))
 
         self.total_entry = QLineEdit()
         self.total_entry.setPlaceholderText(t("total_amount"))
@@ -216,7 +231,7 @@ class BookingPage(QWidget):
         pay_row = QHBoxLayout()
         pay_row.addWidget(self.total_entry)
         pay_row.addWidget(self.paid_entry)
-        layout.addLayout(pay_row)
+        right_layout.addLayout(pay_row)
 
         self.remaining_label = QLabel(t("remaining") + ": 0.00")
         self.remaining_label.setStyleSheet("""
@@ -225,7 +240,7 @@ class BookingPage(QWidget):
             border-radius:8px;
             background:#fef3c7;
         """)
-        layout.addWidget(self.remaining_label)
+        right_layout.addWidget(self.remaining_label)
 
         # ===== CONFIRM =====
         confirm = QPushButton(t("confirm_booking"))
@@ -246,7 +261,11 @@ class BookingPage(QWidget):
             }
         """)
         confirm.clicked.connect(self.confirm_booking)
-        layout.addWidget(confirm)
+        right_layout.addWidget(confirm)
+        right_layout.addStretch()
+
+        layout.addWidget(left_card, 1)
+        layout.addWidget(right_card, 0)
 
 
     def on_notify_date_changed(self):

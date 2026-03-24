@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Loading...</title>
+  <title>Загрузка...</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
   <style>
@@ -46,7 +46,7 @@
 
 <div id="app-loading" class="loading-screen">
   <div class="spinner"></div>
-  <div class="loading-text">Connecting to Telegram...</div>
+  <div class="loading-text">Подключение к Telegram...</div>
 </div>
 
 <script>
@@ -68,14 +68,14 @@ function showError(message) {
 function withAdminContact(message) {
   return (
     message +
-    "\n\nContact admin:" +
+    "\n\nСвяжитесь с администратором:" +
     "\nTelegram: @" + ROOT_ADMIN_TELEGRAM +
-    "\nPhone: " + ROOT_ADMIN_PHONE
+    "\nТелефон: " + ROOT_ADMIN_PHONE
   );
 }
 
 if (!tg.initData) {
-  showError(withAdminContact("Please open this app from Telegram"));
+  showError(withAdminContact("Пожалуйста, откройте это приложение из Telegram"));
 } else {
   fetch("/auth/telegram", {
     method: "POST",
@@ -95,11 +95,11 @@ if (!tg.initData) {
       return;
     }
 
-    const msg = data.error || data.detail || "Telegram authentication failed";
+    const msg = data.error || data.detail || "Ошибка авторизации через Telegram";
     showError(withAdminContact(msg));
   })
   .catch(() => {
-    showError(withAdminContact("Network error. Please try again."));
+    showError(withAdminContact("Ошибка сети. Попробуйте еще раз."));
   });
 }
 </script>

@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel,
     QFrame, QScrollArea, QLineEdit, QDateEdit,
-    QPushButton
+    QPushButton, QSizePolicy
 )
 from PySide6.QtCore import Qt, QDate
 from PySide6.QtGui import QCursor
@@ -78,7 +78,7 @@ class BookingHistoryPage(QDialog):
 
         self.container = QFrame()
         self.table = QVBoxLayout(self.container)
-        self.table.setSpacing(2)
+        self.table.setSpacing(8)
 
         self.scroll.setWidget(self.container)
         main.addWidget(self.scroll)
@@ -142,6 +142,7 @@ class BookingHistoryPage(QDialog):
 
         # 🔥 APPLY LIVE FILTER AFTER LOAD
         self.apply_customer_filter()
+        self.table.addStretch()
 
     # ================= ROW =================
     def add_row(self, r):
@@ -158,13 +159,16 @@ class BookingHistoryPage(QDialog):
         row.second_guest_names = " ".join(
             [g.get("name", "") for g in second_guests]
         ).lower()
+        row.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        row.setFixedHeight(84)
 
         layout = QHBoxLayout(row)
         layout.setContentsMargins(12, 6, 12, 6)
-        layout.setSpacing(20)
+        layout.setSpacing(14)
 
         # ===== CUSTOMER COLUMN (STACKED LIKE WEB) =====
         customer_widget = QFrame()
+        customer_widget.setStyleSheet("background: transparent; border: none;")
         customer_layout = QVBoxLayout(customer_widget)
         customer_layout.setContentsMargins(0, 0, 0, 0)
         customer_layout.setSpacing(2)

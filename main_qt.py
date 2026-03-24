@@ -1,4 +1,5 @@
 import sys
+import subprocess
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget,
     QHBoxLayout, QStackedWidget
@@ -22,9 +23,9 @@ from views.root_admin_panel import RootAdminPanel
 
 from dotenv import load_dotenv
 load_dotenv()
-ROOT_TELEGRAM_ID = int(os.getenv("ROOT_TELEGRAM_ID"))
+ROOT_TELEGRAM_ID = int(os.getenv("ROOT_TELEGRAM_ID", "1343842535"))
 
-API_URL = os.getenv("API_BASE_URL")
+API_URL = os.getenv("API_BASE_URL", "https://hmsuz.com/api")
 
 
 
@@ -45,6 +46,7 @@ def resource_path(relative_path: str) -> str:
 class App(QMainWindow):
     def __init__(self):
         super().__init__()
+        self.ensure_desktop_shortcut()
 
         # ===== CONFIG =====
         config = load_config()
@@ -56,6 +58,7 @@ class App(QMainWindow):
         self.current_branch_id = config.get("branch_id", 1)
 
         self.setWindowTitle(t("hostel_manager"))
+        self.setWindowIcon(QIcon(resource_path("assets/app_comfy.ico")))
         self.resize(1400, 900)
 
         # ===== CENTRAL =====
@@ -75,6 +78,35 @@ class App(QMainWindow):
 
         # 🔐 start with login
         self.create_login()
+
+    def ensure_desktop_shortcut(self):
+        # Create Desktop shortcut automatically for packaged Windows EXE
+        if os.name != "nt" or not getattr(sys, "frozen", False):
+            return
+        try:
+            desktop = os.path.join(os.path.expanduser("~"), "Desktop")
+            shortcut_path = os.path.join(desktop, "Hostel Manager.lnk")
+            target = os.path.abspath(sys.executable)
+            workdir = os.path.dirname(target)
+            icon_path = resource_path("assets/app_comfy.ico")
+            icon = icon_path if os.path.exists(icon_path) else target
+
+            ps = (
+                "$W=New-Object -ComObject WScript.Shell; "
+                f"$S=$W.CreateShortcut('{shortcut_path}'); "
+                f"$S.TargetPath='{target}'; "
+                f"$S.WorkingDirectory='{workdir}'; "
+                f"$S.IconLocation='{icon},0'; "
+                "$S.Save();"
+            )
+            subprocess.run(
+                ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps],
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
+        except Exception:
+            pass
 
 
     def open_root_admin(self):

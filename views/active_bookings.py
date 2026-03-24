@@ -2,15 +2,16 @@ from PySide6.QtWidgets import (
     QWidget,  # ✅ ADD THIS
     QDialog, QVBoxLayout, QHBoxLayout, QLabel,
     QFrame, QPushButton, QScrollArea, QLineEdit,
-    QMessageBox, QDateEdit,QComboBox
+    QMessageBox, QDateEdit,QComboBox, QSizePolicy
 )
-from PySide6.QtGui import QCursor
-from PySide6.QtCore import Qt, QTimer, QDate
+from PySide6.QtGui import QCursor, QIcon
+from PySide6.QtCore import Qt, QTimer, QDate, QSize
 from datetime import datetime, date
 
 
 from i18n import t
 from .api_client import api_get, api_post
+from .utils import resource_path
 
 class ActiveBookingsDialog(QDialog):
     def __init__(self, parent, app, branch_id, bed_id):
@@ -43,7 +44,7 @@ class ActiveBookingsDialog(QDialog):
 
         self.container = QWidget()
         self.table = QVBoxLayout(self.container)
-        self.table.setSpacing(4)
+        self.table.setSpacing(8)
 
         self.scroll.setWidget(self.container)
         main.addWidget(self.scroll)
@@ -102,10 +103,13 @@ class ActiveBookingsDialog(QDialog):
 
         for r in rows:
             self.add_row(r)
+        self.table.addStretch()
 
     def add_row(self, r):
         row = QFrame()
         row.setObjectName("ListRow")
+        row.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        row.setFixedHeight(92)
 
         # Store searchable fields
         row.customer_name = r.get("customer_name", "")
@@ -117,7 +121,8 @@ class ActiveBookingsDialog(QDialog):
         )
 
         layout = QHBoxLayout(row)
-        layout.setSpacing(6)
+        layout.setContentsMargins(10, 6, 10, 6)
+        layout.setSpacing(10)
 
         # ===== CUSTOMER COLUMN =====
         customer_widget = QFrame()
@@ -140,6 +145,7 @@ class ActiveBookingsDialog(QDialog):
                 customer_layout.addWidget(second_lbl)
 
         customer_widget.setFixedWidth(220)
+        customer_widget.setStyleSheet("background: transparent; border: none;")
         layout.addWidget(customer_widget)
 
         # ===== OTHER COLUMNS =====
@@ -162,14 +168,60 @@ class ActiveBookingsDialog(QDialog):
         actions = QHBoxLayout()
 
         btn_edit = QPushButton(t("edit"))
+        btn_edit.setIcon(QIcon(resource_path("assets/icons/edit.png")))
+        btn_edit.setIconSize(QSize(14, 14))
         btn_edit.clicked.connect(lambda: self.edit_booking(r))
         btn_edit.setCursor(QCursor(Qt.PointingHandCursor))
+        btn_edit.setFocusPolicy(Qt.NoFocus)
+        btn_edit.setStyleSheet("""
+            QPushButton {
+                background: #eff6ff;
+                color: #1e40af;
+                border: 1px solid #bfdbfe;
+                border-radius: 9px;
+                padding: 7px 12px;
+                font-weight: 600;
+            }
+            QPushButton:hover {
+                background: #dbeafe;
+                border: 1px solid #93c5fd;
+            }
+            QPushButton:pressed {
+                background: #bfdbfe;
+            }
+            QPushButton:focus {
+                outline: none;
+            }
+        """)
 
         btn_cancel = QPushButton(t("cancel"))
+        btn_cancel.setIcon(QIcon(resource_path("assets/icons/remove.png")))
+        btn_cancel.setIconSize(QSize(14, 14))
         btn_cancel.clicked.connect(
             lambda: self.cancel_booking_action(r["id"])
         )
         btn_cancel.setCursor(QCursor(Qt.PointingHandCursor))
+        btn_cancel.setFocusPolicy(Qt.NoFocus)
+        btn_cancel.setStyleSheet("""
+            QPushButton {
+                background: #fef2f2;
+                color: #b91c1c;
+                border: 1px solid #fecaca;
+                border-radius: 9px;
+                padding: 7px 12px;
+                font-weight: 600;
+            }
+            QPushButton:hover {
+                background: #fee2e2;
+                border: 1px solid #fca5a5;
+            }
+            QPushButton:pressed {
+                background: #fecaca;
+            }
+            QPushButton:focus {
+                outline: none;
+            }
+        """)
 
         actions.addWidget(btn_edit)
         actions.addWidget(btn_cancel)

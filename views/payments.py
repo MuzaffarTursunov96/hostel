@@ -98,17 +98,6 @@ class PaymentsPage(QWidget):
         self.main.addLayout(filter_bar)
 
         
-        # ===== PIE CHART =====
-        self.chart = QChart()
-        self.chart.legend().setVisible(True)
-        self.chart.setAnimationOptions(QChart.SeriesAnimations)
-
-        self.chart_view = QChartView(self.chart)
-        self.chart_view.setRenderHint(QPainter.Antialiasing)
-        self.chart_view.setMinimumHeight(300)
-
-        self.main.addWidget(self.chart_view)
-
         cards = QGridLayout()
         cards.setSpacing(14)
 
@@ -125,6 +114,29 @@ class PaymentsPage(QWidget):
         cards.addWidget(self.card_profit, 2, 0, 1, 2)  # full width
 
         self.main.addLayout(cards)
+
+        # ===== PIE CHART (moved below cards) =====
+        chart_wrap = QFrame()
+        chart_wrap.setStyleSheet("""
+            QFrame {
+                background: white;
+                border: 1px solid #e5e7eb;
+                border-radius: 14px;
+            }
+        """)
+        chart_layout = QVBoxLayout(chart_wrap)
+        chart_layout.setContentsMargins(8, 8, 8, 8)
+
+        self.chart = QChart()
+        self.chart.legend().setVisible(True)
+        self.chart.setAnimationOptions(QChart.SeriesAnimations)
+
+        self.chart_view = QChartView(self.chart)
+        self.chart_view.setRenderHint(QPainter.Antialiasing)
+        self.chart_view.setMinimumHeight(260)
+
+        chart_layout.addWidget(self.chart_view)
+        self.main.addWidget(chart_wrap)
 
         
         

@@ -24,12 +24,21 @@ QFrame#LoginCard {
 }
 
 QFrame#ListRow {
-    padding: 8px;
+    padding: 4px 6px;
     border-radius: 10px;
+    border: 1px solid #e5e7eb;
+    background: #ffffff;
 }
 
 QFrame#ListRow:hover {
     background: #f1f5f9;
+    border: 1px solid #dbeafe;
+}
+
+QFrame#ListRow QFrame {
+    background: transparent;
+    border: none;
+    border-radius: 0px;
 }
 
 /* ================= LABELS ================= */
@@ -184,8 +193,14 @@ QLabel#BedTitle {
 
 /* ===== CHECKOUT ===== */
 QLabel#BedCheckout {
-    color: #1f2937;
+    color: #64748b;
     font-weight: 500;
+}
+
+QLabel#BedCheckout[busy="true"] {
+    color: #dc2626;
+    font-weight: 700;
+    font-size: 10px;
 }
 
 /* ===== STATUS STRIP ===== */
@@ -195,7 +210,7 @@ QFrame#BedStatusFree {
 }
 
 QFrame#BedStatusBusy {
-    background: #ef4444;
+    background: #dc2626;
     border-radius: 2px;
 }
 

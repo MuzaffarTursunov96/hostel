@@ -1,11 +1,12 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QLabel,
     QLineEdit, QPushButton, QFrame,
-    QGraphicsDropShadowEffect, QSizePolicy
+    QGraphicsDropShadowEffect, QSizePolicy, QMessageBox
 )
 from PySide6.QtCore import Qt, QThread, Signal, QObject,QTimer
 from PySide6.QtGui import QPixmap,QIcon
 from PySide6.QtWidgets import QProgressBar
+import json
 
 from .api_session import SESSION, warmup_api
 
@@ -75,6 +76,36 @@ class LoginPage(QWidget):
 
         self.build_ui()
 
+    def show_alert(self, text: str):
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Warning)
+        box.setWindowTitle("HMS")
+        box.setText(text)
+        box.setStandardButtons(QMessageBox.Ok)
+        box.setStyleSheet("""
+            QMessageBox {
+                background: #ffffff;
+            }
+            QLabel {
+                color: #0f172a;
+                font-size: 13px;
+                min-width: 280px;
+            }
+            QPushButton {
+                background: #2563EB;
+                color: white;
+                border: none;
+                border-radius: 8px;
+                padding: 8px 18px;
+                min-width: 90px;
+                font-weight: 600;
+            }
+            QPushButton:hover {
+                background: #1d4ed8;
+            }
+        """)
+        box.exec()
+
     # =========================
     def build_ui(self):
         self.setObjectName("LoginPage")
@@ -95,73 +126,74 @@ class LoginPage(QWidget):
 
         # ===== DARK OVERLAY =====
         overlay = QFrame(self)
-        overlay.setStyleSheet("background-color: rgba(15, 23, 42, 0.55);")
+        overlay.setStyleSheet("""
+            background: qlineargradient(
+                x1:0, y1:0, x2:1, y2:1,
+                stop:0 rgba(15, 23, 42, 0.72),
+                stop:1 rgba(30, 64, 175, 0.58)
+            );
+        """)
 
         overlay_layout = QVBoxLayout(overlay)
         overlay_layout.setAlignment(Qt.AlignCenter)
 
         # ===== LOGIN CARD =====
         card = QFrame()
-        card.setFixedWidth(380)
+        card.setFixedWidth(440)
         card.setStyleSheet("""
-            background-color: rgba(255,255,255,0.98);
-            border-radius: 18px;
-            padding: 28px;
+            background-color: rgba(255,255,255,0.97);
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            border-radius: 20px;
+            padding: 30px;
         """)
 
         shadow = QGraphicsDropShadowEffect()
-        shadow.setBlurRadius(40)
-        shadow.setOffset(0, 12)
+        shadow.setBlurRadius(48)
+        shadow.setOffset(0, 16)
         shadow.setColor(Qt.black)
         card.setGraphicsEffect(shadow)
 
         layout = QVBoxLayout(card)
-        layout.setSpacing(14)
+        layout.setSpacing(16)
         layout.setAlignment(Qt.AlignTop)
 
         # ===== TITLE =====
         title = QLabel("HMS")
         title.setAlignment(Qt.AlignCenter)
         title.setStyleSheet("""
-            font-size: 26px;
+            font-size: 34px;
             font-weight: 800;
             letter-spacing: 2px;
             color: #0F172A;
         """)
 
-        subtitle = QLabel(t("sign_in_to_continue"))
-        subtitle.setAlignment(Qt.AlignCenter)
-        subtitle.setStyleSheet("""
-            font-size: 12px;
-            color: #64748B;
-        """)
-
-       
 
         # ===== INPUTS =====
         # ===== INPUTS =====
         self.username = QLineEdit()
         self.username.setPlaceholderText(t("username"))
-        self.username.setFixedHeight(44)
+        self.username.setFixedHeight(50)
         self.username.addAction(
             QIcon(resource_path("assets/icons/user.png")),
             QLineEdit.LeadingPosition
         )
+        self.username.returnPressed.connect(self.try_login)
 
         self.password = QLineEdit()
         self.password.setPlaceholderText(t("password"))
         self.password.setEchoMode(QLineEdit.Password)
-        self.password.setFixedHeight(44)
+        self.password.setFixedHeight(50)
         self.password.addAction(
             QIcon(resource_path("assets/icons/locked.png")),
             QLineEdit.LeadingPosition
         )
+        self.password.returnPressed.connect(self.try_login)
 
 
         # ===== BUTTON =====
         self.login_btn = QPushButton(t("login"))
         self.login_btn.setObjectName("LoginButton")
-        self.login_btn.setFixedHeight(44)
+        self.login_btn.setFixedHeight(52)
         self.login_btn.setCursor(Qt.PointingHandCursor)
         self.login_btn.clicked.connect(self.try_login)
 
@@ -169,7 +201,7 @@ class LoginPage(QWidget):
             QPushButton#LoginButton {
                 background-color: #2563EB;
                 color: white;
-                font-size: 14px;
+                font-size: 16px;
                 font-weight: 600;
                 border-radius: 12px;
                 padding: 8px 16px;
@@ -210,21 +242,14 @@ class LoginPage(QWidget):
         """)
 
 
-        # ===== ERROR LABEL =====
-        self.msg_label = QLabel("")
-        self.msg_label.setAlignment(Qt.AlignCenter)
-        self.msg_label.setStyleSheet("color:#DC2626; font-size:11px;")
-
         # ===== LAYOUT =====
         layout.addWidget(title)
-        layout.addWidget(subtitle)
-        layout.addSpacing(10)
+        layout.addSpacing(8)
         layout.addWidget(self.username)
         layout.addWidget(self.password)
         layout.addSpacing(6)
         layout.addWidget(self.login_btn)
         layout.addWidget(self.spinner)
-        layout.addWidget(self.msg_label)
 
         overlay_layout.addWidget(card)
         root.addWidget(overlay)
@@ -241,10 +266,8 @@ class LoginPage(QWidget):
         username = self.username.text().strip()
         password = self.password.text().strip()
 
-        self.msg_label.setText("")
-
         if not username or not password:
-            self.msg_label.setText(t("invalid_username_or_password"))
+            self.show_alert(t("invalid_username_or_password"))
             return
 
         self.login_btn.setEnabled(False)
@@ -297,4 +320,21 @@ class LoginPage(QWidget):
         self.login_btn.setEnabled(True)
         self.username.setEnabled(True)
         self.password.setEnabled(True)
-        self.msg_label.setText(msg)
+
+        pretty = msg
+        try:
+            data = json.loads(msg)
+            pretty = data.get("detail") or data.get("error") or msg
+        except Exception:
+            pass
+
+        # Normalize wrong-credentials backend texts to localized UI text
+        p = str(pretty).lower()
+        if (
+            "invalid credentials" in p
+            or "неверный логин" in p
+            or "login yoki parol" in p
+        ):
+            pretty = t("invalid_username_or_password")
+
+        self.show_alert(pretty)
