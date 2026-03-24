@@ -1875,10 +1875,21 @@ def login(username: str):
     ensure_admin_expiry_column()
     with get_connection() as conn:
         return conn.execute(text("""
-            SELECT id, password_hash, is_admin, branch_id, language, telegram_id, admin_expires_at
-            FROM users
-            WHERE username = :username
-              AND is_active = TRUE
+            SELECT
+                u.id,
+                u.password_hash,
+                u.is_admin,
+                u.branch_id,
+                u.language,
+                u.telegram_id,
+                u.admin_expires_at,
+                u.created_by,
+                u.is_active,
+                creator.is_active AS creator_is_active
+            FROM users u
+            LEFT JOIN users creator ON creator.id = u.created_by
+            WHERE u.username = :username
+              AND u.is_active = TRUE
         """), {"username": username}).mappings().fetchone()
 
 
@@ -1886,11 +1897,39 @@ def telegram_login_db(telegram_id: int):
     ensure_admin_expiry_column()
     with get_connection() as conn:
         return conn.execute(text("""
-            SELECT id, is_admin, language, admin_expires_at
-            FROM users
-            WHERE telegram_id = :telegram_id
-              AND is_active = TRUE
+            SELECT
+                u.id,
+                u.is_admin,
+                u.language,
+                u.admin_expires_at,
+                u.created_by,
+                u.is_active,
+                u.telegram_id,
+                creator.is_active AS creator_is_active
+            FROM users u
+            LEFT JOIN users creator ON creator.id = u.created_by
+            WHERE u.telegram_id = :telegram_id
+              AND u.is_active = TRUE
         """), {"telegram_id": telegram_id}).mappings().fetchone()
+
+
+def get_user_auth_state_db(user_id: int):
+    ensure_admin_expiry_column()
+    with get_connection() as conn:
+        return conn.execute(text("""
+            SELECT
+                u.id,
+                u.is_active,
+                u.is_admin,
+                u.telegram_id,
+                u.language,
+                u.admin_expires_at,
+                u.created_by,
+                creator.is_active AS creator_is_active
+            FROM users u
+            LEFT JOIN users creator ON creator.id = u.created_by
+            WHERE u.id = :user_id
+        """), {"user_id": user_id}).mappings().fetchone()
 
 
 

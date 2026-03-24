@@ -10,6 +10,7 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
 
 ROOT_ADMIN_TELEGRAM = os.getenv("ROOT_ADMIN_TELEGRAM", "muzaffar_developer")
 ROOT_ADMIN_PHONE = os.getenv("ROOT_ADMIN_PHONE", "+998991422110")
+ROOT_TELEGRAM_ID = int(os.getenv("ROOT_TELEGRAM_ID", "1343842535"))
 
 def _lang_code(lang_hint):
     return "uz" if str(lang_hint or "ru").lower().startswith("uz") else "ru"
@@ -53,6 +54,13 @@ def _assert_not_expired(lang_hint="ru"):
         raise HTTPException(status_code=403, detail=msg + _contact_block(lang))
 
 
+def _is_root_user(u):
+    try:
+        return bool(u) and int(u.get("telegram_id") or 0) == ROOT_TELEGRAM_ID and bool(u.get("is_admin"))
+    except Exception:
+        return False
+
+
 def _assert_user_not_expired(u):
     expires_at = u.get("admin_expires_at") if isinstance(u, dict) else None
     if not expires_at:
@@ -74,6 +82,20 @@ def _assert_user_not_expired(u):
             detail=msg + _contact_block(lang)
         )
 
+
+def _assert_parent_admin_not_blocked(u):
+    if not isinstance(u, dict):
+        return
+    # If this account belongs to an admin and that admin is blocked -> block this user too
+    if u.get("created_by") and u.get("creator_is_active") is False:
+        lang = _lang_code(u.get("language") or "ru")
+        msg = (
+            "Ваш администратор заблокирован. Доступ временно запрещен.\n\n"
+            if lang == "ru" else
+            "Adminingiz bloklangan. Kirish vaqtincha taqiqlangan.\n\n"
+        )
+        raise HTTPException(status_code=403, detail=msg + _contact_block(lang))
+
 @router.get("/me")
 def me(user=Depends(get_current_user)):
     with open("/tmp/backend_auth_me.log", "a") as f:
@@ -89,7 +111,9 @@ def me(user=Depends(get_current_user)):
 @router.post("/login")
 def login(data: LoginIn):
     u = db_login(data.username)
-    _assert_not_expired((u or {}).get("language", "ru"))
+    if not _is_root_user(u):
+        _assert_not_expired((u or {}).get("language", "ru"))
+    _assert_parent_admin_not_blocked(u)
 
     if not u or not verify_password(data.password, u["password_hash"]):
         # Default language is Russian. If user exists, use their saved language.
@@ -123,7 +147,10 @@ def login(data: LoginIn):
 @router.post("/telegram")
 def telegram_login(data: TelegramLoginIn):
     u = telegram_login_db(data.telegram_id)
-    _assert_not_expired((u or {}).get("language", "ru"))
+    # Root admin can always log in even if global expiry is missing/expired
+    if not (u and _is_root_user(u)) and int(data.telegram_id) != ROOT_TELEGRAM_ID:
+        _assert_not_expired((u or {}).get("language", "ru"))
+    _assert_parent_admin_not_blocked(u)
 
     if not u:
         # AUTO CREATE USER (VERY IMPORTANT)
