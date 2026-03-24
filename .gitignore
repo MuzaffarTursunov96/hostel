@@ -10,6 +10,8 @@ venv/
 # Node / Frontend
 node_modules/
 dist/
+*.pkg
+*.exe
 
 # OS
 .DS_Store

@@ -66,8 +66,16 @@ function showError(message) {
 }
 
 function withAdminContact(message) {
+  const m = String(message || "");
+  if (
+    m.includes("Telegram: @") ||
+    m.includes("Телефон:") ||
+    m.includes("Свяжитесь с администратором")
+  ) {
+    return m;
+  }
   return (
-    message +
+    m +
     "\n\nСвяжитесь с администратором:" +
     "\nTelegram: @" + ROOT_ADMIN_TELEGRAM +
     "\nТелефон: " + ROOT_ADMIN_PHONE
