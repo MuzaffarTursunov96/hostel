@@ -67,6 +67,13 @@ def _is_root_user(u):
         return False
 
 
+def _is_admin_user(u):
+    try:
+        return bool(u) and bool(u.get("is_admin"))
+    except Exception:
+        return False
+
+
 def _assert_user_not_expired(u):
     expires_at = u.get("admin_expires_at") if isinstance(u, dict) else None
     if not expires_at:
@@ -118,7 +125,9 @@ def me(user=Depends(get_current_user)):
 def login(data: LoginIn):
     sync_admin_active_by_expiry_db(ROOT_TELEGRAM_ID)
     u = db_login(data.username)
-    if not _is_root_user(u):
+    # Global/system expiry applies to non-admin users only.
+    # Admins are controlled by admin_expires_at.
+    if not _is_root_user(u) and not _is_admin_user(u):
         _assert_not_expired((u or {}).get("language", "ru"))
     _assert_parent_admin_not_blocked(u)
 
@@ -155,8 +164,9 @@ def login(data: LoginIn):
 def telegram_login(data: TelegramLoginIn):
     sync_admin_active_by_expiry_db(ROOT_TELEGRAM_ID)
     u = telegram_login_db(data.telegram_id)
-    # Root admin can always log in even if global expiry is missing/expired
-    if not (u and _is_root_user(u)) and int(data.telegram_id) != ROOT_TELEGRAM_ID:
+    # Global/system expiry applies to non-admin users only.
+    # Admins are controlled by admin_expires_at.
+    if not (u and _is_root_user(u)) and int(data.telegram_id) != ROOT_TELEGRAM_ID and not _is_admin_user(u):
         _assert_not_expired((u or {}).get("language", "ru"))
     _assert_parent_admin_not_blocked(u)
 

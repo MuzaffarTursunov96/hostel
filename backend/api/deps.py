@@ -65,7 +65,7 @@ def get_current_user(token=Depends(security)):
         )
         raise HTTPException(status_code=403, detail=msg + _contact_block(lang))
 
-    if not _is_root(user_row):
+    if not _is_root(user_row) and not bool(user_row.get("is_admin")):
         expires_at = get_app_expiry_db()
         if not expires_at:
             msg = "Срок доступа не настроен. Вход запрещен.\n\n" if lang == "ru" else "Muddat sozlanmagan. Kirish taqiqlangan.\n\n"
