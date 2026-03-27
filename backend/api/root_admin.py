@@ -27,9 +27,17 @@ router = APIRouter(prefix="/root", tags=["Root Admin"])
 
 
 def _load_debt_cron_run():
-    cron_path = pathlib.Path(__file__).resolve().parents[2] / "cron" / "notify_debts.py"
-    if not cron_path.exists():
-        raise RuntimeError(f"Cron script not found: {cron_path}")
+    current = pathlib.Path(__file__).resolve()
+    candidates = [
+        current.parents[1] / "cron" / "notify_debts.py",  # /app/api -> /app/cron
+        current.parents[2] / "cron" / "notify_debts.py",  # /app/backend/api -> /app/cron
+        pathlib.Path.cwd() / "cron" / "notify_debts.py",  # local run fallback
+    ]
+    cron_path = next((p for p in candidates if p.exists()), None)
+    if cron_path is None:
+        raise RuntimeError(
+            "Cron script not found. Tried: " + ", ".join(str(p) for p in candidates)
+        )
 
     spec = importlib.util.spec_from_file_location("hostel_cron_notify_debts", str(cron_path))
     if not spec or not spec.loader:
