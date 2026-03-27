@@ -9,6 +9,13 @@ def get_connection():
     return engine.begin()
 
 
+def _credentials_match(username, password) -> bool:
+    """Case-insensitive, trim-safe comparison for weak credentials."""
+    if username is None or password is None:
+        return False
+    return str(username).strip().casefold() == str(password).strip().casefold()
+
+
 def init_db():
     with get_connection() as conn:
 

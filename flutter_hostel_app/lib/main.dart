@@ -1,0 +1,5939 @@
+﻿import 'dart:async';
+import 'dart:convert';
+
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+
+const String kLanguageKey = 'language';
+final ValueNotifier<String> appLang = ValueNotifier<String>('uz');
+
+String normLang(String? lang) => (lang ?? '').toLowerCase() == 'ru' ? 'ru' : 'uz';
+
+String trPair({
+  required String ru,
+  required String uz,
+  String? lang,
+}) {
+  return normLang(lang ?? appLang.value) == 'ru' ? ru : uz;
+}
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final prefs = await SharedPreferences.getInstance();
+  appLang.value = normLang(prefs.getString(kLanguageKey));
+  runApp(const HostelApp());
+}
+
+void showAppAlert(
+  BuildContext context,
+  String text, {
+  bool error = false,
+}) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(
+        text,
+        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+      ),
+      backgroundColor: error ? const Color(0xFFDC2626) : const Color(0xFF16A34A),
+      behavior: SnackBarBehavior.floating,
+      margin: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      duration: const Duration(seconds: 2),
+    ),
+  );
+}
+
+Future<bool> confirmAction(
+  BuildContext context, {
+  required String title,
+  required String message,
+  String confirmText = "O'chirish",
+  String cancelText = 'Bekor',
+}) async {
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (_) => AlertDialog(
+      title: Text(title),
+      content: Text(message),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: Text(cancelText)),
+        FilledButton(
+          style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE5534B)),
+          onPressed: () => Navigator.pop(context, true),
+          child: Text(confirmText),
+        ),
+      ],
+    ),
+  );
+  return ok == true;
+}
+
+class HostelApp extends StatelessWidget {
+  const HostelApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<String>(
+      valueListenable: appLang,
+      builder: (_, __, ___) {
+        return MaterialApp(
+          debugShowCheckedModeBanner: false,
+          title: 'Hostel Mobile',
+          theme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1E88E5)),
+            useMaterial3: true,
+            scaffoldBackgroundColor: const Color(0xFFF3F5F9),
+            appBarTheme: const AppBarTheme(
+              backgroundColor: Colors.white,
+              foregroundColor: Color(0xFF101828),
+              elevation: 0,
+              centerTitle: false,
+              surfaceTintColor: Colors.transparent,
+            ),
+            cardTheme: CardThemeData(
+              color: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+              margin: EdgeInsets.zero,
+            ),
+          ),
+          home: const LoginScreen(),
+        );
+      },
+    );
+  }
+}
+
+class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key});
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  static const String baseApi = 'https://hmsuz.com/api';
+  static const Duration requestTimeout = Duration(seconds: 40);
+
+  static const String tokenKey = 'access_token';
+  static const String userIdKey = 'user_id';
+  static const String isAdminKey = 'is_admin';
+  static const String branchIdKey = 'branch_id';
+
+  final _formKey = GlobalKey<FormState>();
+  final _usernameController = TextEditingController();
+  final _passwordController = TextEditingController();
+
+  bool _loading = false;
+  bool _checkingSession = true;
+  String? _error;
+  String _uiLang = 'uz';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPreferredLanguage();
+    _restoreSession();
+  }
+
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _restoreSession() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString(tokenKey);
+      final branchId = prefs.getInt(branchIdKey);
+      if (token == null || token.isEmpty || branchId == null) return;
+
+      final ok = await _validateToken(token);
+      if (!ok || !mounted) return;
+
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => HomeScreen(accessToken: token, branchId: branchId),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _checkingSession = false);
+    }
+  }
+
+  Future<void> _loadPreferredLanguage() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final lang = normLang(prefs.getString(kLanguageKey));
+      if (!mounted) return;
+      setState(() => _uiLang = lang);
+    } catch (_) {}
+  }
+
+  Future<void> _setLoginLanguage(String lang) async {
+    lang = normLang(lang);
+    if (_uiLang == lang) return;
+    setState(() => _uiLang = lang);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(kLanguageKey, lang);
+    appLang.value = lang;
+  }
+
+  String _tr({required String ru, required String uz}) {
+    return _uiLang == 'ru' ? ru : uz;
+  }
+
+  Future<bool> _validateToken(String token) async {
+    try {
+      final r = await http
+          .get(
+            Uri.parse('$baseApi/auth/me'),
+            headers: {'Authorization': 'Bearer $token'},
+          )
+          .timeout(requestTimeout);
+      return r.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> _login() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final r = await http
+          .post(
+            Uri.parse('$baseApi/auth/login'),
+            headers: const {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'username': _usernameController.text.trim(),
+              'password': _passwordController.text,
+            }),
+          )
+          .timeout(requestTimeout);
+
+      final bodyText = r.body;
+      if (r.statusCode != 200) {
+        final message = _extractError(bodyText) ??
+            _tr(
+              ru: 'Неверное имя пользователя или пароль',
+              uz: "Login yoki parol noto'g'ri",
+            );
+        setState(() => _error = 'API /auth/login failed\nstatus: ${r.statusCode}\nmessage: $message');
+        return;
+      }
+
+      final data = jsonDecode(bodyText) as Map<String, dynamic>;
+      final token = (data['access_token'] ?? '').toString();
+      final branchIdRaw = data['branch_id'];
+      final branchId = branchIdRaw is int
+          ? branchIdRaw
+          : int.tryParse(branchIdRaw?.toString() ?? '');
+
+      if (token.isEmpty || branchId == null) {
+        setState(
+          () => _error = _tr(
+            ru: 'Вход выполнен, но token/branch_id отсутствует.',
+            uz: 'Kirish bajarildi, lekin token/branch_id topilmadi.',
+          ),
+        );
+        return;
+      }
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(tokenKey, token);
+      await prefs.setInt(branchIdKey, branchId);
+      await prefs.setInt(userIdKey, (data['user_id'] as num?)?.toInt() ?? 0);
+      await prefs.setBool(isAdminKey, (data['is_admin'] as bool?) ?? false);
+      final lang = normLang('${data['language'] ?? _uiLang}');
+      await prefs.setString(kLanguageKey, lang);
+      appLang.value = lang;
+
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => HomeScreen(accessToken: token, branchId: branchId),
+        ),
+      );
+    } on TimeoutException {
+      setState(
+        () => _error = _tr(
+          ru: 'Превышено время ожидания (${requestTimeout.inSeconds}s).',
+          uz: "So'rov vaqti tugadi (${requestTimeout.inSeconds}s).",
+        ),
+      );
+    } catch (e) {
+      setState(
+        () => _error = _tr(
+          ru: 'Ошибка сети: $e',
+          uz: 'Tarmoq xatosi: $e',
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  String? _extractError(String body) {
+    try {
+      final j = jsonDecode(body);
+      if (j is Map<String, dynamic>) {
+        final d = j['detail'] ?? j['error'];
+        if (d is String && d.isNotEmpty) return d;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Stack(
+        children: [
+          SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  child: Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(18),
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text(
+                              'Hostel Manager',
+                              style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+                            ),
+                            const SizedBox(height: 8),
+                            SegmentedButton<String>(
+                              segments: const [
+                                ButtonSegment<String>(value: 'ru', label: Text('RU')),
+                                ButtonSegment<String>(value: 'uz', label: Text('UZ')),
+                              ],
+                              selected: {_uiLang},
+                              onSelectionChanged: (v) {
+                                if (v.isNotEmpty) _setLoginLanguage(v.first);
+                              },
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              _tr(
+                                ru: 'Войдите, чтобы продолжить',
+                                uz: 'Davom etish uchun kiring',
+                              ),
+                            ),
+                            const SizedBox(height: 18),
+                            TextFormField(
+                              controller: _usernameController,
+                              decoration: InputDecoration(
+                                labelText: _tr(
+                                  ru: 'Имя пользователя',
+                                  uz: 'Foydalanuvchi nomi',
+                                ),
+                                border: const OutlineInputBorder(),
+                              ),
+                              validator: (v) => (v == null || v.trim().isEmpty)
+                                  ? _tr(
+                                      ru: 'Введите имя пользователя',
+                                      uz: 'Foydalanuvchi nomini kiriting',
+                                    )
+                                  : null,
+                            ),
+                            const SizedBox(height: 12),
+                            TextFormField(
+                              controller: _passwordController,
+                              obscureText: true,
+                              decoration: InputDecoration(
+                                labelText: _tr(ru: 'Пароль', uz: 'Parol'),
+                                border: const OutlineInputBorder(),
+                              ),
+                              validator: (v) => (v == null || v.isEmpty)
+                                  ? _tr(ru: 'Введите пароль', uz: 'Parolni kiriting')
+                                  : null,
+                            ),
+                            const SizedBox(height: 12),
+                            if (_error != null)
+                              Text(
+                                _error!,
+                                style: const TextStyle(color: Colors.red),
+                                textAlign: TextAlign.center,
+                              ),
+                            const SizedBox(height: 8),
+                            SizedBox(
+                              width: double.infinity,
+                              child: FilledButton(
+                                onPressed: _loading ? null : _login,
+                                child: _loading
+                                    ? const SizedBox(
+                                        height: 18,
+                                        width: 18,
+                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                      )
+                                    : Text(_tr(ru: 'Войти', uz: 'Kirish')),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          if (_loading || _checkingSession)
+            Positioned.fill(
+              child: Container(
+                color: Colors.black.withOpacity(0.18),
+                child: const Center(child: CircularProgressIndicator()),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key, required this.accessToken, required this.branchId});
+
+  final String accessToken;
+  final int branchId;
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  int _index = 0;
+  late final _api = _ApiClient(widget.accessToken, widget.branchId);
+  final ValueNotifier<int> _refreshSignal = ValueNotifier<int>(0);
+  String _language = 'ru';
+  bool _changingLang = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTopLanguage();
+  }
+
+  void _notifyDataChanged() {
+    _refreshSignal.value = _refreshSignal.value + 1;
+  }
+
+  Future<void> _loadTopLanguage() async {
+    try {
+      final me = await _api.getJson('/auth/me');
+      if (!mounted) return;
+      final lang = normLang('${(me as Map)['language'] ?? 'uz'}');
+      setState(() => _language = lang);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(kLanguageKey, _language);
+      appLang.value = _language;
+    } catch (_) {
+      final prefs = await SharedPreferences.getInstance();
+      final lang = normLang(prefs.getString(kLanguageKey));
+      if (!mounted) return;
+      setState(() => _language = lang);
+      appLang.value = lang;
+    }
+  }
+
+  Future<void> _setTopLanguage(String lang) async {
+    lang = normLang(lang);
+    if (_changingLang || _language == lang) return;
+    setState(() => _changingLang = true);
+    try {
+      await _api.postJson('/settings/language', {'language': lang});
+      if (!mounted) return;
+      setState(() => _language = lang);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(kLanguageKey, lang);
+      appLang.value = lang;
+      showAppAlert(context, lang == 'ru' ? 'Язык: Русский' : "Til: O'zbekcha");
+    } catch (e) {
+      if (!mounted) return;
+      showAppAlert(context, '$e', error: true);
+    } finally {
+      if (mounted) setState(() => _changingLang = false);
+    }
+  }
+
+  Future<void> _logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('access_token');
+    await prefs.remove('branch_id');
+    await prefs.remove('user_id');
+    await prefs.remove('is_admin');
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (route) => false,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final lang = appLang.value;
+    return Scaffold(
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        title: const Text(
+          'HMS',
+          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 20),
+        ),
+        actions: [
+          PopupMenuButton<String>(
+            tooltip: 'Change language',
+            enabled: !_changingLang,
+            onSelected: _setTopLanguage,
+            itemBuilder: (_) => [
+              CheckedPopupMenuItem<String>(
+                value: 'ru',
+                checked: _language == 'ru',
+                child: const Text('Русский'),
+              ),
+              CheckedPopupMenuItem<String>(
+                value: 'uz',
+                checked: _language == 'uz',
+                child: const Text("O'zbekcha"),
+              ),
+            ],
+            icon: Image.asset(
+              'assets/icons/language.png',
+              width: 20,
+              height: 20,
+            ),
+          ),
+          IconButton(
+            tooltip: 'Logout',
+            onPressed: _logout,
+            icon: Image.asset(
+              'assets/icons/logout.png',
+              width: 20,
+              height: 20,
+            ),
+          ),
+        ],
+      ),
+      body: IndexedStack(
+        index: _index,
+        children: [
+          _DashboardPage(api: _api, refreshSignal: _refreshSignal),
+          _RoomsPage(api: _api, onDataChanged: _notifyDataChanged),
+          _BookingsPage(api: _api),
+          _PaymentsPage(api: _api),
+          _SettingsPage(api: _api),
+        ],
+      ),
+      bottomNavigationBar: NavigationBar(
+        height: 76,
+        backgroundColor: Colors.white,
+        indicatorColor: const Color(0xFFDDF3F1),
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+        selectedIndex: _index,
+        onDestinationSelected: (i) => setState(() => _index = i),
+        destinations: [
+          NavigationDestination(
+            icon: const _WebIcon('home_menu', size: 22),
+            label: trPair(ru: 'Главная', uz: 'Dashboard', lang: lang),
+          ),
+          NavigationDestination(
+            icon: const _WebIcon('rooms_menu', size: 22),
+            label: trPair(ru: 'Комнаты', uz: 'Honalar', lang: lang),
+          ),
+          NavigationDestination(
+            icon: const _WebIcon('booking_menu', size: 22),
+            label: trPair(ru: 'Бронирования', uz: 'Buyurtmalar', lang: lang),
+          ),
+          NavigationDestination(
+            icon: const _WebIcon('payments_menu', size: 22),
+            label: trPair(ru: 'Платежи', uz: "To'lovlar", lang: lang),
+          ),
+          NavigationDestination(
+            icon: const _WebIcon('settings_menu', size: 22),
+            label: trPair(ru: 'Настройки', uz: 'Sozlash', lang: lang),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ApiClient {
+  _ApiClient(this.token, this.branchId);
+
+  static const String baseApi = 'https://hmsuz.com/api';
+  static const Duration timeout = Duration(seconds: 40);
+
+  final String token;
+  final int branchId;
+
+  Future<dynamic> getJson(String path, {Map<String, String>? query}) async {
+    final uri = Uri.parse('$baseApi$path').replace(queryParameters: query);
+    final r = await http.get(
+      uri,
+      headers: {'Authorization': 'Bearer $token'},
+    ).timeout(timeout);
+    if (r.statusCode != 200) throw Exception('status ${r.statusCode}: ${r.body}');
+    return jsonDecode(r.body);
+  }
+
+  Future<dynamic> postJson(String path, Map<String, dynamic> body) async {
+    final uri = Uri.parse('$baseApi$path');
+    final r = await http
+        .post(
+          uri,
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode(body),
+        )
+        .timeout(timeout);
+    if (r.statusCode < 200 || r.statusCode >= 300) {
+      throw Exception('status ${r.statusCode}: ${r.body}');
+    }
+    return r.body.isEmpty ? <String, dynamic>{} : jsonDecode(r.body);
+  }
+
+  Future<dynamic> deleteJson(String path, {Map<String, String>? query}) async {
+    final uri = Uri.parse('$baseApi$path').replace(queryParameters: query);
+    final r = await http
+        .delete(
+          uri,
+          headers: {'Authorization': 'Bearer $token'},
+        )
+        .timeout(timeout);
+    if (r.statusCode < 200 || r.statusCode >= 300) {
+      throw Exception('status ${r.statusCode}: ${r.body}');
+    }
+    return r.body.isEmpty ? <String, dynamic>{} : jsonDecode(r.body);
+  }
+
+  Future<dynamic> putQuery(String path, Map<String, String> query) async {
+    final uri = Uri.parse('$baseApi$path').replace(queryParameters: query);
+    final r = await http
+        .put(
+          uri,
+          headers: {'Authorization': 'Bearer $token'},
+        )
+        .timeout(timeout);
+    if (r.statusCode < 200 || r.statusCode >= 300) {
+      throw Exception('status ${r.statusCode}: ${r.body}');
+    }
+    return r.body.isEmpty ? <String, dynamic>{} : jsonDecode(r.body);
+  }
+}
+
+class _DashboardPage extends StatefulWidget {
+  const _DashboardPage({required this.api, required this.refreshSignal});
+  final _ApiClient api;
+  final ValueNotifier<int> refreshSignal;
+
+  @override
+  State<_DashboardPage> createState() => _DashboardPageState();
+}
+
+class _DashboardPageState extends State<_DashboardPage> {
+  DateTime _fromDate = DateTime.now();
+  DateTime _toDate = DateTime.now();
+  DateTime? _appliedFromDate;
+  DateTime? _appliedToDate;
+  late Future<dynamic> _dashboardFuture;
+  final Map<int, int> _futureByBed = {};
+  Timer? _ticker;
+  String _t(String ru, String uz) => trPair(ru: ru, uz: uz);
+
+  @override
+  void initState() {
+    super.initState();
+    widget.refreshSignal.addListener(_onExternalRefresh);
+    _reloadDashboard();
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant _DashboardPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshSignal != widget.refreshSignal) {
+      oldWidget.refreshSignal.removeListener(_onExternalRefresh);
+      widget.refreshSignal.addListener(_onExternalRefresh);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.refreshSignal.removeListener(_onExternalRefresh);
+    _ticker?.cancel();
+    super.dispose();
+  }
+
+  void _onExternalRefresh() {
+    if (!mounted) return;
+    setState(() {
+      _reloadDashboard();
+    });
+  }
+
+  Future<void> _pickDate(bool isFrom) async {
+    final initial = isFrom ? _fromDate : _toDate;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(2020, 1, 1),
+      lastDate: DateTime(2100, 12, 31),
+    );
+    if (picked == null) return;
+    setState(() {
+      if (isFrom) {
+        _fromDate = picked;
+      } else {
+        _toDate = picked;
+      }
+    });
+  }
+
+  String _fmt(DateTime d) {
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${two(d.month)}/${two(d.day)}/${d.year}';
+  }
+
+  String _apiDate(DateTime d) {
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${d.year}-${two(d.month)}-${two(d.day)}';
+  }
+
+  DateTime? _parseDateFlex(String? raw) {
+    if (raw == null) return null;
+    final s = raw.trim();
+    if (s.isEmpty) return null;
+
+    final iso = DateTime.tryParse(s);
+    if (iso != null) return iso;
+
+    final noTime = s.split(' ').first;
+    final parts = noTime.split('/');
+    if (parts.length == 3) {
+      final a = int.tryParse(parts[0]);
+      final b = int.tryParse(parts[1]);
+      final c = int.tryParse(parts[2]);
+      if (a != null && b != null && c != null) {
+        if (parts[0].length == 4) {
+          // yyyy/mm/dd
+          return DateTime(a, b, c);
+        }
+        // mm/dd/yyyy (web-style in your screenshots)
+        return DateTime(c, a, b);
+      }
+    }
+    return null;
+  }
+
+  String _formatShortDate(String? value) {
+    if (value == null || value.isEmpty) return '';
+    final dt = _parseDateFlex(value);
+    if (dt == null) return value;
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${two(dt.month)}/${two(dt.day)}/${dt.year}';
+  }
+
+  void _applyFilter() {
+    if (_fromDate.isAfter(_toDate)) {
+      showAppAlert(context, _t('Дата "С" должна быть раньше даты "По"', "Boshlanish sanasi tugashdan oldin bo'lishi kerak"), error: true);
+      return;
+    }
+    setState(() {
+      _appliedFromDate = _fromDate;
+      _appliedToDate = _toDate;
+    });
+    _reloadDashboard();
+  }
+
+  void _clearFilter() {
+    setState(() {
+      _appliedFromDate = null;
+      _appliedToDate = null;
+      _fromDate = DateTime.now();
+      _toDate = DateTime.now();
+    });
+    _reloadDashboard();
+  }
+
+  Map<String, String> _currentQuery() {
+    final query = <String, String>{
+      'branch_id': widget.api.branchId.toString(),
+    };
+    if (_appliedFromDate != null && _appliedToDate != null) {
+      query['checkin_date'] = _apiDate(_appliedFromDate!);
+      query['checkout_date'] = _apiDate(_appliedToDate!);
+    }
+    return query;
+  }
+
+  void _reloadDashboard() {
+    _dashboardFuture = widget.api.getJson('/dashboard/rooms', query: _currentQuery());
+    _refreshFutureIndex();
+  }
+
+  Future<void> _refreshFutureIndex() async {
+    final endpoints = <String>['/future-bookings/', '/future-bookings/list', '/bookings/future'];
+    for (final ep in endpoints) {
+      try {
+        final data = await widget.api.getJson(ep, query: {'branch_id': widget.api.branchId.toString()});
+        dynamic payload = data;
+        if (data is Map<String, dynamic>) {
+          payload = data['items'] ?? data['data'] ?? const [];
+        }
+        if (payload is List) {
+          final next = <int, int>{};
+          for (final item in payload.whereType<Map>()) {
+            final m = Map<String, dynamic>.from(item);
+            final bedId = _asInt(m['bed_id'] ?? m['bedId']);
+            if (bedId != null) {
+              next[bedId] = (next[bedId] ?? 0) + 1;
+            }
+          }
+          if (!mounted) return;
+          setState(() {
+            _futureByBed
+              ..clear()
+              ..addAll(next);
+          });
+          return;
+        }
+      } catch (_) {}
+    }
+
+    // Fallback: derive future bookings from active bookings list
+    // (some backends expose future rows here, like web logic).
+    try {
+      final data = await widget.api.getJson('/active-bookings/', query: {
+        'branch_id': widget.api.branchId.toString(),
+      });
+      if (data is List) {
+        final now = DateTime.now();
+        final next = <int, int>{};
+        for (final item in data.whereType<Map>()) {
+          final m = Map<String, dynamic>.from(item);
+          final bedId = _asInt(m['bed_id'] ?? m['bedId']);
+          final checkin = _parseDateFlex('${m['checkin_date'] ?? ''}');
+          if (bedId != null && checkin != null && checkin.isAfter(now)) {
+            next[bedId] = (next[bedId] ?? 0) + 1;
+          }
+        }
+        if (!mounted) return;
+        setState(() {
+          _futureByBed
+            ..clear()
+            ..addAll(next);
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _pullRefresh() async {
+    setState(() {
+      _reloadDashboard();
+    });
+    await _dashboardFuture;
+  }
+
+  bool get _hasActiveFilter => _appliedFromDate != null && _appliedToDate != null;
+
+  Map<String, String> _timeLeft(String? targetDate, {bool dateOnlyAsEndOfDay = true}) {
+    if (targetDate == null || targetDate.isEmpty) {
+      return {'d': '00', 'h': '00', 'm': '00', 's': '00'};
+    }
+    DateTime? parsed = _parseDateFlex(targetDate);
+    if (parsed != null && !targetDate.contains('T') && dateOnlyAsEndOfDay) {
+      parsed = DateTime(parsed.year, parsed.month, parsed.day, 23, 59, 59);
+    }
+    if (parsed == null) return {'d': '00', 'h': '00', 'm': '00', 's': '00'};
+    final diff = parsed.difference(DateTime.now());
+    if (diff.isNegative) return {'d': '00', 'h': '00', 'm': '00', 's': '00'};
+    final d = diff.inDays;
+    final h = diff.inHours.remainder(24);
+    final m = diff.inMinutes.remainder(60);
+    final s = diff.inSeconds.remainder(60);
+    String two(int n) => n.toString().padLeft(2, '0');
+    return {'d': two(d), 'h': two(h), 'm': two(m), 's': two(s)};
+  }
+
+  String _bedTypeEmoji(String t) {
+    switch (t) {
+      case 'double':
+        return '👥';
+      case 'child':
+        return '🧸';
+      default:
+        return '👤';
+    }
+  }
+
+  int? _asInt(dynamic v) {
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    return int.tryParse('${v ?? ''}');
+  }
+
+  List<Map<String, dynamic>> _extractFutureBookings(Map<String, dynamic> bed) {
+    final dynamic raw = bed['future_bookings'] ??
+        bed['upcoming_bookings'] ??
+        bed['futureBookings'] ??
+        bed['next_bookings'] ??
+        bed['future_booking'] ??
+        bed['future_reservations'] ??
+        bed['next_booking'] ??
+        bed['upcoming_booking'];
+    if (raw is List) {
+      return raw.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+    }
+    if (raw is Map) return [Map<String, dynamic>.from(raw)];
+    return const [];
+  }
+
+  bool _hasFutureHint(Map<String, dynamic> bed, List<Map<String, dynamic>> rows) {
+    if (rows.isNotEmpty) return true;
+    if (bed['has_future'] == true) return true;
+    final flags = [
+      bed['has_future_booking'],
+      bed['has_future_bookings'],
+      bed['future_booking_exists'],
+    ];
+    if (flags.any((f) => f == true)) return true;
+    final counts = [
+      _asInt(bed['future_booking_count']) ?? 0,
+      _asInt(bed['future_bookings_count']) ?? 0,
+      _asInt(bed['upcoming_count']) ?? 0,
+    ];
+    if (counts.any((c) => c > 0)) return true;
+    final now = DateTime.now();
+    for (final entry in bed.entries) {
+      final k = entry.key.toLowerCase();
+      final v = entry.value;
+      final looksFuture = k.contains('future') || k.contains('upcoming') || k.contains('next');
+      if (!looksFuture) continue;
+      if (v == null) continue;
+      if (v is bool && v) return true;
+      if (v is num && v > 0) return true;
+      if (v is String && v.trim().isNotEmpty) {
+        final parsed = _parseDateFlex(v.trim());
+        if (parsed == null || parsed.isAfter(now)) return true;
+      }
+      if (v is List && v.isNotEmpty) return true;
+      if (v is Map && v.isNotEmpty) return true;
+    }
+    return _futureCheckinDate(bed).isNotEmpty;
+  }
+
+  String _futureCheckinDate(Map<String, dynamic> bed) {
+    final fromList = _extractFutureBookings(bed);
+    if (fromList.isNotEmpty) {
+      final v = '${fromList.first['checkin_date'] ?? ''}';
+      if (v.isNotEmpty) return v;
+    }
+    final direct = '${bed['next_checkin_date'] ?? bed['future_checkin_date'] ?? bed['next_checkin'] ?? ''}';
+    return direct;
+  }
+
+  Future<List<Map<String, dynamic>>> _loadFutureBookings(int roomId, int bedId, List<Map<String, dynamic>> seed) async {
+    if (seed.isNotEmpty) return seed;
+    final attempts = <Map<String, dynamic>>[
+      {
+        'path': '/dashboard/beds/future-bookings',
+        'query': {
+          'branch_id': widget.api.branchId.toString(),
+          'bed_id': bedId.toString(),
+        }
+      },
+      {
+        'path': '/future-bookings/',
+        'query': {
+          'branch_id': widget.api.branchId.toString(),
+          'room_id': roomId.toString(),
+          'bed_id': bedId.toString(),
+        }
+      },
+      {
+        'path': '/future-bookings/list',
+        'query': {
+          'branch_id': widget.api.branchId.toString(),
+          'room_id': roomId.toString(),
+          'bed_id': bedId.toString(),
+        }
+      },
+      {
+        'path': '/bookings/future',
+        'query': {
+          'branch_id': widget.api.branchId.toString(),
+          'room_id': roomId.toString(),
+          'bed_id': bedId.toString(),
+        }
+      },
+      {
+        'path': '/future-bookings/',
+        'query': {
+          'branch_id': widget.api.branchId.toString(),
+          'bed_id': bedId.toString(),
+        }
+      },
+      {
+        'path': '/bookings/future',
+        'query': {
+          'branch_id': widget.api.branchId.toString(),
+          'bed_id': bedId.toString(),
+        }
+      },
+      {
+        'path': '/active-bookings/',
+        'query': {
+          'branch_id': widget.api.branchId.toString(),
+          'bed_id': bedId.toString(),
+          'future': '1',
+        }
+      },
+      {
+        'path': '/active-bookings/',
+        'query': {
+          'branch_id': widget.api.branchId.toString(),
+        }
+      },
+    ];
+
+    for (final a in attempts) {
+      try {
+        final data = await widget.api.getJson(a['path'] as String, query: a['query'] as Map<String, String>);
+        dynamic payload = data;
+        if (data is Map<String, dynamic>) {
+          payload = data['items'] ?? data['data'] ?? const [];
+        }
+        if (payload is List) {
+          final rows = payload.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+          final filtered = rows.where((m) {
+            final bid = _asInt(m['bed_id'] ?? m['bedId'] ?? m['id']);
+            final rid = _asInt(m['room_id'] ?? m['roomId']);
+            final byBed = bid == null || bid == bedId;
+            final byRoom = rid == null || rid == roomId;
+            final checkin = _parseDateFlex('${m['checkin_date'] ?? ''}');
+            final futureOnly = checkin == null || checkin.isAfter(DateTime.now());
+            return byBed && byRoom && futureOnly;
+          }).toList();
+          if (filtered.isNotEmpty) return filtered;
+          if (rows.isNotEmpty) return rows;
+        }
+      } catch (_) {
+        // try next endpoint
+      }
+    }
+
+    // Strong fallback: booking history usually contains future rows too.
+    try {
+      final now = DateTime.now();
+      final from = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+      final toDt = now.add(const Duration(days: 365));
+      final to = '${toDt.year}-${toDt.month.toString().padLeft(2, '0')}-${toDt.day.toString().padLeft(2, '0')}';
+      final data = await widget.api.getJson('/booking-history/', query: {
+        'branch_id': widget.api.branchId.toString(),
+        'from_date': from,
+        'to_date': to,
+      });
+      if (data is List) {
+        final rows = data.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+        final filtered = rows.where((m) {
+          final bid = _asInt(m['bed_id'] ?? m['bedId']);
+          final rid = _asInt(m['room_id'] ?? m['roomId']);
+          final checkin = _parseDateFlex('${m['checkin_date'] ?? ''}');
+          return (bid == null || bid == bedId) &&
+              (rid == null || rid == roomId) &&
+              (checkin == null || checkin.isAfter(now));
+        }).toList();
+        if (filtered.isNotEmpty) return filtered;
+      }
+    } catch (_) {}
+
+    return const [];
+  }
+
+  Future<void> _cancelFutureBooking(Map<String, dynamic> booking) async {
+    final endpoints = <String>[
+      '/future-bookings/cancel',
+      '/bookings/future/cancel',
+      '/active-bookings/cancel',
+    ];
+    Exception? lastError;
+    for (final ep in endpoints) {
+      try {
+        await widget.api.postJson(ep, {
+          'booking_id': booking['id'],
+          'branch_id': widget.api.branchId,
+        });
+        return;
+      } catch (e) {
+        lastError = Exception('$e');
+      }
+    }
+    if (lastError != null) throw lastError;
+  }
+
+  Future<void> _updateFutureBooking({
+    required Map<String, dynamic> booking,
+    required int roomId,
+    required int bedId,
+    required String checkinDate,
+    required String checkoutDate,
+    required double totalAmount,
+  }) async {
+    final endpoints = <String>[
+      '/future-bookings/update-admin',
+      '/bookings/future/update-admin',
+      '/active-bookings/update-admin',
+    ];
+    Exception? lastError;
+    for (final ep in endpoints) {
+      try {
+        await widget.api.postJson(ep, {
+          'booking_id': booking['id'],
+          'room_id': roomId,
+          'bed_id': bedId,
+          'checkin_date': checkinDate,
+          'checkout_date': checkoutDate,
+          'total_amount': totalAmount,
+        });
+        return;
+      } catch (e) {
+        lastError = Exception('$e');
+      }
+    }
+    if (lastError != null) throw lastError;
+  }
+
+  Future<void> _openEditFutureBooking(Map<String, dynamic> booking) async {
+    int roomId = (booking['room_id'] as num?)?.toInt() ?? 0;
+    int bedId = (booking['bed_id'] as num?)?.toInt() ?? 0;
+    DateTime checkin = DateTime.tryParse('${booking['checkin_date'] ?? ''}') ?? DateTime.now();
+    DateTime checkout = DateTime.tryParse('${booking['checkout_date'] ?? ''}') ?? DateTime.now().add(const Duration(days: 1));
+    final totalCtrl = TextEditingController(text: '${booking['total_amount'] ?? 0}');
+    List<dynamic> rooms = [];
+    List<dynamic> beds = [];
+
+    Future<void> loadRooms() async {
+      rooms = (await widget.api.getJson('/rooms/', query: {
+        'branch_id': widget.api.branchId.toString(),
+      }) as List)
+          .cast<dynamic>();
+      if (roomId == 0 && rooms.isNotEmpty) roomId = (rooms.first['id'] as num).toInt();
+    }
+
+    Future<void> loadBeds() async {
+      if (roomId == 0) {
+        beds = [];
+        return;
+      }
+      beds = (await widget.api.getJson('/beds/', query: {
+        'branch_id': widget.api.branchId.toString(),
+        'room_id': roomId.toString(),
+      }) as List)
+          .cast<dynamic>();
+      if (!beds.any((b) => (b['id'] as num).toInt() == bedId) && beds.isNotEmpty) {
+        bedId = (beds.first['id'] as num).toInt();
+      }
+    }
+
+    await loadRooms();
+    await loadBeds();
+    if (!mounted) return;
+
+    String fmt(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          title: const Text('Редактировать будущее бронирование'),
+          content: SingleChildScrollView(
+            child: SizedBox(
+              width: 360,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DropdownButtonFormField<int>(
+                    value: roomId == 0 ? null : roomId,
+                    decoration: const InputDecoration(labelText: 'Комната', border: OutlineInputBorder()),
+                    items: rooms
+                        .map((r) => DropdownMenuItem<int>(
+                              value: (r['id'] as num).toInt(),
+                              child: Text('${r['room_name'] ?? r['room_number']}'),
+                            ))
+                        .toList(),
+                    onChanged: (v) async {
+                      if (v == null) return;
+                      roomId = v;
+                      await loadBeds();
+                      setD(() {});
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<int>(
+                    value: bedId == 0 ? null : bedId,
+                    decoration: const InputDecoration(labelText: 'Кровать', border: OutlineInputBorder()),
+                    items: beds
+                        .map((b) => DropdownMenuItem<int>(
+                              value: (b['id'] as num).toInt(),
+                              child: Text('Кровать ${b['bed_number']}'),
+                            ))
+                        .toList(),
+                    onChanged: (v) => setD(() => bedId = v ?? bedId),
+                  ),
+                  const SizedBox(height: 10),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Дата заезда'),
+                    subtitle: Text(fmt(checkin)),
+                    trailing: const Icon(Icons.calendar_month),
+                    onTap: () async {
+                      final p = await showDatePicker(
+                        context: ctx,
+                        initialDate: checkin,
+                        firstDate: DateTime(2020, 1, 1),
+                        lastDate: DateTime(2100, 12, 31),
+                      );
+                      if (p != null) setD(() => checkin = p);
+                    },
+                  ),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Дата выезда'),
+                    subtitle: Text(fmt(checkout)),
+                    trailing: const Icon(Icons.calendar_month),
+                    onTap: () async {
+                      final p = await showDatePicker(
+                        context: ctx,
+                        initialDate: checkout,
+                        firstDate: DateTime(2020, 1, 1),
+                        lastDate: DateTime(2100, 12, 31),
+                      );
+                      if (p != null) setD(() => checkout = p);
+                    },
+                  ),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: totalCtrl,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(labelText: 'Общая сумма', border: OutlineInputBorder()),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Отмена')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Сохранить')),
+          ],
+        ),
+      ),
+    );
+    if (saved != true) return;
+    final total = double.tryParse(totalCtrl.text.trim());
+    if (total == null) {
+      showAppAlert(context, 'Неверная сумма', error: true);
+      return;
+    }
+    await _updateFutureBooking(
+      booking: booking,
+      roomId: roomId,
+      bedId: bedId,
+      checkinDate: fmt(checkin),
+      checkoutDate: fmt(checkout),
+      totalAmount: total,
+    );
+    if (!mounted) return;
+    setState(() => _reloadDashboard());
+    showAppAlert(context, 'Будущее бронирование обновлено');
+  }
+
+  Future<void> _openFutureBookingsForBed({
+    required int roomId,
+    required int bedId,
+    required List<Map<String, dynamic>> seed,
+    Map<String, dynamic>? bedHint,
+  }) async {
+    List<Map<String, dynamic>> rows = [];
+    String? error;
+    try {
+      rows = await _loadFutureBookings(roomId, bedId, seed);
+      if (rows.isEmpty && bedHint != null) {
+        final checkin = _futureCheckinDate(bedHint);
+        final checkout = '${bedHint['future_checkout_date'] ?? bedHint['next_checkout_date'] ?? ''}';
+        final customer = '${bedHint['future_customer_name'] ?? bedHint['next_customer_name'] ?? ''}';
+        if (checkin.isNotEmpty || checkout.isNotEmpty || customer.isNotEmpty) {
+          rows = [
+            {
+              'id': bedHint['future_booking_id'] ?? bedHint['next_booking_id'] ?? 0,
+              'customer_name': customer.isEmpty ? '—' : customer,
+              'checkin_date': checkin,
+              'checkout_date': checkout,
+              'room_id': roomId,
+              'bed_id': bedId,
+              'total_amount': bedHint['future_total_amount'] ?? 0,
+            }
+          ];
+        }
+      }
+    } catch (e) {
+      error = '$e';
+    }
+    if (!mounted) return;
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(18))),
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(10, 10, 10, MediaQuery.of(context).viewInsets.bottom + 8),
+          child: SizedBox(
+            height: MediaQuery.of(context).size.height * 0.68,
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    const Text('🗓 Будущие бронирования', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                    const Spacer(),
+                    IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
+                  ],
+                ),
+                if (error != null)
+                  Expanded(child: Center(child: Text(error!, style: const TextStyle(color: Colors.red))))
+                else if (rows.isEmpty)
+                  const Expanded(child: Center(child: Text('Будущих бронирований нет')))
+                else
+                  Expanded(
+                    child: ListView.separated(
+                      itemCount: rows.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (_, i) {
+                        final b = rows[i];
+                        final bookingId = _asInt(b['id']) ?? 0;
+                        return _Card(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('${b['customer_name'] ?? ''}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                              const SizedBox(height: 2),
+                              Text(
+                                '${_formatShortDate('${b['checkin_date'] ?? ''}')} → ${_formatShortDate('${b['checkout_date'] ?? ''}')}',
+                                style: const TextStyle(color: Color(0xFF64748B)),
+                              ),
+                              const SizedBox(height: 8),
+                              if (bookingId > 0)
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: OutlinedButton.icon(
+                                        onPressed: () async {
+                                          Navigator.pop(context);
+                                          await _openEditFutureBooking(b);
+                                        },
+                                        icon: const Icon(Icons.edit, size: 16),
+                                        label: const Text('Редактировать'),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: OutlinedButton.icon(
+                                        style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFFE5534B)),
+                                        onPressed: () async {
+                                          final ok = await confirmAction(
+                                            context,
+                                            title: 'Отменить бронирование',
+                                            message: 'Подтверждаете отмену будущего бронирования?',
+                                            confirmText: 'Отменить',
+                                            cancelText: 'Назад',
+                                          );
+                                          if (!ok) return;
+                                          await _cancelFutureBooking(b);
+                                          if (!mounted) return;
+                                          Navigator.pop(context);
+                                          setState(() => _reloadDashboard());
+                                          showAppAlert(context, 'Будущее бронирование отменено');
+                                        },
+                                        icon: const Icon(Icons.close, size: 16),
+                                        label: const Text('Отменить'),
+                                      ),
+                                    ),
+                                  ],
+                                )
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openActiveBookings() async {
+    final raw = await widget.api.getJson('/active-bookings/', query: {
+      'branch_id': widget.api.branchId.toString(),
+    });
+    if (!mounted) return;
+    final all = (raw as List).cast<dynamic>();
+    final search = TextEditingController();
+    List<dynamic> filtered = List<dynamic>.from(all);
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (_) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            void applySearch(String q) {
+              final s = q.trim().toLowerCase();
+              filtered = all.where((b) {
+                final name = '${b['customer_name'] ?? ''}'.toLowerCase();
+                final passport = '${b['passport_id'] ?? ''}'.toLowerCase();
+                final room = '${b['room_name'] ?? b['room_number'] ?? ''}'.toLowerCase();
+                final bed = '${b['bed_number'] ?? ''}'.toLowerCase();
+                return s.isEmpty ||
+                    name.contains(s) ||
+                    passport.contains(s) ||
+                    room.contains(s) ||
+                    bed.contains(s);
+              }).toList();
+            }
+
+            applySearch(search.text);
+
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: 14,
+                  right: 14,
+                  top: 12,
+                  bottom: MediaQuery.of(context).viewInsets.bottom + 10,
+                ),
+                child: SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.82,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text('🗓 ${trPair(ru: "Активные бронирования", uz: "Faol buyurtmalar")}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                          const Spacer(),
+                          IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
+                        ],
+                      ),
+                      TextField(
+                        controller: search,
+                        onChanged: (v) => setSheetState(() => applySearch(v)),
+                        decoration: InputDecoration(
+                          hintText: 'Ism, passport yoki telefon...',
+                          prefixIcon: const Icon(Icons.search),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Expanded(
+                        child: filtered.isEmpty
+                            ? Center(child: Text(trPair(ru: 'Активные бронирования не найдены', uz: 'Faol buyurtmalar topilmadi')))
+                            : ListView.separated(
+                                itemCount: filtered.length,
+                                separatorBuilder: (_, __) => const SizedBox(height: 10),
+                                itemBuilder: (context, i) {
+                                  final b = filtered[i] as Map<String, dynamic>;
+                                  return Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(14),
+                                      border: Border.all(color: const Color(0xFFE5E7EB)),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                '👤 ${b['customer_name'] ?? ''}',
+                                                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                                              ),
+                                            ),
+                                            Text('${b['total_amount'] ?? 0}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text('🪪 ${b['passport_id'] ?? ''}', style: const TextStyle(color: Colors.black54)),
+                                        Text('🏠 ${b['room_name'] ?? b['room_number']} • 🛏 Kravat ${b['bed_number'] ?? ''}', style: const TextStyle(color: Colors.black54)),
+                                        Text(
+                                          '🗓 ${_formatShortDate('${b['checkin_date'] ?? ''}')} → ${_formatShortDate('${b['checkout_date'] ?? ''}')}',
+                                          style: const TextStyle(color: Colors.black54),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: FilledButton.icon(
+                                                onPressed: () async {
+                                                  Navigator.pop(context);
+                                                  await _openEditActiveBooking(b);
+                                                },
+                                                icon: const Icon(Icons.edit, size: 16),
+                                                label: const Text('Tahrirlash'),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: FilledButton.icon(
+                                                style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE74C3C)),
+                                                onPressed: () async {
+                                                  final ok = await confirmAction(
+                                                    context,
+                                                    title: 'Buyurtmani bekor qilish',
+                                                    message: 'Haqiqatan ham buyurtmani bekor qilasizmi?',
+                                                    confirmText: 'Bekor qilish',
+                                                    cancelText: 'Orqaga',
+                                                  );
+                                                  if (!ok) return;
+                                                  await widget.api.postJson('/active-bookings/cancel', {
+                                                    'booking_id': b['id'],
+                                                    'branch_id': widget.api.branchId,
+                                                  });
+                                                  if (!mounted) return;
+                                                  Navigator.pop(context);
+                                                  setState(() {});
+                                                  showAppAlert(context, 'Buyurtma bekor qilindi');
+                                                },
+                                                icon: const Icon(Icons.close, size: 16),
+                                                label: const Text('Bekor qilish'),
+                                              ),
+                                            ),
+                                          ],
+                                        )
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _openEditActiveBooking(Map<String, dynamic> booking) async {
+    int roomId = (booking['room_id'] as num?)?.toInt() ?? 0;
+    int bedId = (booking['bed_id'] as num?)?.toInt() ?? 0;
+    DateTime checkin = DateTime.tryParse('${booking['checkin_date'] ?? ''}') ?? DateTime.now();
+    DateTime checkout = DateTime.tryParse('${booking['checkout_date'] ?? ''}') ?? DateTime.now().add(const Duration(days: 1));
+    final totalCtrl = TextEditingController(text: '${booking['total_amount'] ?? 0}');
+
+    List<dynamic> rooms = [];
+    List<dynamic> beds = [];
+
+    Future<void> loadRooms() async {
+      rooms = (await widget.api.getJson('/rooms/', query: {
+        'branch_id': widget.api.branchId.toString(),
+      }) as List)
+          .cast<dynamic>();
+      if (roomId == 0 && rooms.isNotEmpty) {
+        roomId = (rooms.first['id'] as num).toInt();
+      }
+    }
+
+    Future<void> loadBeds() async {
+      if (roomId == 0) {
+        beds = [];
+        return;
+      }
+      beds = (await widget.api.getJson('/beds/', query: {
+        'branch_id': widget.api.branchId.toString(),
+        'room_id': roomId.toString(),
+      }) as List)
+          .cast<dynamic>();
+      if (!beds.any((b) => (b['id'] as num).toInt() == bedId) && beds.isNotEmpty) {
+        bedId = (beds.first['id'] as num).toInt();
+      }
+    }
+
+    await loadRooms();
+    await loadBeds();
+    if (!mounted) return;
+
+    String fmt(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          title: const Text('Buyurtmani tahrirlash'),
+          content: SingleChildScrollView(
+            child: SizedBox(
+              width: 360,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DropdownButtonFormField<int>(
+                    value: roomId == 0 ? null : roomId,
+                    decoration: const InputDecoration(labelText: 'Xona', border: OutlineInputBorder()),
+                    items: rooms
+                        .map((r) => DropdownMenuItem<int>(
+                              value: (r['id'] as num).toInt(),
+                              child: Text('${r['room_name'] ?? r['room_number']}'),
+                            ))
+                        .toList(),
+                    onChanged: (v) async {
+                      if (v == null) return;
+                      roomId = v;
+                      await loadBeds();
+                      setD(() {});
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<int>(
+                    value: bedId == 0 ? null : bedId,
+                    decoration: const InputDecoration(labelText: 'Krovat', border: OutlineInputBorder()),
+                    items: beds
+                        .map((b) => DropdownMenuItem<int>(
+                              value: (b['id'] as num).toInt(),
+                              child: Text('Kravat ${b['bed_number']}'),
+                            ))
+                        .toList(),
+                    onChanged: (v) => setD(() => bedId = v ?? bedId),
+                  ),
+                  const SizedBox(height: 10),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Kirish sanasi'),
+                    subtitle: Text(fmt(checkin)),
+                    trailing: const Icon(Icons.calendar_month),
+                    onTap: () async {
+                      final p = await showDatePicker(
+                        context: ctx,
+                        initialDate: checkin,
+                        firstDate: DateTime(2020, 1, 1),
+                        lastDate: DateTime(2100, 12, 31),
+                      );
+                      if (p != null) setD(() => checkin = p);
+                    },
+                  ),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Chiqish sanasi'),
+                    subtitle: Text(fmt(checkout)),
+                    trailing: const Icon(Icons.calendar_month),
+                    onTap: () async {
+                      final p = await showDatePicker(
+                        context: ctx,
+                        initialDate: checkout,
+                        firstDate: DateTime(2020, 1, 1),
+                        lastDate: DateTime(2100, 12, 31),
+                      );
+                      if (p != null) setD(() => checkout = p);
+                    },
+                  ),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: totalCtrl,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(labelText: 'Jami summa', border: OutlineInputBorder()),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Bekor')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Saqlash')),
+          ],
+        ),
+      ),
+    );
+
+    if (saved != true) return;
+    final total = double.tryParse(totalCtrl.text.trim());
+    if (total == null) {
+      showAppAlert(context, "Jami summa noto'g'ri", error: true);
+      return;
+    }
+    await widget.api.postJson('/active-bookings/update-admin', {
+      'booking_id': booking['id'],
+      'room_id': roomId,
+      'bed_id': bedId,
+      'checkin_date': fmt(checkin),
+      'checkout_date': fmt(checkout),
+      'total_amount': total,
+    });
+    if (!mounted) return;
+    setState(() {});
+    showAppAlert(context, 'Buyurtma yangilandi');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<dynamic>(
+      future: _dashboardFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return RefreshIndicator(
+            onRefresh: _pullRefresh,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: const [
+                SizedBox(height: 260),
+                Center(child: CircularProgressIndicator()),
+              ],
+            ),
+          );
+        }
+        if (snapshot.hasError) {
+          return RefreshIndicator(
+            onRefresh: _pullRefresh,
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                SizedBox(
+                  height: 360,
+                  child: _ErrorText(error: snapshot.error.toString()),
+                )
+              ],
+            ),
+          );
+        }
+        final rooms = (snapshot.data as List).cast<dynamic>();
+        return RefreshIndicator(
+          onRefresh: _pullRefresh,
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(16),
+            children: [
+              _Card(
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '🏨 ${_t("Доступность комнат", "Xona mavjudligi")}',
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                        FilledButton.icon(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: const Color(0xFF3D8BDF),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          onPressed: _openActiveBookings,
+                          icon: const Icon(Icons.calendar_month, size: 18),
+                          label: Text(_t('Активные бронирования', 'Faol buyurtmalar')),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _DateBox(
+                            value: _fmt(_fromDate),
+                            onTap: () => _pickDate(true),
+                          ),
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 8),
+                          child: Text('—', style: TextStyle(fontSize: 24, color: Color(0xFF6B7280))),
+                        ),
+                        Expanded(
+                          child: _DateBox(
+                            value: _fmt(_toDate),
+                            onTap: () => _pickDate(false),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: FilledButton.icon(
+                            style: FilledButton.styleFrom(
+                              backgroundColor: const Color(0xFF3D8BDF),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              padding: const EdgeInsets.symmetric(vertical: 11),
+                            ),
+                            onPressed: _applyFilter,
+                            icon: const Icon(Icons.search, size: 18),
+                            label: Text(_t("поиск", "izlash"), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Color(0xFFF87171)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
+                          ),
+                          onPressed: _clearFilter,
+                          child: const Icon(Icons.close, color: Color(0xFFEF4444), size: 20),
+                        ),
+                      ],
+                    ),
+                    if (_hasActiveFilter) ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE8F3FF),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFBFDBFE)),
+                        ),
+                        child: Text(
+                          "${_t('Фильтр активен', 'Filter active')}: ${_fmt(_appliedFromDate!)} - ${_fmt(_appliedToDate!)}",
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF1E3A8A)),
+                        ),
+                      ),
+                    ]
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              if (rooms.isEmpty) _EmptyState(_t('В этом диапазоне свободных мест нет.', 'Bu vaqt oralig‘ida bo‘sh joy topilmadi.')),
+              ...rooms.map((r) {
+              final beds = (r['beds'] as List? ?? const []);
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _Card(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('🏠 ${r['room_name'] ?? r['room_number']}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: beds.map<Widget>((b) {
+                          final bed = Map<String, dynamic>.from(b as Map);
+                          final busy = bed['is_busy'] == true;
+                          final futureRows = _extractFutureBookings(bed);
+                          final hasFuture = _hasFutureHint(bed, futureRows);
+                          final targetDate = busy
+                              ? '${bed['checkout_date'] ?? ''}'
+                              : _futureCheckinDate(bed);
+                          final time = _timeLeft(
+                            targetDate,
+                            dateOnlyAsEndOfDay: busy,
+                          );
+                          final roomId = _asInt(r['room_id'] ?? r['id'] ?? r['roomId'] ?? r['room']) ?? 0;
+                          final bedId = _asInt(
+                                bed['bed_id'] ??
+                                    bed['id'] ??
+                                    bed['bedId'] ??
+                                    bed['bedID'] ??
+                                    bed['bed'],
+                              ) ??
+                              _asInt(bed['bed_number']) ??
+                              0;
+                          final hasFutureFromIndex = bedId > 0 && (_futureByBed[bedId] ?? 0) > 0;
+                          final hasFutureFinal = hasFuture || hasFutureFromIndex;
+                          final bookedLikeFinal = busy;
+
+                          return GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => _openFutureBookingsForBed(
+                              roomId: roomId,
+                              bedId: bedId,
+                              seed: futureRows,
+                              bedHint: bed,
+                            ),
+                            child: Stack(
+                              children: [
+                                Container(
+                                width: 132,
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(12),
+                                    color: bookedLikeFinal ? const Color(0xFFFFF1F2) : const Color(0xFFECFDF3),
+                                  border: Border.all(
+                                    color: bookedLikeFinal ? const Color(0xFFFCA5A5) : const Color(0xFF86EFAC),
+                                  ),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '${_t("Кровать", "Kravat")} ${bed['bed_number']}',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                        color: bookedLikeFinal ? const Color(0xFFB91C1C) : const Color(0xFF166534),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        _MiniTime(value: time['d']!, label: _t('Дни', 'Kunlar')),
+                                        _MiniTime(value: time['h']!, label: _t('Часы', 'Soatlar')),
+                                      ],
+                                    ),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        _MiniTime(value: time['m']!, label: _t('Минуты', 'Minutlar')),
+                                        _MiniTime(value: time['s']!, label: _t('Секунды', 'Sekundlar')),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      busy
+                                          ? '${_bedTypeEmoji('${bed['bed_type'] ?? 'single'}')} ⏱ ${_formatShortDate('${bed['checkout_date'] ?? ''}')}'
+                                          : '${_bedTypeEmoji('${bed['bed_type'] ?? 'single'}')} ✔ ${_t("Свободно", "Bo'sh")}',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: bookedLikeFinal ? const Color(0xFFB91C1C) : const Color(0xFF166534),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                                if (hasFutureFinal && bedId > 0)
+                                  Positioned(
+                                    top: 3,
+                                    right: 3,
+                                    child: Container(
+                                      height: 20,
+                                      width: 20,
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFDBEAFE),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: const Icon(Icons.calendar_month, size: 12, color: Color(0xFF2563EB)),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _DateBox extends StatelessWidget {
+  const _DateBox({required this.value, required this.onTap});
+  final String value;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFD1D5DB)),
+          color: Colors.white,
+        ),
+        child: Row(
+          children: [
+            Expanded(child: Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600))),
+            const Icon(Icons.calendar_month, size: 16),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MiniTime extends StatelessWidget {
+  const _MiniTime({required this.value, required this.label});
+  final String value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(value, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+        Text(label, style: const TextStyle(fontSize: 10, color: Color(0xFF475467))),
+      ],
+    );
+  }
+}
+
+class _RoomsPage extends StatefulWidget {
+  const _RoomsPage({required this.api, required this.onDataChanged});
+  final _ApiClient api;
+  final VoidCallback onDataChanged;
+
+  @override
+  State<_RoomsPage> createState() => _RoomsPageState();
+}
+
+class _RoomsPageState extends State<_RoomsPage> {
+  bool _loading = true;
+  String? _error;
+  List<dynamic> _rooms = [];
+  List<dynamic> _selectedRoomBeds = [];
+  int? _selectedRoomId;
+  int? _selectedBedId;
+  String _t(String ru, String uz) => trPair(ru: ru, uz: uz);
+
+  int? _toInt(dynamic v) {
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    return int.tryParse('${v ?? ''}');
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRooms();
+  }
+
+  Future<void> _loadRooms() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final data = await widget.api.getJson('/rooms/', query: {
+        'branch_id': widget.api.branchId.toString(),
+      });
+      final rooms = (data as List).cast<dynamic>();
+      setState(() {
+        _rooms = rooms;
+        if (_selectedRoomId == null && rooms.isNotEmpty) {
+          _selectedRoomId = _toInt(rooms.first['id']);
+        } else if (_selectedRoomId != null &&
+            !rooms.any((r) => _toInt(r['id']) == _selectedRoomId)) {
+          _selectedRoomId = rooms.isNotEmpty ? _toInt(rooms.first['id']) : null;
+        }
+        _selectedBedId = null;
+        _selectedRoomBeds = [];
+      });
+      await _loadBedsForSelectedRoom();
+    } catch (e) {
+      setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  dynamic get _selectedRoom {
+    if (_selectedRoomId == null) return null;
+    for (final r in _rooms) {
+      if (_toInt(r['id']) == _selectedRoomId) return r;
+    }
+    return null;
+  }
+
+  Future<void> _loadBedsForSelectedRoom() async {
+    final roomId = _selectedRoomId;
+    if (roomId == null) {
+      setState(() => _selectedRoomBeds = []);
+      return;
+    }
+    try {
+      final data = await widget.api.getJson('/beds/', query: {
+        'branch_id': widget.api.branchId.toString(),
+        'room_id': roomId.toString(),
+      });
+      setState(() {
+        _selectedRoomBeds = (data as List).cast<dynamic>();
+      });
+    } catch (e) {
+      setState(() {
+        _selectedRoomBeds = [];
+      });
+      _showSnack("${_t('Не удалось загрузить кровати', "Krovatlarni yuklab bo'lmadi")}: $e");
+    }
+  }
+
+  Future<void> _addRoomDialog() async {
+    final c = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(_t('Добавить комнату', "Xona qo'shish")),
+        content: TextField(
+          controller: c,
+          decoration: InputDecoration(
+            labelText: _t('Название комнаты', 'Xona nomi'),
+            border: const OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(_t('Отмена', 'Bekor'))),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(_t('Создать', "Qo'shish"))),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final name = c.text.trim();
+    if (name.isEmpty) return;
+
+    int maxNumber = 0;
+    for (final r in _rooms) {
+      final n = int.tryParse('${r['room_number'] ?? ''}') ?? 0;
+      if (n > maxNumber) maxNumber = n;
+    }
+    final nextNumber = (maxNumber + 1).toString();
+
+    try {
+      await widget.api.postJson('/rooms/', {
+        'branch_id': widget.api.branchId,
+        'number': nextNumber,
+        'room_name': name,
+      });
+      await _loadRooms();
+      widget.onDataChanged();
+      _showSnack(_t('Комната добавлена.', "Xona qo'shildi."));
+    } catch (e) {
+      _showSnack('$e', error: true);
+    }
+  }
+
+  Future<void> _deleteSelectedRoom() async {
+    final room = _selectedRoom;
+    if (room == null) return;
+    final roomId = (room['id'] as num).toInt();
+    final has = await widget.api.getJson('/rooms/$roomId/has-bookings', query: {
+      'branch_id': widget.api.branchId.toString(),
+    });
+    if (has is Map && has['has_booking'] == true) {
+      _showSnack(_t('В этой комнате есть брони, удалить нельзя.', 'Bu xonada bronlar bor, o‘chirib bo‘lmaydi.'), error: true);
+      return;
+    }
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(_t("Удалить комнату", "Xonani o'chirish")),
+        content: Text(_t('Вы уверены, что хотите удалить комнату?', "Haqiqatan ham xonani o‘chirasizmi?")),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(_t('Нет', 'Yo‘q'))),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(_t('Да', 'Ha'))),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await widget.api.deleteJson('/rooms/$roomId', query: {
+        'branch_id': widget.api.branchId.toString(),
+      });
+      await _loadRooms();
+      widget.onDataChanged();
+      _showSnack(_t("Комната удалена.", "Xona o'chirildi."));
+    } catch (e) {
+      _showSnack('$e', error: true);
+    }
+  }
+
+  Future<void> _addBed() async {
+    final roomId = _selectedRoomId;
+    if (roomId == null) {
+      _showSnack(_t('Сначала выберите комнату.', 'Avval xona tanlang.'));
+      return;
+    }
+    try {
+      await widget.api.postJson('/beds/', {
+        'branch_id': widget.api.branchId,
+        'room_id': roomId,
+      });
+      await _loadBedsForSelectedRoom();
+      widget.onDataChanged();
+      _showSnack(_t('Кровать добавлена.', "Kravat qo'shildi."));
+    } catch (e) {
+      _showSnack("${_t('Не удалось добавить кровать', "Kravat qo'shib bo'lmadi")}: $e", error: true);
+    }
+  }
+
+  Future<void> _deleteBed(Map<String, dynamic> bed) async {
+    final bedId = (bed['id'] as num).toInt();
+    final busy = await widget.api.getJson('/beds/$bedId/has-bookings', query: {
+      'branch_id': widget.api.branchId.toString(),
+    });
+    if (busy is Map && busy['has_booking'] == true) {
+      _showSnack(_t('На этой кровати есть бронь, удалить нельзя.', 'Bu krovatda bron bor, o‘chirib bo‘lmaydi.'), error: true);
+      return;
+    }
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(_t("Удалить кровать", "Krovatni o'chirish")),
+        content: Text("${_t('Удалить кровать', 'Kravat')} ${bed['bed_number']}?"),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(_t('Отмена', 'Bekor'))),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(_t('Удалить', "O'chirish"))),
+        ],
+      ),
+    );
+    if (ok != true) {
+      return;
+    }
+    try {
+      await widget.api.deleteJson('/beds/$bedId');
+      await _loadBedsForSelectedRoom();
+      widget.onDataChanged();
+      _showSnack(_t("Кровать удалена.", "Krovat o'chirildi."));
+    } catch (e) {
+      _showSnack('$e', error: true);
+    }
+  }
+
+  Future<void> _editBedType(Map<String, dynamic> bed) async {
+    String type = '${bed['bed_type'] ?? 'single'}';
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => StatefulBuilder(
+        builder: (context, setStateDialog) => AlertDialog(
+          title: Text(_t('Изменить тип кровати', 'Krovat turini o‘zgartirish')),
+          content: DropdownButtonFormField<String>(
+            value: type,
+            items: [
+              DropdownMenuItem(value: 'single', child: Text(_t('Одноместная', 'Bir kishilik'))),
+              DropdownMenuItem(value: 'double', child: Text(_t('Двухместная', 'Ikki kishilik'))),
+              DropdownMenuItem(value: 'child', child: Text(_t('Детская', 'Bolalar'))),
+            ],
+            onChanged: (v) => setStateDialog(() => type = v ?? 'single'),
+            decoration: const InputDecoration(border: OutlineInputBorder()),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: Text(_t('Отмена', 'Bekor'))),
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(_t('Сохранить', 'Saqlash'))),
+          ],
+        ),
+      ),
+    );
+    if (ok != true) return;
+
+    try {
+      await widget.api.putQuery('/beds/${bed['id']}', {
+        'bed_number': '${bed['bed_number']}',
+        'bed_type': type,
+      });
+      await _loadBedsForSelectedRoom();
+      widget.onDataChanged();
+      _showSnack(_t('Кровать обновлена.', 'Krovat yangilandi.'));
+    } catch (e) {
+      _showSnack('$e', error: true);
+    }
+  }
+
+  void _showBedActions(Map<String, dynamic> bed) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.edit),
+              title: Text(_t('Изменить тип кровати', 'Krovat turini o‘zgartirish')),
+              onTap: () {
+                Navigator.pop(context);
+                _editBedType(bed);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete, color: Colors.red),
+              title: Text(_t("Удалить кровать", "Krovatni o'chirish")),
+              onTap: () {
+                Navigator.pop(context);
+                _deleteBed(bed);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _bedTypeLabel(String t) {
+    switch (t) {
+      case 'double':
+        return _t('Двухместная\nкровать', 'Ikki kishilik\nkrovat');
+      case 'child':
+        return _t('Детская\nкровать', 'Bolalar\nkrovati');
+      default:
+        return _t('Одноместная\nкровать', 'Bir kishilik\nkrovat');
+    }
+  }
+
+  String _bedTypeEmoji(String t) {
+    switch (t) {
+      case 'double':
+        return '👥';
+      case 'child':
+        return '🧸';
+      default:
+        return '👤';
+    }
+  }
+
+  void _showSnack(String text, {bool error = false}) {
+    showAppAlert(context, text, error: error);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_error != null) return _ErrorText(error: _error!);
+    final room = _selectedRoom;
+    final beds = _selectedRoomBeds.cast<dynamic>();
+    Map<String, dynamic>? selectedBed;
+    for (final b in beds) {
+      if ((b['id'] as num).toInt() == _selectedBedId) {
+        selectedBed = Map<String, dynamic>.from(b as Map);
+        break;
+      }
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadRooms,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          _SectionTitle(_t('Комнаты и кровати', 'Xonalar va yotoqlar')),
+          const SizedBox(height: 10),
+          _Card(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(_t('Комнаты', 'Honalar'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                    const Spacer(),
+                    Container(
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF3D8BDF),
+                        shape: BoxShape.circle,
+                      ),
+                      child: IconButton(
+                        onPressed: _addRoomDialog,
+                        icon: const Icon(Icons.add, color: Colors.white),
+                        tooltip: _t('Добавить комнату', "Xona qo'shish"),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _rooms.map((r) {
+                    final id = (r['id'] as num).toInt();
+                    final selected = id == _selectedRoomId;
+                    return ChoiceChip(
+                      label: Text('🏠 ${r['room_name'] ?? r['room_number']}'),
+                      selected: selected,
+                      onSelected: (_) async {
+                        setState(() {
+                          _selectedRoomId = id;
+                          _selectedBedId = null;
+                          _selectedRoomBeds = [];
+                        });
+                        await _loadBedsForSelectedRoom();
+                      },
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE53935)),
+                    onPressed: room == null ? null : _deleteSelectedRoom,
+                    icon: const Icon(Icons.delete),
+                    label: Text(_t("Удалить комнату", "Xonani o'chirish")),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (room == null) _EmptyState(_t('Комната не выбрана.', 'Xona tanlanmagan.')),
+          if (room != null)
+            _Card(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text('${room['room_number'] ?? room['room_name']} — ${_t("Кровати", "Kravatlar")}',
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                      const Spacer(),
+                      Container(
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF3D8BDF),
+                          shape: BoxShape.circle,
+                        ),
+                        child: IconButton(
+                          onPressed: _addBed,
+                          icon: const Icon(Icons.add, color: Colors.white),
+                          tooltip: _t('Добавить кровать', "Krovat qo'shish"),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (beds.isEmpty) Padding(
+                    padding: EdgeInsets.only(top: 8),
+                    child: Text(_t('Кроватей нет', 'Krovat yo‘q'), style: const TextStyle(color: Colors.black54)),
+                  ),
+                  if (beds.isNotEmpty)
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: beds.map<Widget>((b) {
+                        final bed = Map<String, dynamic>.from(b as Map);
+                        final bedId = _toInt(bed['id']);
+                        final selected = _selectedBedId == bedId;
+                        final busy = bed['is_busy'] == true;
+                        return InkWell(
+                          onTap: () => setState(() {
+                            _selectedBedId = bedId;
+                          }),
+                          onLongPress: () => _showBedActions(bed),
+                          child: Container(
+                            width: 150,
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: selected
+                                    ? const Color(0xFF3D8BDF)
+                                    : (busy ? const Color(0xFFFCA5A5) : const Color(0xFF86EFAC)),
+                                width: selected ? 2 : 1,
+                              ),
+                              color: busy ? const Color(0xFFFFF1F2) : const Color(0xFFECFDF3),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Align(
+                                  alignment: Alignment.topRight,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: busy ? const Color(0xFFEF5350) : const Color(0xFF22C55E),
+                                      borderRadius: BorderRadius.circular(999),
+                                    ),
+                                    child: Text(
+                                      busy ? _t('Занято', 'Band') : _t('Свободно', "Bo'sh"),
+                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Center(
+                                  child: Text(
+                                    _bedTypeEmoji('${bed['bed_type'] ?? 'single'}'),
+                                    style: const TextStyle(fontSize: 34),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Center(
+                                  child: Text(
+                                    _bedTypeLabel('${bed['bed_type'] ?? 'single'}'),
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Center(
+                                  child: Text(
+                                    '${_t("Кровать", "Kravat")} ${bed['bed_number']}',
+                                    style: const TextStyle(color: Colors.black54, fontSize: 13),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE53935)),
+                      onPressed: selectedBed == null ? null : () => _deleteBed(selectedBed!),
+                      icon: const Icon(Icons.delete),
+                      label: Text(_t("Удалить кровать", "Krevatni o'chirish")),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      style: FilledButton.styleFrom(backgroundColor: const Color(0xFF2B7CCF)),
+                      onPressed: selectedBed == null ? null : () => _editBedType(selectedBed!),
+                      icon: const Icon(Icons.edit),
+                      label: Text(_t("Редактировать кровать", "Krovatni tahrirlash")),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BookingsPage extends StatefulWidget {
+  const _BookingsPage({required this.api});
+  final _ApiClient api;
+
+  @override
+  State<_BookingsPage> createState() => _BookingsPageState();
+}
+
+class _BookingsPageState extends State<_BookingsPage> {
+  bool _loading = true;
+  bool _saving = false;
+  String? _error;
+  String? _dateError;
+
+  List<dynamic> _rooms = [];
+  List<dynamic> _customers = [];
+  List<dynamic> _availableBeds = [];
+  List<dynamic> _customerSuggestions = [];
+
+  int? _roomId;
+  Map<String, dynamic>? _selectedBed;
+  bool _secondGuestEnabled = false;
+
+  DateTime _checkin = DateTime.now();
+  DateTime _checkout = DateTime.now();
+  DateTime _notifyDate = DateTime.now();
+
+  final _name = TextEditingController();
+  final _passport = TextEditingController();
+  final _contact = TextEditingController();
+  final _total = TextEditingController();
+  final _paid = TextEditingController();
+
+  final _name2 = TextEditingController();
+  final _passport2 = TextEditingController();
+  final _contact2 = TextEditingController();
+  String _t(String ru, String uz) => trPair(ru: ru, uz: uz);
+
+  @override
+  void initState() {
+    super.initState();
+    _loadInitial();
+    _name.addListener(_onNameChanged);
+    _total.addListener(() => setState(() {}));
+    _paid.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _passport.dispose();
+    _contact.dispose();
+    _total.dispose();
+    _paid.dispose();
+    _name2.dispose();
+    _passport2.dispose();
+    _contact2.dispose();
+    super.dispose();
+  }
+
+  String _fmt(DateTime d) =>
+      '${d.month.toString().padLeft(2, '0')}/${d.day.toString().padLeft(2, '0')}/${d.year}';
+  String _apiDate(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  bool get _isDoubleBed => '${_selectedBed?['bed_type'] ?? ''}' == 'double';
+
+  double get _remaining {
+    final t = double.tryParse(_total.text.trim()) ?? 0;
+    final p = double.tryParse(_paid.text.trim()) ?? 0;
+    final r = t - p;
+    return r > 0 ? r : 0;
+  }
+
+  Future<void> _loadInitial() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final result = await Future.wait([
+        widget.api.getJson('/booking/rooms', query: {'branch_id': widget.api.branchId.toString()}),
+        widget.api.getJson('/customers/', query: {'branch_id': widget.api.branchId.toString()}),
+      ]);
+      final rooms = (result[0] as List).cast<dynamic>();
+      final customers = (result[1] as List).cast<dynamic>();
+      setState(() {
+        _rooms = rooms;
+        _customers = customers;
+        _roomId = rooms.isNotEmpty ? (rooms.first['id'] as num).toInt() : null;
+      });
+      await _loadAvailableBeds();
+    } catch (e) {
+      setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _loadAvailableBeds() async {
+    if (_roomId == null) {
+      setState(() => _availableBeds = []);
+      return;
+    }
+    if (!_checkout.isAfter(_checkin)) {
+      setState(() {
+        _dateError = _t('Неверные даты', 'Noto‘g‘ri sanalar');
+        _availableBeds = [];
+        _selectedBed = null;
+        _secondGuestEnabled = false;
+      });
+      return;
+    }
+    setState(() => _dateError = null);
+    try {
+      final rows = await widget.api.getJson('/booking/available-beds', query: {
+        'branch_id': widget.api.branchId.toString(),
+        'room_id': _roomId.toString(),
+        'checkin': _apiDate(_checkin),
+        'checkout': _apiDate(_checkout),
+      });
+      final beds = (rows as List).cast<dynamic>();
+      setState(() {
+        _availableBeds = beds;
+        if (_selectedBed != null &&
+            !beds.any((b) => (b['id'] as num).toInt() == (_selectedBed!['id'] as num).toInt())) {
+          _selectedBed = null;
+          _secondGuestEnabled = false;
+        }
+      });
+    } catch (e) {
+      setState(() {
+        _availableBeds = [];
+        _error = e.toString();
+      });
+    }
+  }
+
+  void _onNameChanged() {
+    final q = _name.text.trim().toLowerCase();
+    if (q.isEmpty) {
+      setState(() => _customerSuggestions = []);
+      return;
+    }
+    final filtered = _customers.where((c) {
+      final n = '${c['name'] ?? ''}'.toLowerCase();
+      final p = '${c['passport_id'] ?? ''}'.toLowerCase();
+      final ct = '${c['contact'] ?? ''}'.toLowerCase();
+      return n.contains(q) || p.contains(q) || ct.contains(q);
+    }).take(8).toList();
+    setState(() => _customerSuggestions = filtered);
+  }
+
+  void _selectCustomer(Map<String, dynamic> c) {
+    setState(() {
+      _name.text = '${c['name'] ?? ''}';
+      _passport.text = '${c['passport_id'] ?? ''}';
+      _contact.text = '${c['contact'] ?? ''}';
+      _customerSuggestions = [];
+    });
+  }
+
+  Future<void> _pickDate({required bool checkin, bool notify = false}) async {
+    final initial = notify ? _notifyDate : (checkin ? _checkin : _checkout);
+    final d = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(2020, 1, 1),
+      lastDate: DateTime(2100, 12, 31),
+    );
+    if (d == null) return;
+    setState(() {
+      if (notify) {
+        _notifyDate = d;
+      } else if (checkin) {
+        _checkin = d;
+      } else {
+        _checkout = d;
+        _notifyDate = d;
+      }
+    });
+    await _loadAvailableBeds();
+  }
+
+  String _bedIcon(String t) {
+    switch (t) {
+      case 'double':
+        return '👥';
+      case 'child':
+        return '🧸';
+      default:
+        return '👤';
+    }
+  }
+
+  Future<void> _submit() async {
+    if (_selectedBed == null) {
+      _snack(_t('Сначала выберите кровать', 'Avval krovat tanlang'));
+      return;
+    }
+    if (_name.text.trim().isEmpty || _passport.text.trim().isEmpty || _contact.text.trim().isEmpty) {
+      _snack(_t('Введите данные клиента', 'Mijoz ma’lumotlarini kiriting'));
+      return;
+    }
+    final total = double.tryParse(_total.text.trim());
+    if (total == null || total <= 0) {
+      _snack(_t('Неверная общая сумма', 'Jami summa noto‘g‘ri'));
+      return;
+    }
+    final paid = double.tryParse(_paid.text.trim()) ?? 0;
+
+    Map<String, dynamic>? secondGuest;
+    if (_isDoubleBed && _secondGuestEnabled) {
+      if (_name2.text.trim().isEmpty || _passport2.text.trim().isEmpty || _contact2.text.trim().isEmpty) {
+        _snack(_t('Данные второго гостя заполнены не полностью', 'Ikkinchi mehmon ma’lumotlari to‘liq emas'));
+        return;
+      }
+      secondGuest = {
+        'name': _name2.text.trim(),
+        'passport_id': _passport2.text.trim(),
+        'contact': _contact2.text.trim(),
+      };
+    }
+
+    setState(() => _saving = true);
+    try {
+      await widget.api.postJson('/booking/', {
+        'branch_id': widget.api.branchId,
+        'name': _name.text.trim(),
+        'passport_id': _passport.text.trim(),
+        'contact': _contact.text.trim(),
+        'second_guest': secondGuest,
+        'room_id': _roomId,
+        'bed_id': (_selectedBed!['id'] as num).toInt(),
+        'total': total,
+        'paid': paid,
+        'checkin': _apiDate(_checkin),
+        'checkout': _apiDate(_checkout),
+        'notify_date': _apiDate(_notifyDate),
+      });
+      _snack(_t('Бронирование создано', 'Buyurtma yaratildi'));
+      setState(() {
+        _selectedBed = null;
+        _secondGuestEnabled = false;
+        _name.clear();
+        _passport.clear();
+        _contact.clear();
+        _name2.clear();
+        _passport2.clear();
+        _contact2.clear();
+        _total.clear();
+        _paid.clear();
+      });
+      await _loadAvailableBeds();
+    } catch (e) {
+      _snack('$e');
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  void _snack(String msg) {
+    showAppAlert(context, msg, error: msg.toLowerCase().contains('status'));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_error != null) return _ErrorText(error: _error!);
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Row(
+          children: [
+            Expanded(child: _SectionTitle('📝 ${_t("Новое бронирование", "Yangi bron")}')),
+            IconButton(
+              onPressed: _openBookingHistory,
+              icon: const Icon(Icons.history, color: Color(0xFFCC9A4D)),
+            )
+          ],
+        ),
+        const SizedBox(height: 8),
+        _Card(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(_t('Комната', 'Xona'), style: const TextStyle(fontSize: 16, color: Colors.black54)),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<int>(
+                value: _roomId,
+                decoration: const InputDecoration(border: OutlineInputBorder()),
+                items: _rooms
+                    .map((r) => DropdownMenuItem<int>(
+                          value: (r['id'] as num).toInt(),
+                          child: Text('${r['room_name'] ?? r['room_number']}'),
+                        ))
+                    .toList(),
+                onChanged: (v) async {
+                  setState(() {
+                    _roomId = v;
+                    _selectedBed = null;
+                    _secondGuestEnabled = false;
+                  });
+                  await _loadAvailableBeds();
+                },
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        _Card(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(child: _DateField(label: _t('Заезд', 'Kirish'), value: _fmt(_checkin), onTap: () => _pickDate(checkin: true))),
+                  const SizedBox(width: 10),
+                  Expanded(child: _DateField(label: _t('Выезд', 'Chiqish'), value: _fmt(_checkout), onTap: () => _pickDate(checkin: false))),
+                ],
+              ),
+              const SizedBox(height: 8),
+              _DateField(label: '🔔 ${_t("Дата напоминания", "Eslatma sanasi")}', value: _fmt(_notifyDate), onTap: () => _pickDate(checkin: false, notify: true)),
+              const SizedBox(height: 4),
+              Text(_t('Дата отправки напоминания об оплате', "To'lov bo'yicha eslatma yuboriladigan sana"), style: const TextStyle(fontSize: 12, color: Colors.black45)),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        _Card(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(_t('Доступные кровати на выбранное время', "Mavjud kravatlar tanlangan vaqt bo'yicha"), style: const TextStyle(fontSize: 16, color: Colors.black54)),
+              const SizedBox(height: 10),
+              if (_dateError != null) Text(_dateError!, style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w600)),
+              if (_dateError == null && _availableBeds.isEmpty) Text(_t('Свободные кровати не найдены', "Bo'sh krovat topilmadi")),
+              if (_availableBeds.isNotEmpty)
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _availableBeds.map((b) {
+                    final bed = Map<String, dynamic>.from(b as Map);
+                    final selected = _selectedBed != null &&
+                        (bed['id'] as num).toInt() == (_selectedBed!['id'] as num).toInt();
+                    final t = '${bed['bed_type'] ?? 'single'}';
+                    return ChoiceChip(
+                      label: Text('${_bedIcon(t)} ${_t("Кровать", "Kravat")} ${bed['bed_number']}'),
+                      selected: selected,
+                      onSelected: (_) {
+                        setState(() {
+                          _selectedBed = bed;
+                          if (t != 'double') _secondGuestEnabled = false;
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        _Card(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(_t('Имя клиента', 'Mijoz ismi'), style: const TextStyle(fontSize: 16, color: Colors.black54)),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _name,
+                decoration: InputDecoration(
+                  hintText: _t('Выберите клиента из списка или введите нового', "Mijozni ro'yxatdan tanlang yoki yangi mijoz"),
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+              if (_customerSuggestions.isNotEmpty)
+                Container(
+                  margin: const EdgeInsets.only(top: 6),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFD1D5DB)),
+                    color: Colors.white,
+                  ),
+                  child: Column(
+                    children: _customerSuggestions.map((c) {
+                      final m = Map<String, dynamic>.from(c as Map);
+                      return ListTile(
+                        dense: true,
+                        title: Text('${m['name'] ?? ''}', style: const TextStyle(fontWeight: FontWeight.w700)),
+                        subtitle: Text('🪪 ${m['passport_id'] ?? ''} • 📞 ${m['contact'] ?? ''}'),
+                        onTap: () => _selectCustomer(m),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _passport,
+                      decoration: InputDecoration(labelText: _t('Паспорт ID', 'Passport ID'), border: const OutlineInputBorder()),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: TextField(
+                      controller: _contact,
+                      decoration: InputDecoration(labelText: _t('Контакт', 'Telefon'), border: const OutlineInputBorder()),
+                    ),
+                  ),
+                ],
+              ),
+              if (_isDoubleBed) ...[
+                const SizedBox(height: 8),
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: _secondGuestEnabled,
+                  onChanged: (v) => setState(() => _secondGuestEnabled = v == true),
+                  title: Text(_t('Второй гость (необязательно)', 'Ikkinchi mehmon (ixtiyoriy)')),
+                  controlAffinity: ListTileControlAffinity.leading,
+                ),
+              ],
+              if (_isDoubleBed && _secondGuestEnabled) ...[
+                const Divider(),
+                TextField(
+                  controller: _name2,
+                  decoration: InputDecoration(labelText: _t('Имя клиента (2)', 'Mijoz ismi (2)'), border: const OutlineInputBorder()),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _passport2,
+                        decoration: InputDecoration(labelText: _t('Паспорт ID (2)', 'Passport ID (2)'), border: const OutlineInputBorder()),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextField(
+                        controller: _contact2,
+                        decoration: InputDecoration(labelText: _t('Контакт (2)', 'Telefon (2)'), border: const OutlineInputBorder()),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        _Card(
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _total,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(labelText: _t('Общая сумма', 'Jami miqdor'), border: const OutlineInputBorder()),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: TextField(
+                  controller: _paid,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(labelText: _t('Оплаченная сумма', "To'langan miqdor"), border: const OutlineInputBorder()),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text("${_t('Оставшаяся сумма', 'Qolgan summa')}: ${_remaining.toStringAsFixed(2)}", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+        const SizedBox(height: 10),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF3D8BDF),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+            onPressed: _saving ? null : _submit,
+            child: _saving
+                ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                : Text('✅ ${_t("Подтвердить бронирование", "Buyurtmani tasdiqlash")}', style: const TextStyle(fontWeight: FontWeight.w700)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _openBookingHistory() async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (_) => _BookingHistorySheet(api: widget.api),
+    );
+  }
+}
+
+class _DateField extends StatelessWidget {
+  const _DateField({required this.label, required this.value, required this.onTap});
+  final String label;
+  final String value;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 14, color: Colors.black54)),
+        const SizedBox(height: 4),
+        InkWell(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            decoration: BoxDecoration(
+              border: Border.all(color: const Color(0xFFD1D5DB)),
+              borderRadius: BorderRadius.circular(10),
+              color: Colors.white,
+            ),
+            child: Row(
+              children: [
+                Expanded(child: Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600))),
+                const Icon(Icons.calendar_month, size: 18),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _BookingHistorySheet extends StatefulWidget {
+  const _BookingHistorySheet({required this.api});
+  final _ApiClient api;
+
+  @override
+  State<_BookingHistorySheet> createState() => _BookingHistorySheetState();
+}
+
+class _BookingHistorySheetState extends State<_BookingHistorySheet> {
+  DateTime _from = DateTime.now().subtract(const Duration(days: 30));
+  DateTime _to = DateTime.now();
+  final _search = TextEditingController();
+  bool _loading = true;
+  String? _error;
+  List<dynamic> _rows = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  String _apiDate(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+  String _fmtInput(DateTime d) =>
+      '${d.month.toString().padLeft(2, '0')}/${d.day.toString().padLeft(2, '0')}/${d.year}';
+  String _fmtOut(String v) {
+    final d = DateTime.tryParse(v);
+    if (d == null) return v;
+    return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+  }
+
+  Future<void> _pick(bool from) async {
+    final initial = from ? _from : _to;
+    final p = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(2020, 1, 1),
+      lastDate: DateTime(2100, 12, 31),
+    );
+    if (p == null) return;
+    setState(() {
+      if (from) {
+        _from = p;
+      } else {
+        _to = p;
+      }
+    });
+  }
+
+  Future<void> _load() async {
+    if (_from.isAfter(_to)) {
+      setState(() => _error = 'From date must be before To date');
+      return;
+    }
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final data = await widget.api.getJson('/booking-history/', query: {
+        'branch_id': widget.api.branchId.toString(),
+        'from_date': _apiDate(_from),
+        'to_date': _apiDate(_to),
+      });
+      setState(() => _rows = (data as List).cast<dynamic>());
+    } catch (e) {
+      setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final q = _search.text.trim().toLowerCase();
+    final filtered = _rows.where((r) {
+      final n = '${r['customer_name'] ?? ''}'.toLowerCase();
+      final p = '${r['passport_id'] ?? ''}'.toLowerCase();
+      return q.isEmpty || n.contains(q) || p.contains(q);
+    }).toList();
+
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: 12,
+          right: 12,
+          top: 12,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 10,
+        ),
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height * 0.8,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Text('📜 История бронирований', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                  const Spacer(),
+                  IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
+                ],
+              ),
+              Row(
+                children: [
+                  Expanded(
+                    child: _DateField(label: '', value: _fmtInput(_from), onTap: () => _pick(true)),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _DateField(label: '', value: _fmtInput(_to), onTap: () => _pick(false)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _search,
+                      onChanged: (_) => setState(() {}),
+                      decoration: InputDecoration(
+                        hintText: trPair(ru: 'Поиск клиента / паспорта', uz: 'Mijoz / passport qidirish'),
+                        border: const OutlineInputBorder(),
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    onPressed: _load,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF3D8BDF),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    ),
+                    child: Text(trPair(ru: 'поиск', uz: 'izlash')),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              if (_loading) const Expanded(child: Center(child: CircularProgressIndicator())),
+              if (_error != null && !_loading)
+                Expanded(
+                  child: Center(
+                    child: Text(_error!, style: const TextStyle(color: Colors.red)),
+                  ),
+                ),
+              if (!_loading && _error == null)
+                Expanded(
+                  child: filtered.isEmpty
+                      ? Center(child: Text(trPair(ru: 'Бронирований не найдено', uz: 'Buyurtmalar topilmadi')))
+                      : ListView.separated(
+                          itemCount: filtered.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: 10),
+                          itemBuilder: (context, i) {
+                            final r = filtered[i] as Map<String, dynamic>;
+                            return Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: const Color(0xFFE5E7EB)),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('👤 ${r['customer_name'] ?? ''}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                                  const SizedBox(height: 2),
+                                  Text('🪪 ${r['passport_id'] ?? ''}', style: const TextStyle(color: Colors.black54)),
+                                  Text('🏠 ${r['room_name'] ?? r['room_number'] ?? ''} • 🛏 Kravat ${r['bed_number'] ?? ''}',
+                                      style: const TextStyle(color: Colors.black54)),
+                                  Text('🗓 ${_fmtOut('${r['checkin_date'] ?? ''}')} → ${_fmtOut('${r['checkout_date'] ?? ''}')}',
+                                      style: const TextStyle(color: Colors.black54)),
+                                  const SizedBox(height: 6),
+                                  Align(
+                                    alignment: Alignment.centerRight,
+                                    child: Text(
+                                      '💰 ${r['total_amount'] ?? 0}',
+                                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 20),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PaymentsPage extends StatefulWidget {
+  const _PaymentsPage({required this.api});
+  final _ApiClient api;
+
+  @override
+  State<_PaymentsPage> createState() => _PaymentsPageState();
+}
+
+class _PaymentsPageState extends State<_PaymentsPage> {
+  late int _month;
+  late int _year;
+  bool _loading = true;
+  String? _error;
+  Map<String, dynamic> _finance = {};
+  final _titleCtrl = TextEditingController();
+  final _amountCtrl = TextEditingController();
+  bool _addingExpense = false;
+  String _t(String ru, String uz) => trPair(ru: ru, uz: uz);
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _month = now.month;
+    _year = now.year;
+    _loadFinance();
+  }
+
+  @override
+  void dispose() {
+    _titleCtrl.dispose();
+    _amountCtrl.dispose();
+    super.dispose();
+  }
+
+  String _fmtNum(dynamic x) {
+    final n = (x is num) ? x : num.tryParse('$x') ?? 0;
+    return n.toStringAsFixed(0).replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (m) => ' ');
+  }
+
+  Future<void> _loadFinance() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final d = await widget.api.getJson('/payments/monthly-finance', query: {
+        'branch_id': widget.api.branchId.toString(),
+        'year': _year.toString(),
+        'month': _month.toString(),
+      });
+      setState(() => _finance = Map<String, dynamic>.from(d as Map));
+    } catch (e) {
+      setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _addExpense() async {
+    final title = _titleCtrl.text.trim();
+    final amount = double.tryParse(_amountCtrl.text.trim());
+    if (title.isEmpty || amount == null || amount <= 0) {
+      showAppAlert(context, _t('Введите корректно заголовок и сумму', "Sarlavha va summa to'g'ri kiriting"), error: true);
+      return;
+    }
+    setState(() => _addingExpense = true);
+    try {
+      final now = DateTime.now();
+      final date = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+      await widget.api.postJson('/payments/expense', {
+        'branch_id': widget.api.branchId,
+        'title': title,
+        'category': 'other',
+        'amount': amount,
+        'expense_date': date,
+      });
+      _titleCtrl.clear();
+      _amountCtrl.clear();
+      await _loadFinance();
+      if (!mounted) return;
+      showAppAlert(context, _t('Расход добавлен', "Xarajat qo'shildi"));
+    } catch (e) {
+      showAppAlert(context, '$e', error: true);
+    } finally {
+      if (mounted) setState(() => _addingExpense = false);
+    }
+  }
+
+  Future<void> _openSimpleListSheet({
+    required String title,
+    required Future<dynamic> Function() loader,
+    required Widget Function(Map<String, dynamic>) itemBuilder,
+  }) async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(18))),
+      builder: (_) => FutureBuilder<dynamic>(
+        future: loader(),
+        builder: (context, snap) {
+          return SafeArea(
+            child: SizedBox(
+              height: MediaQuery.of(context).size.height * 0.78,
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 10, 6, 4),
+                    child: Row(
+                      children: [
+                        Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                        const Spacer(),
+                        IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: () {
+                      if (snap.connectionState != ConnectionState.done) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      if (snap.hasError) {
+                        return Center(child: Text('${snap.error}', style: const TextStyle(color: Colors.red)));
+                      }
+                      final rows = (snap.data as List).cast<dynamic>();
+                      if (rows.isEmpty) return const Center(child: Text('Ma’lumot yo‘q'));
+                      return ListView.separated(
+                        padding: const EdgeInsets.all(12),
+                        itemCount: rows.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        itemBuilder: (_, i) => itemBuilder(Map<String, dynamic>.from(rows[i] as Map)),
+                      );
+                    }(),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  DateTime _firstDay() => DateTime(_year, _month, 1);
+  DateTime _lastDay() => DateTime(_year, _month + 1, 0);
+  String _apiDate(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  @override
+  Widget build(BuildContext context) {
+    final income = _fmtNum(_finance['income'] ?? 0);
+    final expenses = _fmtNum(_finance['expenses'] ?? 0);
+    final debt = _fmtNum(_finance['debt'] ?? 0);
+    final refunds = _fmtNum(_finance['refunds'] ?? 0);
+    final profit = _fmtNum((_finance['income'] ?? 0) - (_finance['expenses'] ?? 0) - (_finance['refunds'] ?? 0));
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _SectionTitle('💰 ${_t("Ежемесячные финансы", "Oylik moliya")}'),
+        const SizedBox(height: 10),
+        _Card(
+          child: Row(
+            children: [
+              Expanded(
+                child: DropdownButtonFormField<int>(
+                  value: _month,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                    contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                  ),
+                  items: List.generate(12, (i) => i + 1)
+                      .map((m) => DropdownMenuItem(value: m, child: Text('$m')))
+                      .toList(),
+                  onChanged: (v) => setState(() => _month = v ?? _month),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: DropdownButtonFormField<int>(
+                  value: _year,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                    contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                  ),
+                  items: List.generate(11, (i) => DateTime.now().year - 5 + i)
+                      .map((y) => DropdownMenuItem(value: y, child: Text('$y')))
+                      .toList(),
+                  onChanged: (v) => setState(() => _year = v ?? _year),
+                ),
+              ),
+              const SizedBox(width: 10),
+              FilledButton(
+                onPressed: _loadFinance,
+                style: FilledButton.styleFrom(backgroundColor: const Color(0xFF3D8BDF), padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12)),
+                child: Text(_t('поиск', 'izlash')),
+              )
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (_loading) const Center(child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator())),
+        if (_error != null && !_loading) _ErrorText(error: _error!),
+        if (!_loading && _error == null) ...[
+          Row(
+            children: [
+              Expanded(child: _NumberBox(title: _t('Доход', 'Daromad'), value: income, bg: const Color(0xFFD1FAE5))),
+              const SizedBox(width: 10),
+              Expanded(child: _NumberBox(title: _t('Расходы', 'Xarajatlar'), value: expenses, bg: const Color(0xFFFEE2E2))),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(child: _NumberBox(title: _t('Долг', 'Qarz'), value: debt, bg: const Color(0xFFFEF9C3))),
+              const SizedBox(width: 10),
+              Expanded(child: _NumberBox(title: _t('Возвраты', 'Qaytarilgan pullar'), value: refunds, bg: const Color(0xFFDBEAFE))),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _Card(
+            child: Column(
+              children: [
+                Text(_t('Чистая прибыль', 'Sof foyda'), style: const TextStyle(fontSize: 15, color: Colors.black54)),
+                const SizedBox(height: 4),
+                Text(profit, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          _Card(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('➕ ${_t("Добавить дополнительный расход", "Qo\'shimcha xarajat qo\'shish")}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _titleCtrl,
+                  decoration: InputDecoration(hintText: _t('Заголовок', 'Sarlavha'), border: const OutlineInputBorder()),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _amountCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(hintText: _t('Сумма', 'Miqdor'), border: const OutlineInputBorder()),
+                ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE5534B)),
+                    onPressed: _addingExpense ? null : _addExpense,
+                    child: _addingExpense
+                        ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                        : Text(_t('Добавить', "Qo'shish")),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            alignment: WrapAlignment.center,
+            runAlignment: WrapAlignment.center,
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _ActionTile(
+                emoji: '📜',
+                label: _t('История\nплатежей', "To'lovlar\ntarixi"),
+                onTap: () => showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.white,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+                  ),
+                  builder: (_) => _PaymentHistorySheet(
+                    api: widget.api,
+                    initialYear: _year,
+                    initialMonth: _month,
+                  ),
+                ),
+              ),
+              _ActionTile(
+                emoji: '💸',
+                label: _t('История\nрасходов', "Xarajatlar\ntarixi"),
+                onTap: () => showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.white,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+                  ),
+                  builder: (_) => _ExpenseHistorySheet(
+                    api: widget.api,
+                    initialYear: _year,
+                    initialMonth: _month,
+                  ),
+                ),
+              ),
+              _ActionTile(
+                emoji: '💳',
+                label: _t('История долгов', 'Qarzlar tarixi'),
+                onTap: () => showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.white,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+                  ),
+                  builder: (_) => _DebtAnalyticsSheet(
+                    api: widget.api,
+                  ),
+                ),
+              ),
+              _ActionTile(
+                emoji: '👤',
+                label: _t('Клиенты', 'Mijozlar'),
+                onTap: () => showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.white,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+                  ),
+                  builder: (_) => _CustomersSheet(api: widget.api),
+                ),
+              ),
+              _ActionTile(
+                emoji: '↩️',
+                label: _t('Возвраты', 'Qaytarilgan pullar'),
+                onTap: () => showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.white,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+                  ),
+                  builder: (_) => _RefundsSheet(
+                    api: widget.api,
+                    initialYear: _year,
+                    initialMonth: _month,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _ActionTile extends StatelessWidget {
+  const _ActionTile({required this.emoji, required this.label, required this.onTap});
+  final String emoji;
+  final String label;
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        width: 155,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 22),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFE5E7EB)),
+        ),
+        child: Column(
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 24)),
+            const SizedBox(height: 8),
+            Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HistoryTile extends StatelessWidget {
+  const _HistoryTile({required this.title, required this.subtitle, required this.amount});
+  final String title;
+  final String subtitle;
+  final String amount;
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 4),
+                Text(subtitle, style: const TextStyle(color: Colors.black54)),
+              ],
+            ),
+          ),
+          if (amount.trim().isNotEmpty)
+            Text(
+              amount,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PaymentHistorySheet extends StatefulWidget {
+  const _PaymentHistorySheet({
+    required this.api,
+    required this.initialYear,
+    required this.initialMonth,
+  });
+
+  final _ApiClient api;
+  final int initialYear;
+  final int initialMonth;
+
+  @override
+  State<_PaymentHistorySheet> createState() => _PaymentHistorySheetState();
+}
+
+class _PaymentHistorySheetState extends State<_PaymentHistorySheet> {
+  late int _year = widget.initialYear;
+  late int _month = widget.initialMonth;
+  final _search = TextEditingController();
+  bool _loading = true;
+  String? _error;
+  List<dynamic> _rows = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  String _fmtAmount(dynamic x) {
+    final n = (x is num) ? x : num.tryParse('$x') ?? 0;
+    return n.toStringAsFixed(0).replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (m) => ' ');
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final data = await widget.api.getJson('/payment-history/', query: {
+        'branch_id': widget.api.branchId.toString(),
+        'year': _year.toString(),
+        'month': _month.toString(),
+      });
+      setState(() => _rows = (data as List).cast<dynamic>());
+    } catch (e) {
+      setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final q = _search.text.trim().toLowerCase();
+    final filtered = _rows.where((r) {
+      final name = '${r['customer_name'] ?? ''}'.toLowerCase();
+      final pass = '${r['passport_id'] ?? ''}'.toLowerCase();
+      return q.isEmpty || name.contains(q) || pass.contains(q);
+    }).toList();
+
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          8,
+          10,
+          8,
+          MediaQuery.of(context).viewInsets.bottom + 8,
+        ),
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height * 0.82,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 0, 4, 6),
+                child: Row(
+                  children: [
+                    const Text('📜 История платежей', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                    const Spacer(),
+                    IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
+                  ],
+                ),
+              ),
+              _Card(
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<int>(
+                            value: _month,
+                            decoration: const InputDecoration(
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                            ),
+                            items: List.generate(12, (i) => i + 1)
+                                .map((m) => DropdownMenuItem(value: m, child: Text('$m')))
+                                .toList(),
+                            onChanged: (v) => setState(() => _month = v ?? _month),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: DropdownButtonFormField<int>(
+                            value: _year,
+                            decoration: const InputDecoration(
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                            ),
+                            items: List.generate(11, (i) => DateTime.now().year - 5 + i)
+                                .map((y) => DropdownMenuItem(value: y, child: Text('$y')))
+                                .toList(),
+                            onChanged: (v) => setState(() => _year = v ?? _year),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        FilledButton(
+                          onPressed: _load,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: const Color(0xFF3D8BDF),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          ),
+                          child: const Text('Загрузить'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _search,
+                      onChanged: (_) => setState(() {}),
+                      decoration: const InputDecoration(
+                        hintText: 'Поиск клиента / паспорта',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              Expanded(
+                child: () {
+                  if (_loading) return const Center(child: CircularProgressIndicator());
+                  if (_error != null) return Center(child: Text(_error!, style: const TextStyle(color: Colors.red)));
+                  if (filtered.isEmpty) return const Center(child: Text('Платежей нет'));
+                  return ListView.separated(
+                    itemCount: filtered.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    itemBuilder: (_, i) {
+                      final r = Map<String, dynamic>.from(filtered[i] as Map);
+                      return _Card(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('${r['payment_date'] ?? r['created_at'] ?? ''}', style: const TextStyle(color: Color(0xFF64748B))),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text('${r['customer_name'] ?? ''}',
+                                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                                ),
+                                Text(
+                                  _fmtAmount(r['amount'] ?? r['paid_amount'] ?? 0),
+                                  style: const TextStyle(color: Color(0xFF2E9F45), fontWeight: FontWeight.w700, fontSize: 22),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Text('${r['passport_id'] ?? ''}', style: const TextStyle(color: Color(0xFF475467))),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    '🏠 ${r['room_name'] ?? r['room_number'] ?? ''} • 🛏 Kravat ${r['bed_number'] ?? ''}',
+                                    style: const TextStyle(color: Color(0xFF334155)),
+                                  ),
+                                ),
+                                const Text('customer', style: TextStyle(color: Color(0xFF64748B))),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  );
+                }(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ExpenseHistorySheet extends StatefulWidget {
+  const _ExpenseHistorySheet({
+    required this.api,
+    required this.initialYear,
+    required this.initialMonth,
+  });
+
+  final _ApiClient api;
+  final int initialYear;
+  final int initialMonth;
+
+  @override
+  State<_ExpenseHistorySheet> createState() => _ExpenseHistorySheetState();
+}
+
+class _ExpenseHistorySheetState extends State<_ExpenseHistorySheet> {
+  late int _year = widget.initialYear;
+  late int _month = widget.initialMonth;
+  bool _loading = true;
+  String? _error;
+  List<dynamic> _rows = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  String _fmtAmount(dynamic x) {
+    final n = (x is num) ? x : num.tryParse('$x') ?? 0;
+    return n.toStringAsFixed(0).replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (m) => ' ');
+  }
+
+  String _monthLabel(int m) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    if (m < 1 || m > 12) return '$m';
+    return months[m - 1];
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final data = await widget.api.getJson('/payments/expenses', query: {
+        'branch_id': widget.api.branchId.toString(),
+        'year': _year.toString(),
+        'month': _month.toString(),
+      });
+      setState(() => _rows = (data as List).cast<dynamic>());
+    } catch (e) {
+      setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 10, 8, 8),
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height * 0.72,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 0, 4, 6),
+                child: Row(
+                  children: [
+                    const Text('💸 История расходов', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                    const Spacer(),
+                    IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
+                  ],
+                ),
+              ),
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<int>(
+                      value: _month,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                      ),
+                      items: List.generate(12, (i) => i + 1)
+                          .map((m) => DropdownMenuItem(value: m, child: Text(_monthLabel(m))))
+                          .toList(),
+                      onChanged: (v) => setState(() => _month = v ?? _month),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: DropdownButtonFormField<int>(
+                      value: _year,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                      ),
+                      items: List.generate(11, (i) => DateTime.now().year - 5 + i)
+                          .map((y) => DropdownMenuItem(value: y, child: Text('$y')))
+                          .toList(),
+                      onChanged: (v) => setState(() => _year = v ?? _year),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    onPressed: _load,
+                    style: FilledButton.styleFrom(backgroundColor: const Color(0xFF3D8BDF), padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12)),
+                    child: const Text('OK'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Expanded(
+                child: () {
+                  if (_loading) return const Center(child: CircularProgressIndicator());
+                  if (_error != null) return Center(child: Text(_error!, style: const TextStyle(color: Colors.red)));
+                  if (_rows.isEmpty) return const Center(child: Text('Расходов нет'));
+                  return ListView.separated(
+                    itemCount: _rows.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (_, i) {
+                      final r = Map<String, dynamic>.from(_rows[i] as Map);
+                      return _Card(
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('${r['expense_date'] ?? ''}', style: const TextStyle(color: Color(0xFF64748B))),
+                                  const SizedBox(height: 4),
+                                  Text('${r['title'] ?? ''}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                                  Text('${r['category'] ?? ''}', style: const TextStyle(color: Color(0xFF64748B))),
+                                ],
+                              ),
+                            ),
+                            Text(
+                              _fmtAmount(r['amount'] ?? 0),
+                              style: const TextStyle(color: Color(0xFFC0392B), fontSize: 20, fontWeight: FontWeight.w700),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  );
+                }(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DebtAnalyticsSheet extends StatefulWidget {
+  const _DebtAnalyticsSheet({required this.api});
+  final _ApiClient api;
+
+  @override
+  State<_DebtAnalyticsSheet> createState() => _DebtAnalyticsSheetState();
+}
+
+class _DebtAnalyticsSheetState extends State<_DebtAnalyticsSheet> {
+  DateTime _from = DateTime(2025, 12, 31);
+  DateTime _to = DateTime.now();
+  bool _loading = true;
+  String? _error;
+  List<dynamic> _rows = [];
+  final _search = TextEditingController();
+  final Map<int, TextEditingController> _payCtrls = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    for (final c in _payCtrls.values) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  String _apiDate(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+  String _fmt(DateTime d) =>
+      '${d.month.toString().padLeft(2, '0')}/${d.day.toString().padLeft(2, '0')}/${d.year}';
+
+  Future<void> _pick(bool from) async {
+    final init = from ? _from : _to;
+    final p = await showDatePicker(
+      context: context,
+      initialDate: init,
+      firstDate: DateTime(2020, 1, 1),
+      lastDate: DateTime(2100, 12, 31),
+    );
+    if (p == null) return;
+    setState(() {
+      if (from) {
+        _from = p;
+      } else {
+        _to = p;
+      }
+    });
+  }
+
+  Future<void> _load() async {
+    if (_from.isAfter(_to)) {
+      setState(() => _error = 'Неверный диапазон дат');
+      return;
+    }
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final data = await widget.api.getJson('/debts/', query: {
+        'branch_id': widget.api.branchId.toString(),
+        'from_date': _apiDate(_from),
+        'to_date': _apiDate(_to),
+      });
+      final rows = (data as List).cast<dynamic>();
+      for (final r in rows) {
+        final m = Map<String, dynamic>.from(r as Map);
+        final bookingId = ((m['booking_id'] ?? m['id']) as num).toInt();
+        _payCtrls.putIfAbsent(bookingId, () => TextEditingController());
+      }
+      setState(() => _rows = rows);
+    } catch (e) {
+      setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _payDebt(Map<String, dynamic> r) async {
+    final bookingId = ((r['booking_id'] ?? r['id']) as num).toInt();
+    final ctrl = _payCtrls[bookingId];
+    final amount = double.tryParse(ctrl?.text.trim() ?? '');
+    if (amount == null || amount <= 0) {
+      showAppAlert(context, 'Введите сумму платежа', error: true);
+      return;
+    }
+    await widget.api.postJson('/debts/pay', {
+      'branch_id': widget.api.branchId,
+      'booking_id': bookingId,
+      'amount': amount,
+      'paid_by': 'customer',
+    });
+    ctrl?.clear();
+    await _load();
+    if (!mounted) return;
+    showAppAlert(context, 'Оплата проведена');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final q = _search.text.trim().toLowerCase();
+    final filtered = _rows.where((r) {
+      final m = Map<String, dynamic>.from(r as Map);
+      final n = '${m['customer_name'] ?? ''}'.toLowerCase();
+      final p = '${m['passport_id'] ?? ''}'.toLowerCase();
+      return q.isEmpty || n.contains(q) || p.contains(q);
+    }).toList();
+
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          8,
+          10,
+          8,
+          MediaQuery.of(context).viewInsets.bottom + 8,
+        ),
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height * 0.84,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 0, 4, 6),
+                child: Row(
+                  children: [
+                    const Text('💳 Аналитика долгов', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                    const Spacer(),
+                    IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
+                  ],
+                ),
+              ),
+              _Card(
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: InkWell(
+                            onTap: () => _pick(true),
+                            borderRadius: BorderRadius.circular(10),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: const Color(0xFFD1D5DB)),
+                                borderRadius: BorderRadius.circular(10),
+                                color: Colors.white,
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      _fmt(_from),
+                                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                                    ),
+                                  ),
+                                  const Icon(Icons.calendar_month, size: 18),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 8),
+                          child: Text('—', style: TextStyle(fontSize: 20, color: Color(0xFF6B7280))),
+                        ),
+                        Expanded(
+                          child: InkWell(
+                            onTap: () => _pick(false),
+                            borderRadius: BorderRadius.circular(10),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: const Color(0xFFD1D5DB)),
+                                borderRadius: BorderRadius.circular(10),
+                                color: Colors.white,
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      _fmt(_to),
+                                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                                    ),
+                                  ),
+                                  const Icon(Icons.calendar_month, size: 18),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: FilledButton(
+                        onPressed: _load,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF3D8BDF),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        ),
+                        child: const Text('Подтвердить'),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _search,
+                      onChanged: (_) => setState(() {}),
+                      decoration: const InputDecoration(
+                        hintText: 'Поиск клиента / паспорта',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              Expanded(
+                child: () {
+                  if (_loading) return const Center(child: CircularProgressIndicator());
+                  if (_error != null) return Center(child: Text(_error!, style: const TextStyle(color: Colors.red)));
+                  if (filtered.isEmpty) return const Center(child: Text('Долгов нет'));
+                  return ListView.separated(
+                    keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                    padding: const EdgeInsets.only(bottom: 16),
+                    itemCount: filtered.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (_, i) {
+                      final r = Map<String, dynamic>.from(filtered[i] as Map);
+                      final bookingId = ((r['booking_id'] ?? r['id']) as num).toInt();
+                      final ctrl = _payCtrls.putIfAbsent(bookingId, () => TextEditingController());
+                      return _Card(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text('${r['customer_name'] ?? ''}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
+                                ),
+                                Text(
+                                  '${r['debt_amount'] ?? r['remaining_amount'] ?? 0}',
+                                  style: const TextStyle(color: Color(0xFFC0392B), fontSize: 22, fontWeight: FontWeight.w700),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Text('${r['passport_id'] ?? ''}', style: const TextStyle(color: Color(0xFF64748B))),
+                            Text('🏠 ${r['room_name'] ?? r['room_number'] ?? ''} • 🛏 Kravat ${r['bed_number'] ?? ''}',
+                                style: const TextStyle(color: Color(0xFF475467))),
+                            Text('${r['checkin_date'] ?? ''} → ${r['checkout_date'] ?? ''}',
+                                style: const TextStyle(color: Color(0xFF64748B))),
+                            const SizedBox(height: 8),
+                            TextField(
+                              controller: ctrl,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              decoration: const InputDecoration(
+                                hintText: 'Сумма платежа',
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            SizedBox(
+                              width: double.infinity,
+                              child: FilledButton(
+                                style: FilledButton.styleFrom(backgroundColor: const Color(0xFF57C568)),
+                                onPressed: () => _payDebt(r),
+                                child: const Text('Оплатить'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  );
+                }(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CustomersSheet extends StatefulWidget {
+  const _CustomersSheet({required this.api});
+  final _ApiClient api;
+
+  @override
+  State<_CustomersSheet> createState() => _CustomersSheetState();
+}
+
+class _CustomersSheetState extends State<_CustomersSheet> {
+  bool _loading = true;
+  String? _error;
+  List<dynamic> _rows = [];
+  final _search = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final data = await widget.api.getJson('/customers/', query: {
+        'branch_id': widget.api.branchId.toString(),
+      });
+      setState(() => _rows = (data as List).cast<dynamic>());
+    } catch (e) {
+      setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _editCustomer(Map<String, dynamic> c) async {
+    final name = TextEditingController(text: '${c['name'] ?? ''}');
+    final pass = TextEditingController(text: '${c['passport_id'] ?? ''}');
+    final phone = TextEditingController(text: '${c['contact'] ?? ''}');
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Редактировать'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: name, decoration: const InputDecoration(labelText: 'Имя', border: OutlineInputBorder())),
+            const SizedBox(height: 8),
+            TextField(controller: pass, decoration: const InputDecoration(labelText: 'Паспорт', border: OutlineInputBorder())),
+            const SizedBox(height: 8),
+            TextField(controller: phone, decoration: const InputDecoration(labelText: 'Телефон', border: OutlineInputBorder())),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Отмена')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Сохранить')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await widget.api.putQuery('/customers/${c['id']}', {
+      'name': name.text.trim(),
+      'passport_id': pass.text.trim(),
+      'contact': phone.text.trim(),
+    });
+    await _load();
+  }
+
+  Future<void> _deleteCustomer(Map<String, dynamic> c) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Удалить клиента'),
+        content: Text('Удалить ${c['name'] ?? ''}?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Нет')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Да')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await widget.api.deleteJson('/customers/${c['id']}');
+    await _load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final q = _search.text.trim().toLowerCase();
+    final filtered = _rows.where((r) {
+      final m = Map<String, dynamic>.from(r as Map);
+      return q.isEmpty ||
+          '${m['name'] ?? ''}'.toLowerCase().contains(q) ||
+          '${m['passport_id'] ?? ''}'.toLowerCase().contains(q) ||
+          '${m['contact'] ?? ''}'.toLowerCase().contains(q);
+    }).toList();
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 10, 8, 8),
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height * 0.82,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 0, 4, 6),
+                child: Row(
+                  children: [
+                    const Text('👤 Клиенты', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                    const Spacer(),
+                    IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
+                  ],
+                ),
+              ),
+              _Card(
+                child: TextField(
+                  controller: _search,
+                  onChanged: (_) => setState(() {}),
+                  decoration: const InputDecoration(
+                    hintText: 'Поиск по имени, паспорту или телефону',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Expanded(
+                child: () {
+                  if (_loading) return const Center(child: CircularProgressIndicator());
+                  if (_error != null) return Center(child: Text(_error!, style: const TextStyle(color: Colors.red)));
+                  return _Card(
+                    child: filtered.isEmpty
+                        ? const Center(child: Padding(padding: EdgeInsets.all(20), child: Text('Клиентов нет')))
+                        : ListView.separated(
+                            shrinkWrap: true,
+                            itemCount: filtered.length,
+                            separatorBuilder: (_, __) => const Divider(height: 16),
+                            itemBuilder: (_, i) {
+                              final c = Map<String, dynamic>.from(filtered[i] as Map);
+                              final initial = (('${c['name'] ?? '?'}').trim().isNotEmpty)
+                                  ? ('${c['name']}'.trim()[0]).toUpperCase()
+                                  : '?';
+                              return Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  CircleAvatar(
+                                    radius: 24,
+                                    backgroundColor: const Color(0xFF7EA8FF),
+                                    child: Text(
+                                      initial,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 20,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '${c['name'] ?? ''}',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 15,
+                                          ),
+                                        ),
+                                        Text(
+                                          '🪪 ${c['passport_id'] ?? ''}',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            color: Color(0xFF475467),
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                        Text(
+                                          '📞 ${c['contact'] ?? ''}',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            color: Color(0xFF475467),
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Column(
+                                    children: [
+                                      OutlinedButton.icon(
+                                        onPressed: () => _editCustomer(c),
+                                        style: OutlinedButton.styleFrom(
+                                          minimumSize: const Size(82, 34),
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                        ),
+                                        icon: const Text('✏️', style: TextStyle(fontSize: 12)),
+                                        label: const Text('Изм.', style: TextStyle(fontSize: 12)),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      FilledButton(
+                                        style: FilledButton.styleFrom(
+                                          backgroundColor: const Color(0xFFE5534B),
+                                          minimumSize: const Size(82, 34),
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                        ),
+                                        onPressed: () => _deleteCustomer(c),
+                                        child: const Text('🗑', style: TextStyle(fontSize: 14)),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
+                  );
+                }(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RefundsSheet extends StatefulWidget {
+  const _RefundsSheet({
+    required this.api,
+    required this.initialYear,
+    required this.initialMonth,
+  });
+
+  final _ApiClient api;
+  final int initialYear;
+  final int initialMonth;
+
+  @override
+  State<_RefundsSheet> createState() => _RefundsSheetState();
+}
+
+class _RefundsSheetState extends State<_RefundsSheet> {
+  late int _year = widget.initialYear;
+  late int _month = widget.initialMonth;
+  bool _loading = true;
+  String? _error;
+  List<dynamic> _rows = [];
+
+  String _apiDate(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+  DateTime _firstDay() => DateTime(_year, _month, 1);
+  DateTime _lastDay() => DateTime(_year, _month + 1, 0);
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final data = await widget.api.getJson('/refunds/list', query: {
+        'branch_id': widget.api.branchId.toString(),
+        'from_date': _apiDate(_firstDay()),
+        'to_date': _apiDate(_lastDay()),
+      });
+      setState(() => _rows = (data as List).cast<dynamic>());
+    } catch (e) {
+      setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 10, 8, 8),
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height * 0.72,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 0, 4, 6),
+                child: Row(
+                  children: [
+                    const Text('↩️ Возвраты', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                    const Spacer(),
+                    IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
+                  ],
+                ),
+              ),
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<int>(
+                      value: _month,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                      ),
+                      items: List.generate(12, (i) => i + 1)
+                          .map((m) => DropdownMenuItem(value: m, child: Text('$m')))
+                          .toList(),
+                      onChanged: (v) => setState(() => _month = v ?? _month),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: DropdownButtonFormField<int>(
+                      value: _year,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                      ),
+                      items: List.generate(11, (i) => DateTime.now().year - 5 + i)
+                          .map((y) => DropdownMenuItem(value: y, child: Text('$y')))
+                          .toList(),
+                      onChanged: (v) => setState(() => _year = v ?? _year),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    onPressed: _load,
+                    style: FilledButton.styleFrom(backgroundColor: const Color(0xFF3D8BDF), padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12)),
+                    child: Text(trPair(ru: 'поиск', uz: 'izlash')),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Expanded(
+                child: () {
+                  if (_loading) return const Center(child: CircularProgressIndicator());
+                  if (_error != null) return Center(child: Text(_error!, style: const TextStyle(color: Colors.red)));
+                  if (_rows.isEmpty) {
+                    return Center(
+                      child: Text(
+                        trPair(ru: 'За выбранный период возвратов нет', uz: "Tanlangan davrda qaytargan mablag'lar yo'q"),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 16, color: Color(0xFF64748B)),
+                      ),
+                    );
+                  }
+                  return ListView.separated(
+                    itemCount: _rows.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (_, i) {
+                      final r = Map<String, dynamic>.from(_rows[i] as Map);
+                      return _Card(
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('${r['refund_reason'] ?? '-'}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                                  const SizedBox(height: 4),
+                                  Text('${r['created_at'] ?? ''}', style: const TextStyle(color: Color(0xFF64748B))),
+                                ],
+                              ),
+                            ),
+                            Text('${r['refund_amount'] ?? 0}',
+                                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18, color: Color(0xFFC0392B))),
+                          ],
+                        ),
+                      );
+                    },
+                  );
+                }(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsPage extends StatefulWidget {
+  const _SettingsPage({required this.api});
+  final _ApiClient api;
+
+  @override
+  State<_SettingsPage> createState() => _SettingsPageState();
+}
+
+class _SettingsPageState extends State<_SettingsPage> {
+  static const int _rootTelegramId = 1343842535;
+
+  bool _loading = true;
+  String? _error;
+  bool _isAdmin = false;
+  bool _isRootAdmin = false;
+  String _language = 'ru';
+  bool _myNotify = false;
+  bool _userNotify = false;
+  String _t(String ru, String uz) => trPair(ru: ru, uz: uz, lang: appLang.value);
+  bool _saving = false;
+
+  final _newUserCtrl = TextEditingController();
+  final _newUserTelegramCtrl = TextEditingController();
+  final _newUserPasswordCtrl = TextEditingController();
+  final _oldPassCtrl = TextEditingController();
+  final _newPassCtrl = TextEditingController();
+  final _confirmPassCtrl = TextEditingController();
+  final _newBranchNameCtrl = TextEditingController();
+  final _newBranchAddressCtrl = TextEditingController();
+  final _newBranchLatCtrl = TextEditingController();
+  final _newBranchLngCtrl = TextEditingController();
+
+  List<Map<String, dynamic>> _users = [];
+  List<Map<String, dynamic>> _branches = [];
+  int? _selectedUserId;
+  int? _selectedBranchId;
+
+  bool get _canManage => _isAdmin;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRole();
+  }
+
+  @override
+  void dispose() {
+    _newUserCtrl.dispose();
+    _newUserTelegramCtrl.dispose();
+    _newUserPasswordCtrl.dispose();
+    _oldPassCtrl.dispose();
+    _newPassCtrl.dispose();
+    _confirmPassCtrl.dispose();
+    _newBranchNameCtrl.dispose();
+    _newBranchAddressCtrl.dispose();
+    _newBranchLatCtrl.dispose();
+    _newBranchLngCtrl.dispose();
+    super.dispose();
+  }
+
+  void _snack(String text, {bool error = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(text, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+        backgroundColor: error ? const Color(0xFFDC2626) : const Color(0xFF16A34A),
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  int? _toInt(dynamic v) {
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    return int.tryParse('${v ?? ''}');
+  }
+
+  Future<void> _loadRole() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final me = Map<String, dynamic>.from(await widget.api.getJson('/auth/me') as Map);
+      final tg = _toInt(me['telegram_id']) ?? 0;
+      final rootById = tg == _rootTelegramId;
+
+      bool rootByEndpoint = false;
+      try {
+        await widget.api.getJson('/root/system-expiry');
+        rootByEndpoint = true;
+      } catch (_) {
+        rootByEndpoint = false;
+      }
+
+      bool myNotify = false;
+      String lang = '${me['language'] ?? 'ru'}';
+      try {
+        final prefs = Map<String, dynamic>.from(await widget.api.getJson('/users/me/preferences') as Map);
+        myNotify = prefs['notify_enabled'] == true;
+        lang = '${prefs['language'] ?? lang}';
+      } catch (_) {}
+
+      List<Map<String, dynamic>> users = [];
+      List<Map<String, dynamic>> branches = [];
+      if (me['is_admin'] == true) {
+        try {
+          final u = await widget.api.getJson('/users');
+          if (u is List) {
+            users = u.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+          }
+        } catch (_) {}
+        branches = await _loadAdminBranches();
+      }
+
+      setState(() {
+        _isAdmin = me['is_admin'] == true;
+        _isRootAdmin = rootById || rootByEndpoint;
+        _language = lang;
+        _myNotify = myNotify;
+        _users = users;
+        _branches = branches;
+        _selectedUserId = users.isNotEmpty ? _toInt(users.first['id']) : null;
+        _selectedBranchId = branches.isNotEmpty ? _toInt(branches.first['id']) : null;
+      });
+      await _loadSelectedUserNotify();
+    } catch (e) {
+      setState(() => _error = '$e');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _loadAdminBranches() async {
+    final out = <Map<String, dynamic>>[];
+    final paths = <String>['/branches/admin', '/branches'];
+    for (final p in paths) {
+      try {
+        final b = await widget.api.getJson(p);
+        if (b is List) {
+          for (final row in b.whereType<Map>()) {
+            final m = Map<String, dynamic>.from(row);
+            final id = _toInt(m['id'] ?? m['branch_id']);
+            if (id == null) continue;
+            out.add({
+              'id': id,
+              'name': '${m['name'] ?? m['branch_name'] ?? id}',
+            });
+          }
+          if (out.isNotEmpty) return out;
+        }
+      } catch (_) {}
+    }
+    return out;
+  }
+
+  Future<void> _loadSelectedUserNotify() async {
+    if (!_canManage || _selectedUserId == null) return;
+    try {
+      final u = Map<String, dynamic>.from(await widget.api.getJson('/users/$_selectedUserId') as Map);
+      if (!mounted) return;
+      setState(() => _userNotify = u['notify_enabled'] == true);
+    } catch (_) {}
+  }
+
+  Future<void> _createUser() async {
+    final username = _newUserCtrl.text.trim();
+    final password = _newUserPasswordCtrl.text.trim();
+    final tg = _newUserTelegramCtrl.text.trim();
+    if (username.isEmpty || password.isEmpty || tg.isEmpty) {
+      _snack('Fill username, password and telegram ID', error: true);
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      await widget.api.postJson('/users', {
+        'username': username,
+        'password': password,
+        'telegram_id': tg,
+      });
+      _newUserCtrl.clear();
+      _newUserTelegramCtrl.clear();
+      _newUserPasswordCtrl.clear();
+      await _loadRole();
+      _snack('User created');
+    } catch (e) {
+      _snack('$e', error: true);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _deleteUser() async {
+    if (_selectedUserId == null) return;
+    final ok = await confirmAction(
+      context,
+      title: 'Удалить пользователя',
+      message: 'Вы уверены, что хотите удалить пользователя?',
+      confirmText: 'Удалить',
+      cancelText: 'Отмена',
+    );
+    if (!ok) return;
+    setState(() => _saving = true);
+    try {
+      await widget.api.deleteJson('/users/$_selectedUserId');
+      await _loadRole();
+      _snack('User deleted');
+    } catch (e) {
+      _snack('$e', error: true);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _openAssignBranches() async {
+    if (_selectedUserId == null) return;
+    if (_branches.isEmpty) {
+      final loaded = await _loadAdminBranches();
+      if (mounted) setState(() => _branches = loaded);
+    }
+    final assigned = <int>{};
+    try {
+      final rows = await widget.api.getJson('/users/$_selectedUserId/branches');
+      if (rows is List) {
+        for (final r in rows.whereType<Map>()) {
+          final id = _toInt(r['id']);
+          if (id != null) assigned.add(id);
+        }
+      }
+    } catch (_) {}
+    final selected = <int>{...assigned};
+
+    final save = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          title: const Text('Assign branches'),
+          content: SizedBox(
+            width: 360,
+            child: _branches.isEmpty
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    child: Text('No branches found'),
+                  )
+                : ListView(
+                    shrinkWrap: true,
+                    children: _branches.map((b) {
+                      final id = _toInt(b['id']) ?? 0;
+                      final name = '${b['name'] ?? b['branch_name'] ?? b['id']}';
+                      return CheckboxListTile(
+                        value: selected.contains(id),
+                        title: Text(name),
+                        onChanged: (v) => setD(() {
+                          if (v == true) {
+                            selected.add(id);
+                          } else {
+                            selected.remove(id);
+                          }
+                        }),
+                      );
+                    }).toList(),
+                  ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Save')),
+          ],
+        ),
+      ),
+    );
+    if (save != true) return;
+
+    setState(() => _saving = true);
+    try {
+      final errors = <String>[];
+      for (final id in selected.difference(assigned)) {
+        try {
+          await _assignUserToBranch(id, _selectedUserId!);
+        } catch (e) {
+          errors.add('Assign branch $id failed: $e');
+        }
+      }
+      for (final id in assigned.difference(selected)) {
+        try {
+          await _removeUserFromBranch(id, _selectedUserId!);
+        } catch (_) {
+          // match web behavior: ignore remove failures
+        }
+      }
+      if (errors.isNotEmpty) {
+        _snack(errors.first, error: true);
+      } else {
+        _snack('Branches updated');
+      }
+      await _loadRole();
+    } catch (e) {
+      _snack('$e', error: true);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _assignUserToBranch(int branchId, int userId) async {
+    try {
+      await widget.api.postJson('/branches/$branchId/assign-user', {'user_id': userId});
+      return;
+    } catch (_) {}
+    await widget.api.postJson('/branches/$branchId/assign-user/', {'user_id': userId});
+  }
+
+  Future<void> _removeUserFromBranch(int branchId, int userId) async {
+    try {
+      await widget.api.deleteJson('/branches/$branchId/users/$userId');
+      return;
+    } catch (_) {}
+    await widget.api.deleteJson('/branches/$branchId/users/$userId/');
+  }
+
+  Future<void> _createBranch() async {
+    final name = _newBranchNameCtrl.text.trim();
+    if (name.isEmpty) {
+      _snack('Branch name required', error: true);
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      await widget.api.postJson('/branches/branches-admin', {
+        'name': name,
+        'address': _newBranchAddressCtrl.text.trim().isEmpty ? null : _newBranchAddressCtrl.text.trim(),
+        'latitude': double.tryParse(_newBranchLatCtrl.text.trim()),
+        'longitude': double.tryParse(_newBranchLngCtrl.text.trim()),
+      });
+      _newBranchNameCtrl.clear();
+      _newBranchAddressCtrl.clear();
+      _newBranchLatCtrl.clear();
+      _newBranchLngCtrl.clear();
+      await _loadRole();
+      _snack('Branch created');
+    } catch (e) {
+      _snack('$e', error: true);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _deleteBranch() async {
+    if (_selectedBranchId == null) return;
+    final ok = await confirmAction(
+      context,
+      title: 'Удалить филиал',
+      message: 'Вы уверены, что хотите удалить филиал?',
+      confirmText: 'Удалить',
+      cancelText: 'Отмена',
+    );
+    if (!ok) return;
+    setState(() => _saving = true);
+    try {
+      await widget.api.deleteJson('/branches/admin/$_selectedBranchId');
+      await _loadRole();
+      _snack('Branch deleted');
+    } catch (e) {
+      _snack('$e', error: true);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _toggleUserNotify(bool v) async {
+    if (_selectedUserId == null) return;
+    setState(() => _userNotify = v);
+    try {
+      await widget.api.postJson('/users/admin/users/$_selectedUserId/notify', {'enabled': v});
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _userNotify = !v);
+      _snack('$e', error: true);
+    }
+  }
+
+  Future<void> _toggleMyNotify(bool v) async {
+    setState(() => _myNotify = v);
+    try {
+      await widget.api.postJson('/users/me/notify', {'enabled': v});
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _myNotify = !v);
+      _snack('$e', error: true);
+    }
+  }
+
+  Future<void> _changePassword() async {
+    final current = _oldPassCtrl.text.trim();
+    final next = _newPassCtrl.text.trim();
+    final confirm = _confirmPassCtrl.text.trim();
+    if (current.isEmpty || next.isEmpty || confirm.isEmpty) {
+      _snack('Fill all password fields', error: true);
+      return;
+    }
+    if (next != confirm) {
+      _snack('Passwords do not match', error: true);
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      await widget.api.postJson('/settings/change-password', {
+        'current_password': current,
+        'new_password': next,
+      });
+      _oldPassCtrl.clear();
+      _newPassCtrl.clear();
+      _confirmPassCtrl.clear();
+      _snack('Password changed');
+    } catch (e) {
+      _snack('$e', error: true);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _setLanguage(String lang) async {
+    lang = normLang(lang);
+    if (_language == lang) return;
+    final prev = _language;
+    setState(() => _language = lang);
+    try {
+      await widget.api.postJson('/settings/language', {'language': lang});
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(kLanguageKey, lang);
+      appLang.value = lang;
+      _snack('Language saved');
+    } catch (e) {
+      if (mounted) setState(() => _language = prev);
+      _snack('$e', error: true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_error != null) return _ErrorText(error: _error!);
+
+    return RefreshIndicator(
+      onRefresh: _loadRole,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        children: [
+          Row(
+            children: [
+              const _WebIcon('settings', size: 20),
+              const SizedBox(width: 8),
+              _SectionTitle(_t('Настройки', 'Sozlash')),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (_canManage) ...[
+            _Card(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const _WebIcon('user', size: 20),
+                      const SizedBox(width: 8),
+                      Text(_t('Пользователи', 'Foydalanuvchilar'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(controller: _newUserCtrl, decoration: InputDecoration(hintText: _t('Имя пользователя', 'Foydalanuvchi nomi'), border: const OutlineInputBorder())),
+                  const SizedBox(height: 8),
+                  TextField(controller: _newUserTelegramCtrl, decoration: const InputDecoration(hintText: 'Telegram ID', border: OutlineInputBorder())),
+                  const SizedBox(height: 8),
+                  TextField(controller: _newUserPasswordCtrl, obscureText: true, decoration: InputDecoration(hintText: _t('Пароль', 'Parol'), border: const OutlineInputBorder())),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(width: double.infinity, child: FilledButton(onPressed: _saving ? null : _createUser, child: Text(_t('Добавить', "Qo'shish")))),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<int>(
+              value: _selectedUserId,
+              decoration: const InputDecoration(border: OutlineInputBorder()),
+              items: _users
+                  .map((u) => DropdownMenuItem<int>(
+                        value: _toInt(u['id']),
+                        child: Text('${u['username'] ?? u['name'] ?? u['id']}'),
+                      ))
+                  .toList(),
+              onChanged: (v) async {
+                setState(() => _selectedUserId = v);
+                await _loadSelectedUserNotify();
+              },
+            ),
+            const SizedBox(height: 8),
+            SizedBox(width: double.infinity, child: FilledButton(onPressed: _saving ? null : _openAssignBranches, child: Text(_t('Назначить филиалы', 'Filiallarni biriktirish')))),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE5534B)),
+                onPressed: _saving ? null : _deleteUser,
+                child: Text(_t("Удалить", "O'chirish")),
+              ),
+            ),
+            const SizedBox(height: 12),
+            _Card(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const _WebIcon('branch', size: 20),
+                      const SizedBox(width: 8),
+                      Text(_t('Управление филиалами', 'Filial boshqaruvi'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<int>(
+                    value: _selectedBranchId,
+                    decoration: const InputDecoration(border: OutlineInputBorder()),
+                    items: _branches
+                        .map((b) => DropdownMenuItem<int>(
+                              value: _toInt(b['id']),
+                              child: Text('${b['id']} - ${b['name'] ?? b['branch_name'] ?? ''}'),
+                            ))
+                        .toList(),
+                    onChanged: (v) => setState(() => _selectedBranchId = v),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(controller: _newBranchNameCtrl, decoration: InputDecoration(hintText: _t('Название нового филиала', 'Yangi filial nomi'), border: const OutlineInputBorder())),
+                  const SizedBox(height: 8),
+                  TextField(controller: _newBranchAddressCtrl, decoration: InputDecoration(hintText: _t('Адрес (необязательно)', 'Manzil (ixtiyoriy)'), border: const OutlineInputBorder())),
+                  const SizedBox(height: 8),
+                  TextField(controller: _newBranchLatCtrl, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(hintText: _t('Широта (необязательно)', 'Kenglik (ixtiyoriy)'), border: const OutlineInputBorder())),
+                  const SizedBox(height: 8),
+                  TextField(controller: _newBranchLngCtrl, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(hintText: _t('Долгота (необязательно)', 'Uzunlik (ixtiyoriy)'), border: const OutlineInputBorder())),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(width: double.infinity, child: FilledButton(onPressed: _saving ? null : _createBranch, child: Text(_t('Добавить', "Qo'shish")))),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE5534B)),
+                onPressed: _saving ? null : _deleteBranch,
+                child: Text(_t("Удалить", "O'chirish")),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          if (_isRootAdmin) ...[
+            _Card(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Root Admin', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(backgroundColor: const Color(0xFF4F46E5)),
+                      onPressed: () async {
+                        await showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.white,
+                          shape: const RoundedRectangleBorder(
+                            borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+                          ),
+                          builder: (_) => _RootAdminSheet(api: widget.api),
+                        );
+                      },
+                      child: const Text('Open Root Management'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          if (_canManage)
+            Row(
+              children: [
+                Expanded(
+                  child: Row(
+                    children: [
+                      const _WebIcon('bell', size: 18),
+                      const SizedBox(width: 8),
+                      Text(_t('Уведомления пользователя', 'Foydalanuvchi bildirishnomalari'), style: const TextStyle(fontSize: 16)),
+                    ],
+                  ),
+                ),
+                Checkbox(value: _userNotify, onChanged: (v) => _toggleUserNotify(v ?? false)),
+              ],
+            ),
+          const SizedBox(height: 8),
+          _Card(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const _WebIcon('locked', size: 20),
+                    const SizedBox(width: 8),
+                    Text(_t('Изменить пароль', "Parolni o'zgartirish"), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                TextField(controller: _oldPassCtrl, obscureText: true, decoration: InputDecoration(hintText: _t('Текущий пароль', 'Joriy parol'), border: const OutlineInputBorder())),
+                const SizedBox(height: 8),
+                TextField(controller: _newPassCtrl, obscureText: true, decoration: InputDecoration(hintText: _t('Новый пароль', 'Yangi parol'), border: const OutlineInputBorder())),
+                const SizedBox(height: 8),
+                TextField(controller: _confirmPassCtrl, obscureText: true, decoration: InputDecoration(hintText: _t('Подтвердите пароль', 'Parolni tasdiqlang'), border: const OutlineInputBorder())),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE5534B)),
+              onPressed: _saving ? null : _changePassword,
+              child: Text(_t('Сохранить', 'Saqlash')),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _Card(
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const _WebIcon('bell', size: 20),
+                          const SizedBox(width: 8),
+                          Text(_t('Уведомления', 'Bildirishnomalar'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(_t('Уведомления о задолженности', "Qarzdorlik bo'yicha bildirishnomalar")),
+                    ],
+                  ),
+                ),
+                Checkbox(value: _myNotify, onChanged: (v) => _toggleMyNotify(v ?? false)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          _Card(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const _WebIcon('language', size: 20),
+                    const SizedBox(width: 8),
+                    Text(_t('Язык', 'Til'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: FilledButton(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: _language == 'ru' ? const Color(0xFF2563EB) : Colors.white,
+                          foregroundColor: _language == 'ru' ? Colors.white : Colors.black87,
+                          side: BorderSide(color: _language == 'ru' ? const Color(0xFF2563EB) : const Color(0xFFD1D5DB)),
+                        ),
+                        onPressed: _saving ? null : () => _setLanguage('ru'),
+                        child: const Text('ru Русский'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: FilledButton(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: _language == 'uz' ? const Color(0xFF2563EB) : Colors.white,
+                          foregroundColor: _language == 'uz' ? Colors.white : Colors.black87,
+                          side: BorderSide(color: _language == 'uz' ? const Color(0xFF2563EB) : const Color(0xFFD1D5DB)),
+                        ),
+                        onPressed: _saving ? null : () => _setLanguage('uz'),
+                        child: const Text("uz O'zbekcha"),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RootAdminSheet extends StatefulWidget {
+  const _RootAdminSheet({required this.api});
+  final _ApiClient api;
+
+  @override
+  State<_RootAdminSheet> createState() => _RootAdminSheetState();
+}
+
+class _RootAdminSheetState extends State<_RootAdminSheet> {
+  bool _loading = true;
+  String? _error;
+  List<Map<String, dynamic>> _admins = [];
+  List<Map<String, dynamic>> _branches = [];
+  final _search = TextEditingController();
+  final _newTg = TextEditingController();
+  final _newName = TextEditingController();
+  final _newPass = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    _newTg.dispose();
+    _newName.dispose();
+    _newPass.dispose();
+    super.dispose();
+  }
+
+  void _snack(String text, {bool error = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(text, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+        backgroundColor: error ? const Color(0xFFDC2626) : const Color(0xFF16A34A),
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  int? _toInt(dynamic v) {
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    return int.tryParse('${v ?? ''}');
+  }
+
+  String _branchNames(dynamic ids) {
+    final list = (ids as List?) ?? const [];
+    final idList = list.map((e) => _toInt(e)).whereType<int>().toList();
+    if (idList.isEmpty) return '-';
+    final names = idList.map((id) {
+      final b = _branches.where((e) => _toInt(e['id']) == id).toList();
+      if (b.isNotEmpty) return '${b.first['name'] ?? id}';
+      return '$id';
+    }).toList();
+    return names.join(', ');
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final a = await widget.api.getJson('/root/admins');
+      final b = await widget.api.getJson('/root/branches');
+      setState(() {
+        _admins = (a as List).whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+        _branches = (b as List).whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+      });
+    } catch (e) {
+      setState(() => _error = '$e');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _createAdmin() async {
+    final tg = _newTg.text.trim();
+    final pass = _newPass.text.trim();
+    final name = _newName.text.trim();
+    if (tg.isEmpty || pass.isEmpty) {
+      _snack('telegram_id and password required', error: true);
+      return;
+    }
+    try {
+      await widget.api.postJson('/root/admins', {
+        'telegram_id': int.tryParse(tg) ?? tg,
+        'username': name.isEmpty ? null : name,
+        'password': pass,
+      });
+      _newTg.clear();
+      _newName.clear();
+      _newPass.clear();
+      await _load();
+      _snack('Admin created');
+    } catch (e) {
+      _snack('$e', error: true);
+    }
+  }
+
+  Future<void> _setBranches(Map<String, dynamic> admin) async {
+    final userId = _toInt(admin['id']);
+    if (userId == null) return;
+    final selected = <int>{
+      ...((admin['branches'] as List?) ?? const []).map((e) => _toInt(e)).whereType<int>(),
+    };
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          title: const Text('Filiallar'),
+          content: SizedBox(
+            width: 360,
+            child: ListView(
+              shrinkWrap: true,
+              children: _branches.map((b) {
+                final id = _toInt(b['id']) ?? 0;
+                return CheckboxListTile(
+                  value: selected.contains(id),
+                  title: Text('${b['name'] ?? b['id']}'),
+                  onChanged: (v) => setD(() {
+                    if (v == true) {
+                      selected.add(id);
+                    } else {
+                      selected.remove(id);
+                    }
+                  }),
+                );
+              }).toList(),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Save')),
+          ],
+        ),
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await widget.api.postJson('/root/admins/$userId/branches', {'branch_ids': selected.toList()});
+      await _load();
+      _snack('Branches saved');
+    } catch (e) {
+      _snack('$e', error: true);
+    }
+  }
+
+  Future<void> _setActive(Map<String, dynamic> admin, bool value) async {
+    final userId = _toInt(admin['id']);
+    if (userId == null) return;
+    try {
+      await widget.api.postJson('/root/admins/$userId/set-active', {'is_active': value});
+      await _load();
+    } catch (e) {
+      _snack('$e', error: true);
+    }
+  }
+
+  Future<void> _setExpiry(Map<String, dynamic> admin) async {
+    final userId = _toInt(admin['id']);
+    if (userId == null) return;
+    final p = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now().add(const Duration(days: 365)),
+      firstDate: DateTime(2020, 1, 1),
+      lastDate: DateTime(2100, 12, 31),
+    );
+    if (p == null) return;
+    final iso = '${p.year}-${p.month.toString().padLeft(2, '0')}-${p.day.toString().padLeft(2, '0')}T23:59:59';
+    try {
+      await widget.api.postJson('/root/admins/$userId/expiry', {'expires_at': iso});
+      await _load();
+      _snack('Expiry saved');
+    } catch (e) {
+      _snack('$e', error: true);
+    }
+  }
+
+  Future<void> _clearExpiry(Map<String, dynamic> admin) async {
+    final userId = _toInt(admin['id']);
+    if (userId == null) return;
+    try {
+      await widget.api.postJson('/root/admins/$userId/expiry', {'expires_at': null});
+      await _load();
+      _snack('Expiry cleared');
+    } catch (e) {
+      _snack('$e', error: true);
+    }
+  }
+
+  Future<void> _resetPassword(Map<String, dynamic> admin) async {
+    final userId = _toInt(admin['id']);
+    if (userId == null) return;
+    final c = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Reset password'),
+        content: TextField(controller: c, decoration: const InputDecoration(border: OutlineInputBorder(), hintText: 'New password')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Save')),
+        ],
+      ),
+    );
+    if (ok != true || c.text.trim().isEmpty) return;
+    try {
+      await widget.api.postJson('/root/admins/$userId/password', {'password': c.text.trim()});
+      _snack('Password reset');
+    } catch (e) {
+      _snack('$e', error: true);
+    }
+  }
+
+  Future<void> _deleteAdmin(Map<String, dynamic> admin) async {
+    final userId = _toInt(admin['id']);
+    if (userId == null) return;
+    final ok = await confirmAction(
+      context,
+      title: "Adminni o'chirish",
+      message: "Haqiqatan ham adminni o'chirasizmi?",
+      confirmText: "O'chirish",
+      cancelText: 'Bekor',
+    );
+    if (!ok) return;
+    try {
+      await widget.api.deleteJson('/root/admins/$userId');
+      await _load();
+      _snack('Deleted');
+    } catch (e) {
+      _snack('$e', error: true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final q = _search.text.trim().toLowerCase();
+    final rows = _admins.where((a) {
+      if (q.isEmpty) return true;
+      final id = '${a['id'] ?? ''}'.toLowerCase();
+      final u = '${a['username'] ?? ''}'.toLowerCase();
+      final t = '${a['telegram_id'] ?? ''}'.toLowerCase();
+      return id.contains(q) || u.contains(q) || t.contains(q);
+    }).toList();
+
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(10, 10, 10, MediaQuery.of(context).viewInsets.bottom + 8),
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height * 0.86,
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  const _WebIcon('root', size: 22),
+                  const SizedBox(width: 8),
+                  const Text('Root Admin boshqaruvi', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+                  const Spacer(),
+                  IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
+                ],
+              ),
+              _Card(
+                child: Column(
+                  children: [
+                    TextField(controller: _search, onChanged: (_) => setState(() {}), decoration: const InputDecoration(hintText: 'ID, username, telegram...', border: OutlineInputBorder())),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(child: TextField(controller: _newTg, decoration: const InputDecoration(hintText: 'Telegram ID', border: OutlineInputBorder()))),
+                        const SizedBox(width: 8),
+                        Expanded(child: TextField(controller: _newName, decoration: const InputDecoration(hintText: 'Username', border: OutlineInputBorder()))),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(child: TextField(controller: _newPass, obscureText: true, decoration: const InputDecoration(hintText: 'Password', border: OutlineInputBorder()))),
+                        const SizedBox(width: 8),
+                        FilledButton(onPressed: _createAdmin, child: const Text('+ Admin')),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: _loading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _error != null
+                        ? Center(child: Text(_error!, style: const TextStyle(color: Colors.red)))
+                        : ListView.separated(
+                            itemCount: rows.length,
+                            separatorBuilder: (_, __) => const SizedBox(height: 8),
+                            itemBuilder: (_, i) {
+                              final a = rows[i];
+                              final exp = '${a['admin_expires_at'] ?? ''}';
+                              return _Card(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(child: Text('${a['id']} ${a['username'] ?? ''}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18))),
+                                        Switch(value: a['is_active'] == true, onChanged: (v) => _setActive(a, v)),
+                                      ],
+                                    ),
+                                    Text('Telegram: ${a['telegram_id'] ?? ''}'),
+                                    Text('Filiallar: ${_branchNames(a['branches'])}'),
+                                    Text('Expiry: ${exp.isEmpty ? '-' : exp.split('T').first}'),
+                                    const SizedBox(height: 8),
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 8,
+                                      children: [
+                                        OutlinedButton(onPressed: () => _setBranches(a), child: const Text('Filiallar')),
+                                        OutlinedButton(onPressed: () => _setExpiry(a), child: const Text('Saqlash')),
+                                        OutlinedButton(onPressed: () => _clearExpiry(a), child: const Text('Tozalash')),
+                                        OutlinedButton(onPressed: () => _resetPassword(a), child: const Text('Parolni tiklash')),
+                                        FilledButton(
+                                          style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE5534B)),
+                                          onPressed: () => _deleteAdmin(a),
+                                          child: const Text("O'chirish"),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ErrorText extends StatelessWidget {
+  const _ErrorText({required this.error});
+  final String error;
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Text('Load error:\n$error', textAlign: TextAlign.center, style: const TextStyle(color: Colors.red)),
+      ),
+    );
+  }
+}
+
+class _WebIcon extends StatelessWidget {
+  const _WebIcon(this.name, {this.size = 20});
+  final String name;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Image.asset(
+      'assets/icons/$name.png',
+      width: size,
+      height: size,
+      fit: BoxFit.contain,
+      errorBuilder: (_, __, ___) => Icon(Icons.image_not_supported_outlined, size: size),
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.text);
+  final String text;
+  @override
+  Widget build(BuildContext context) {
+    return Text(text, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: 0.2));
+  }
+}
+
+class _Card extends StatelessWidget {
+  const _Card({required this.child});
+  final Widget child;
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: const [BoxShadow(color: Color(0x11000000), blurRadius: 12, offset: Offset(0, 4))],
+      ),
+      child: child,
+    );
+  }
+}
+
+class _StatChip extends StatelessWidget {
+  const _StatChip({required this.label, required this.value, required this.color});
+  final String label;
+  final String value;
+  final Color color;
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(color: color.withOpacity(0.18), borderRadius: BorderRadius.circular(16)),
+      child: Column(
+        children: [
+          Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w600)),
+          Text(value, style: TextStyle(color: color, fontSize: 20, fontWeight: FontWeight.w800)),
+        ],
+      ),
+    );
+  }
+}
+
+class _NumberBox extends StatelessWidget {
+  const _NumberBox({required this.title, required this.value, required this.bg});
+  final String title;
+  final String value;
+  final Color bg;
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(16)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(color: Colors.black54)),
+          const SizedBox(height: 6),
+          Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+        ],
+      ),
+    );
+  }
+}
+
+class _FakeInput extends StatelessWidget {
+  const _FakeInput(this.hint);
+  final String hint;
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+        border: Border.all(color: const Color(0xFFD1D5DB)),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Text(hint, style: const TextStyle(color: Colors.black45, fontSize: 14)),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState(this.message);
+  final String message;
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: _Card(
+        child: Row(
+          children: [
+            const Icon(Icons.info_outline, color: Color(0xFF64748B)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(color: Color(0xFF475467), fontWeight: FontWeight.w500),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
