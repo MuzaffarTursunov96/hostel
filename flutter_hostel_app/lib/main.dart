@@ -1,6 +1,8 @@
 ﻿import 'dart:async';
 import 'dart:convert';
 
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -423,11 +425,22 @@ class _HomeScreenState extends State<HomeScreen> {
   final ValueNotifier<int> _refreshSignal = ValueNotifier<int>(0);
   String _language = 'ru';
   bool _changingLang = false;
+  int _unreadCount = 0;
+  StreamSubscription<String>? _fcmTokenRefreshSub;
+  bool _firebaseReady = false;
 
   @override
   void initState() {
     super.initState();
     _loadTopLanguage();
+    _loadUnreadCount();
+    _initPushNotifications();
+  }
+
+  @override
+  void dispose() {
+    _fcmTokenRefreshSub?.cancel();
+    super.dispose();
   }
 
   void _notifyDataChanged() {
@@ -472,12 +485,84 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _loadUnreadCount() async {
+    try {
+      final data = await _api.getJson('/users/me/notifications', query: const {
+        'limit': '1',
+        'offset': '0',
+      });
+      final count = (data is Map && data['unread_count'] is num)
+          ? (data['unread_count'] as num).toInt()
+          : 0;
+      if (!mounted) return;
+      setState(() => _unreadCount = count);
+    } catch (_) {}
+  }
+
+  Future<void> _initPushNotifications() async {
+    try {
+      await Firebase.initializeApp();
+      _firebaseReady = true;
+    } catch (_) {
+      _firebaseReady = false;
+      return;
+    }
+
+    try {
+      final messaging = FirebaseMessaging.instance;
+      await messaging.requestPermission();
+
+      final token = await messaging.getToken();
+      if (token != null && token.isNotEmpty) {
+        await _registerDeviceToken(token);
+      }
+
+      _fcmTokenRefreshSub = messaging.onTokenRefresh.listen((newToken) async {
+        await _registerDeviceToken(newToken);
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _registerDeviceToken(String token) async {
+    try {
+      await _api.postJson('/users/me/device-token', {
+        'fcm_token': token,
+        'platform': 'android',
+      });
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('fcm_token', token);
+    } catch (_) {}
+  }
+
+  Future<void> _openNotifications() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => _NotificationsPage(api: _api, language: _language)),
+    );
+    await _loadUnreadCount();
+  }
+
   Future<void> _logout() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedToken = prefs.getString('fcm_token');
+      if (savedToken != null && savedToken.isNotEmpty) {
+        await _api.deleteJson('/users/me/device-token', body: {'fcm_token': savedToken});
+      } else if (_firebaseReady) {
+        final t = await FirebaseMessaging.instance.getToken();
+        if (t != null && t.isNotEmpty) {
+          await _api.deleteJson('/users/me/device-token', body: {'fcm_token': t});
+        } else {
+          await _api.deleteJson('/users/me/device-token');
+        }
+      }
+    } catch (_) {}
+
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('access_token');
     await prefs.remove('branch_id');
     await prefs.remove('user_id');
     await prefs.remove('is_admin');
+    await prefs.remove('fcm_token');
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const LoginScreen()),
@@ -516,6 +601,38 @@ class _HomeScreenState extends State<HomeScreen> {
               'assets/icons/language.png',
               width: 20,
               height: 20,
+            ),
+          ),
+          IconButton(
+            tooltip: _language == 'ru' ? 'Уведомления' : 'Bildirishnomalar',
+            onPressed: _openNotifications,
+            icon: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                const Icon(Icons.notifications_outlined, size: 24),
+                if (_unreadCount > 0)
+                  Positioned(
+                    right: -6,
+                    top: -6,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFDC2626),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                      child: Text(
+                        _unreadCount > 99 ? '99+' : '$_unreadCount',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
           IconButton(
@@ -610,12 +727,20 @@ class _ApiClient {
     return r.body.isEmpty ? <String, dynamic>{} : jsonDecode(r.body);
   }
 
-  Future<dynamic> deleteJson(String path, {Map<String, String>? query}) async {
+  Future<dynamic> deleteJson(
+    String path, {
+    Map<String, String>? query,
+    Map<String, dynamic>? body,
+  }) async {
     final uri = Uri.parse('$baseApi$path').replace(queryParameters: query);
     final r = await http
         .delete(
           uri,
-          headers: {'Authorization': 'Bearer $token'},
+          headers: {
+            'Authorization': 'Bearer $token',
+            if (body != null) 'Content-Type': 'application/json',
+          },
+          body: body != null ? jsonEncode(body) : null,
         )
         .timeout(timeout);
     if (r.statusCode < 200 || r.statusCode >= 300) {
@@ -5793,6 +5918,165 @@ class _RootAdminSheetState extends State<_RootAdminSheet> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _NotificationsPage extends StatefulWidget {
+  const _NotificationsPage({required this.api, required this.language});
+
+  final _ApiClient api;
+  final String language;
+
+  @override
+  State<_NotificationsPage> createState() => _NotificationsPageState();
+}
+
+class _NotificationsPageState extends State<_NotificationsPage> {
+  bool _loading = true;
+  String? _error;
+  int _unreadCount = 0;
+  List<Map<String, dynamic>> _items = [];
+
+  String _t(String ru, String uz) => trPair(ru: ru, uz: uz, lang: widget.language);
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final data = await widget.api.getJson('/users/me/notifications', query: const {
+        'limit': '100',
+        'offset': '0',
+      });
+      final map = (data as Map).cast<String, dynamic>();
+      final list = ((map['items'] as List?) ?? [])
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+      if (!mounted) return;
+      setState(() {
+        _items = list;
+        _unreadCount = ((map['unread_count'] as num?) ?? 0).toInt();
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = '$e');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _markRead(int id) async {
+    try {
+      await widget.api.postJson('/users/me/notifications/$id/read', {});
+    } catch (_) {}
+  }
+
+  Future<void> _markAllRead() async {
+    try {
+      await widget.api.postJson('/users/me/notifications/read-all', {});
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      showAppAlert(context, '$e', error: true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('${_t('Уведомления', 'Bildirishnomalar')} ($_unreadCount)'),
+        actions: [
+          TextButton(
+            onPressed: _loading || _items.isEmpty ? null : _markAllRead,
+            child: Text(_t('Прочитать все', "Barchasini o'qish")),
+          ),
+        ],
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+              ? Center(child: Text(_error!, style: const TextStyle(color: Colors.red)))
+              : _items.isEmpty
+                  ? Center(child: Text(_t('Уведомлений пока нет', "Hozircha bildirishnoma yo'q")))
+                  : ListView.separated(
+                      padding: const EdgeInsets.all(12),
+                      itemCount: _items.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (_, i) {
+                        final n = _items[i];
+                        final id = (n['id'] as num?)?.toInt() ?? 0;
+                        final isRead = n['is_read'] == true;
+                        final title = '${n['title'] ?? ''}';
+                        final body = '${n['body'] ?? ''}';
+                        final created = '${n['created_at'] ?? ''}';
+
+                        return InkWell(
+                          borderRadius: BorderRadius.circular(16),
+                          onTap: () async {
+                            if (!isRead && id > 0) {
+                              await _markRead(id);
+                              await _load();
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: isRead ? Colors.white : const Color(0xFFEFF6FF),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: isRead ? const Color(0xFFE5E7EB) : const Color(0xFFBFDBFE),
+                              ),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(
+                                  isRead ? Icons.mark_email_read_outlined : Icons.mark_email_unread_outlined,
+                                  color: isRead ? const Color(0xFF64748B) : const Color(0xFF2563EB),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        title,
+                                        style: TextStyle(
+                                          fontWeight: isRead ? FontWeight.w600 : FontWeight.w800,
+                                          fontSize: 15,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(body),
+                                      if (created.isNotEmpty) ...[
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          created,
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: Color(0xFF6B7280),
+                                          ),
+                                        ),
+                                      ]
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
     );
   }
 }

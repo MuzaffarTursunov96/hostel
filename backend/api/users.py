@@ -10,7 +10,13 @@ from db import (
     set_my_notifications_db,
     admin_set_user_notify_db,
     get_user_db,
-    get_user_preferences_db
+    get_user_preferences_db,
+    upsert_user_device_token_db,
+    remove_user_device_token_db,
+    list_user_notifications_db,
+    mark_notification_read_db,
+    mark_all_notifications_read_db,
+    get_unread_notification_count_db
 )
 
 def require_admin(user):
@@ -143,6 +149,66 @@ def set_my_notifications(data: dict, user=Depends(get_current_user)):
     set_my_notifications_db(enabled, user["user_id"])
 
     return {"ok": True}
+
+
+@router.post("/me/device-token")
+def register_my_device_token(data: dict, user=Depends(get_current_user)):
+    fcm_token = str(data.get("fcm_token") or "").strip()
+    platform = str(data.get("platform") or "").strip().lower()
+
+    if not fcm_token:
+        raise HTTPException(400, "fcm_token required")
+    if platform and platform not in ("android", "ios"):
+        raise HTTPException(400, "platform must be android or ios")
+
+    ok = upsert_user_device_token_db(
+        user_id=user["user_id"],
+        fcm_token=fcm_token,
+        platform=platform or None
+    )
+    if not ok:
+        raise HTTPException(400, "Invalid fcm_token")
+
+    return {"ok": True}
+
+
+@router.delete("/me/device-token")
+def remove_my_device_token(data: dict | None = None, user=Depends(get_current_user)):
+    payload = data or {}
+    fcm_token = str(payload.get("fcm_token") or "").strip() or None
+    remove_user_device_token_db(user_id=user["user_id"], fcm_token=fcm_token)
+    return {"ok": True}
+
+
+@router.get("/me/notifications")
+def my_notifications(
+    unread_only: bool = False,
+    limit: int = 50,
+    offset: int = 0,
+    user=Depends(get_current_user)
+):
+    rows = list_user_notifications_db(
+        user_id=user["user_id"],
+        unread_only=bool(unread_only),
+        limit=limit,
+        offset=offset
+    )
+    unread_count = get_unread_notification_count_db(user["user_id"])
+    return {"items": rows, "unread_count": unread_count}
+
+
+@router.post("/me/notifications/{notification_id}/read")
+def mark_my_notification_read(notification_id: int, user=Depends(get_current_user)):
+    ok = mark_notification_read_db(user_id=user["user_id"], notification_id=notification_id)
+    if not ok:
+        raise HTTPException(404, "Notification not found")
+    return {"ok": True}
+
+
+@router.post("/me/notifications/read-all")
+def mark_all_my_notifications_read(user=Depends(get_current_user)):
+    updated = mark_all_notifications_read_db(user_id=user["user_id"])
+    return {"ok": True, "updated": updated}
 
 
 @router.post("/admin/users/{user_id}/notify")

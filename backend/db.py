@@ -1,4 +1,5 @@
 from datetime import date
+import json
 from security import hash_password, verify_password
 from database import engine
 from sqlalchemy import text
@@ -245,6 +246,37 @@ def init_db():
         )
         """))
 
+        # ---------- USER DEVICES (MOBILE PUSH TOKENS) ----------
+        conn.execute(text("""
+        CREATE TABLE IF NOT EXISTS user_devices (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            fcm_token TEXT UNIQUE NOT NULL,
+            platform TEXT,
+            is_active BOOLEAN DEFAULT TRUE,
+            last_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+        """))
+
+        # ---------- USER IN-APP NOTIFICATIONS ----------
+        conn.execute(text("""
+        CREATE TABLE IF NOT EXISTS user_notifications (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            notif_type TEXT NOT NULL,
+            title TEXT NOT NULL,
+            body TEXT NOT NULL,
+            payload TEXT,
+            dedupe_key TEXT UNIQUE,
+            is_read BOOLEAN DEFAULT FALSE,
+            read_at TIMESTAMP NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+        )
+        """))
+
         # ---------- SYSTEM SETTINGS ----------
         conn.execute(text("""
         CREATE TABLE IF NOT EXISTS system_settings (
@@ -319,6 +351,41 @@ def ensure_system_settings_table():
                 key TEXT PRIMARY KEY,
                 value TEXT,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """))
+
+
+def ensure_user_devices_table():
+    with get_connection() as conn:
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS user_devices (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                fcm_token TEXT UNIQUE NOT NULL,
+                platform TEXT,
+                is_active BOOLEAN DEFAULT TRUE,
+                last_seen_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+        """))
+
+
+def ensure_user_notifications_table():
+    with get_connection() as conn:
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS user_notifications (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                notif_type TEXT NOT NULL,
+                title TEXT NOT NULL,
+                body TEXT NOT NULL,
+                payload TEXT,
+                dedupe_key TEXT UNIQUE,
+                is_read BOOLEAN DEFAULT FALSE,
+                read_at TIMESTAMP NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
             )
         """))
 
@@ -3201,7 +3268,202 @@ def get_user_preferences_db(user_id):
         """), {"uid": user_id}).mappings().fetchone()
 
         return prefs
-    
+
+
+def upsert_user_device_token_db(user_id: int, fcm_token: str, platform: str | None = None):
+    ensure_user_devices_table()
+    token = str(fcm_token or "").strip()
+    if not token:
+        return False
+
+    platform_value = (str(platform or "").strip().lower() or None)
+    if platform_value not in (None, "android", "ios"):
+        platform_value = None
+
+    with get_connection() as conn:
+        conn.execute(text("""
+            INSERT INTO user_devices (user_id, fcm_token, platform, is_active, last_seen_at)
+            VALUES (:user_id, :fcm_token, :platform, TRUE, CURRENT_TIMESTAMP)
+            ON CONFLICT (fcm_token)
+            DO UPDATE SET
+                user_id = EXCLUDED.user_id,
+                platform = EXCLUDED.platform,
+                is_active = TRUE,
+                last_seen_at = CURRENT_TIMESTAMP
+        """), {
+            "user_id": user_id,
+            "fcm_token": token,
+            "platform": platform_value
+        })
+    return True
+
+
+def list_active_device_tokens_db(user_id: int):
+    ensure_user_devices_table()
+    with get_connection() as conn:
+        rows = conn.execute(text("""
+            SELECT fcm_token
+            FROM user_devices
+            WHERE user_id = :user_id
+              AND is_active = TRUE
+        """), {"user_id": user_id}).mappings().all()
+    return [r["fcm_token"] for r in rows if r.get("fcm_token")]
+
+
+def remove_user_device_token_db(user_id: int, fcm_token: str | None = None):
+    ensure_user_devices_table()
+    with get_connection() as conn:
+        if fcm_token:
+            res = conn.execute(text("""
+                UPDATE user_devices
+                SET is_active = FALSE
+                WHERE user_id = :user_id
+                  AND fcm_token = :fcm_token
+            """), {
+                "user_id": user_id,
+                "fcm_token": str(fcm_token).strip()
+            })
+            return res.rowcount > 0
+
+        res = conn.execute(text("""
+            UPDATE user_devices
+            SET is_active = FALSE
+            WHERE user_id = :user_id
+        """), {"user_id": user_id})
+        return res.rowcount > 0
+
+
+def deactivate_device_token_db(fcm_token: str):
+    ensure_user_devices_table()
+    with get_connection() as conn:
+        res = conn.execute(text("""
+            UPDATE user_devices
+            SET is_active = FALSE
+            WHERE fcm_token = :fcm_token
+        """), {"fcm_token": str(fcm_token or "").strip()})
+        return res.rowcount > 0
+
+
+def create_user_notification_db(
+    user_id: int,
+    notif_type: str,
+    title: str,
+    body: str,
+    payload: dict | None = None,
+    dedupe_key: str | None = None
+):
+    ensure_user_notifications_table()
+    with get_connection() as conn:
+        row = conn.execute(text("""
+            INSERT INTO user_notifications (
+                user_id, notif_type, title, body, payload, dedupe_key, is_read
+            )
+            VALUES (
+                :user_id, :notif_type, :title, :body, :payload, :dedupe_key, FALSE
+            )
+            ON CONFLICT (dedupe_key)
+            DO NOTHING
+            RETURNING id
+        """), {
+            "user_id": user_id,
+            "notif_type": str(notif_type or "general"),
+            "title": str(title or ""),
+            "body": str(body or ""),
+            "payload": json.dumps(payload or {}, ensure_ascii=False),
+            "dedupe_key": (str(dedupe_key).strip() if dedupe_key else None),
+        }).fetchone()
+    return row[0] if row else None
+
+
+def list_user_notifications_db(
+    user_id: int,
+    limit: int = 50,
+    offset: int = 0,
+    unread_only: bool = False
+):
+    ensure_user_notifications_table()
+    limit = max(1, min(int(limit or 50), 200))
+    offset = max(0, int(offset or 0))
+
+    where_clause = "WHERE user_id = :user_id"
+    if unread_only:
+        where_clause += " AND is_read = FALSE"
+
+    with get_connection() as conn:
+        rows = conn.execute(text(f"""
+            SELECT
+                id, notif_type, title, body, payload, is_read, read_at, created_at
+            FROM user_notifications
+            {where_clause}
+            ORDER BY created_at DESC, id DESC
+            LIMIT :limit
+            OFFSET :offset
+        """), {
+            "user_id": user_id,
+            "limit": limit,
+            "offset": offset
+        }).mappings().all()
+
+    result = []
+    for r in rows:
+        payload = {}
+        try:
+            payload = json.loads(r.get("payload") or "{}")
+        except Exception:
+            payload = {}
+        result.append({
+            "id": r["id"],
+            "type": r["notif_type"],
+            "title": r["title"],
+            "body": r["body"],
+            "payload": payload,
+            "is_read": bool(r["is_read"]),
+            "read_at": r["read_at"].isoformat() if r["read_at"] else None,
+            "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+        })
+    return result
+
+
+def mark_notification_read_db(user_id: int, notification_id: int):
+    ensure_user_notifications_table()
+    with get_connection() as conn:
+        res = conn.execute(text("""
+            UPDATE user_notifications
+            SET is_read = TRUE,
+                read_at = CURRENT_TIMESTAMP
+            WHERE id = :notification_id
+              AND user_id = :user_id
+        """), {
+            "notification_id": notification_id,
+            "user_id": user_id
+        })
+    return res.rowcount > 0
+
+
+def mark_all_notifications_read_db(user_id: int):
+    ensure_user_notifications_table()
+    with get_connection() as conn:
+        res = conn.execute(text("""
+            UPDATE user_notifications
+            SET is_read = TRUE,
+                read_at = CURRENT_TIMESTAMP
+            WHERE user_id = :user_id
+              AND is_read = FALSE
+        """), {"user_id": user_id})
+    return int(res.rowcount or 0)
+
+
+def get_unread_notification_count_db(user_id: int):
+    ensure_user_notifications_table()
+    with get_connection() as conn:
+        row = conn.execute(text("""
+            SELECT COUNT(*) AS cnt
+            FROM user_notifications
+            WHERE user_id = :user_id
+              AND is_read = FALSE
+        """), {"user_id": user_id}).mappings().fetchone()
+    return int((row or {}).get("cnt") or 0)
+
 
 def update_booking_db(customer_id, name, contact, passport_id, branch_id):
     with get_connection() as conn:
