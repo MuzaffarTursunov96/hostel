@@ -214,17 +214,6 @@ def mark_all_my_notifications_read(user=Depends(get_current_user)):
     return {"ok": True, "updated": updated}
 
 
-@router.delete("/me/notifications/{notification_id}")
-def delete_my_notification(notification_id: int, user=Depends(get_current_user)):
-    ok = delete_notification_db(
-        user_id=user["user_id"],
-        notification_id=notification_id
-    )
-    if not ok:
-        raise HTTPException(404, "Notification not found")
-    return {"ok": True}
-
-
 @router.delete("/me/notifications/read")
 def delete_my_read_notifications(user=Depends(get_current_user)):
     deleted = delete_read_notifications_db(user_id=user["user_id"])
@@ -235,6 +224,17 @@ def delete_my_read_notifications(user=Depends(get_current_user)):
 def delete_my_all_notifications(user=Depends(get_current_user)):
     deleted = delete_all_notifications_db(user_id=user["user_id"])
     return {"ok": True, "deleted": deleted}
+
+
+@router.delete("/me/notifications/{notification_id}")
+def delete_my_notification(notification_id: int, user=Depends(get_current_user)):
+    ok = delete_notification_db(
+        user_id=user["user_id"],
+        notification_id=notification_id
+    )
+    if not ok:
+        raise HTTPException(404, "Notification not found")
+    return {"ok": True}
 
 
 @router.post("/admin/users/{user_id}/notify")
