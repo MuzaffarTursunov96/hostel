@@ -16,6 +16,33 @@ def _credentials_match(username, password) -> bool:
     return str(username).strip().casefold() == str(password).strip().casefold()
 
 
+def _username_exists(conn, username, exclude_user_id=None) -> bool:
+    username_value = str(username or "").strip()
+    if not username_value:
+        return False
+
+    if exclude_user_id is None:
+        row = conn.execute(text("""
+            SELECT 1
+            FROM users
+            WHERE lower(username) = lower(:u)
+            LIMIT 1
+        """), {"u": username_value}).fetchone()
+    else:
+        row = conn.execute(text("""
+            SELECT 1
+            FROM users
+            WHERE lower(username) = lower(:u)
+              AND id <> :exclude_user_id
+            LIMIT 1
+        """), {
+            "u": username_value,
+            "exclude_user_id": exclude_user_id
+        }).fetchone()
+
+    return row is not None
+
+
 def init_db():
     with get_connection() as conn:
 
@@ -2125,6 +2152,17 @@ def delete_room_db(room_id: int, branch_id: int):
 
 def create_admin_from_root(telegram_id: int, username: str, password: str,is_admin: bool):
     with get_connection() as conn:
+        if _credentials_match(username, password):
+            return {
+                "status": "error",
+                "message": "Password must be different from username"
+            }
+        if _username_exists(conn, username):
+            return {
+                "status": "error",
+                "message": "Username already exists"
+            }
+
         exists = conn.execute(text("""
             SELECT id
             FROM users
@@ -2137,15 +2175,22 @@ def create_admin_from_root(telegram_id: int, username: str, password: str,is_adm
                 "message": "User with this Telegram ID already exists"
             }
 
-        conn.execute(text("""
-            INSERT INTO users (telegram_id, username, password_hash, is_admin)
-            VALUES (:telegram_id, :username, :password_hash, :is_admin)
-        """), {
-            "telegram_id": telegram_id,
-            "username": username,
-            "password_hash": hash_password(password),
-            "is_admin": is_admin
-        })
+        try:
+            conn.execute(text("""
+                INSERT INTO users (telegram_id, username, password_hash, is_admin)
+                VALUES (:telegram_id, :username, :password_hash, :is_admin)
+            """), {
+                "telegram_id": telegram_id,
+                "username": username,
+                "password_hash": hash_password(password),
+                "is_admin": is_admin
+            })
+        except IntegrityError:
+            conn.rollback()
+            return {
+                "status": "error",
+                "message": "Username or Telegram ID already exists"
+            }
 
     return {"status": "success"}
 
@@ -2492,7 +2537,7 @@ def list_branches_db(user_id: int):
 def change_password_db(user_id: int, old_password: str, new_password: str):
     with get_connection() as conn:
         row = conn.execute(text("""
-            SELECT password_hash
+            SELECT username, password_hash
             FROM users
             WHERE id = :user_id
         """), {"user_id": user_id}).mappings().fetchone()
@@ -2500,10 +2545,16 @@ def change_password_db(user_id: int, old_password: str, new_password: str):
         if not row:
             return {"status": "error", "message": "User not found"}
 
-        if not verify_password(old_password, row[0]):
-            raise {
+        if not verify_password(old_password, row["password_hash"]):
+            return {
                 "status": "error",
                 "message": "Old password is incorrect"
+            }
+
+        if _credentials_match(row["username"], new_password):
+            return {
+                "status": "error",
+                "message": "New password must be different from username"
             }
 
         conn.execute(text("""
@@ -2731,13 +2782,14 @@ def reset_device_db(license_id):
 
 def create_user_db(username, password, telegram_id, created_by):
     with get_connection() as conn:
+        if _credentials_match(username, password):
+            return {
+                "status": "error",
+                "message": "Password must be different from username"
+            }
 
         # ✅ check username
-        exists = conn.execute(text("""
-            SELECT 1 FROM users WHERE username = :u
-        """), {"u": username}).fetchone()
-
-        if exists:
+        if _username_exists(conn, username):
             return {"status": "error", "message": "Username already exists"}
 
         # ✅ check telegram_id if provided
@@ -2811,6 +2863,16 @@ def delete_user_by_admin_db(user_id, admin_id):
 def reset_password_db(new_password, user_id, admin_id=None):
     with get_connection() as conn:
         if admin_id is None:
+            user_row = conn.execute(text("""
+                SELECT username
+                FROM users
+                WHERE id = :uid
+            """), {"uid": user_id}).mappings().fetchone()
+            if not user_row:
+                return False
+            if _credentials_match(user_row["username"], new_password):
+                raise ValueError("Password must be different from username")
+
             res = conn.execute(text("""
                 UPDATE users
                 SET password_hash = :p
@@ -2820,6 +2882,20 @@ def reset_password_db(new_password, user_id, admin_id=None):
                 "uid": user_id,
             })
             return res.rowcount > 0
+
+        user_row = conn.execute(text("""
+            SELECT username
+            FROM users
+            WHERE id = :uid
+              AND created_by = :aid
+        """), {
+            "uid": user_id,
+            "aid": admin_id
+        }).mappings().fetchone()
+        if not user_row:
+            return False
+        if _credentials_match(user_row["username"], new_password):
+            raise ValueError("Password must be different from username")
 
         res = conn.execute(text("""
             UPDATE users
@@ -2887,6 +2963,35 @@ def assign_user_to_branch_db(admin_id, user_id, branch_id):
 
 def update_user_by_admin_db(admin_id, user_id, username, telegram_id, is_active):
     with get_connection() as conn:
+        owner_row = conn.execute(text("""
+            SELECT id
+            FROM users
+            WHERE id = :uid
+              AND created_by = :aid
+        """), {
+            "uid": user_id,
+            "aid": admin_id
+        }).fetchone()
+        if not owner_row:
+            return False
+
+        if username and _username_exists(conn, username, exclude_user_id=user_id):
+            raise ValueError("Username already exists")
+
+        if telegram_id:
+            tg_exists = conn.execute(text("""
+                SELECT 1
+                FROM users
+                WHERE telegram_id = :t
+                  AND id <> :uid
+                LIMIT 1
+            """), {
+                "t": telegram_id,
+                "uid": user_id
+            }).fetchone()
+            if tg_exists:
+                raise ValueError("Telegram ID already linked to another user")
+
         res = conn.execute(text("""
             UPDATE users
             SET

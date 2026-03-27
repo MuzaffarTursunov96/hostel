@@ -33,6 +33,34 @@ function buildExpiryContactMessage(baseMessage) {
   );
 }
 
+function translateBackendError(msg) {
+  const raw = String(msg || "").trim();
+  const lang = (window.CURRENT_LANG || "ru").toLowerCase();
+  const isUz = lang.startsWith("uz");
+  const byExact = {
+    "Username already exists": isUz
+      ? "Bu foydalanuvchi nomi allaqachon mavjud"
+      : "Это имя пользователя уже существует",
+    "Password must be different from username": isUz
+      ? "Parol foydalanuvchi nomidan farq qilishi kerak"
+      : "Пароль должен отличаться от имени пользователя",
+    "New password must be different from username": isUz
+      ? "Yangi parol foydalanuvchi nomidan farq qilishi kerak"
+      : "Новый пароль должен отличаться от имени пользователя",
+    "Telegram ID already linked to another user": isUz
+      ? "Bu Telegram ID allaqachon boshqa foydalanuvchiga biriktirilgan"
+      : "Этот Telegram ID уже привязан к другому пользователю",
+    "Username or Telegram ID already exists": isUz
+      ? "Foydalanuvchi nomi yoki Telegram ID allaqachon mavjud"
+      : "Имя пользователя или Telegram ID уже существует",
+    "Old password is incorrect": isUz
+      ? "Eski parol noto'g'ri"
+      : "Старый пароль неверный",
+  };
+
+  return byExact[raw] || raw;
+}
+
 function openPage(id) {
   document.querySelectorAll(".page").forEach(p => {
     p.classList.remove("active");
@@ -97,6 +125,8 @@ function handleApiError(xhr) {
       msg = xhr.responseText;
     }
   }
+
+  msg = translateBackendError(msg);
 
   console.error(t("api_error"), msg);
 

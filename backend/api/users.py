@@ -84,7 +84,10 @@ def reset_user_password(
     if not password:
         raise HTTPException(400, "password required")
 
-    ok = reset_password_db(password, user_id, current_user["user_id"])
+    try:
+        ok = reset_password_db(password, user_id, current_user["user_id"])
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
     if not ok:
         raise HTTPException(403, "Not your user")
 
@@ -103,13 +106,16 @@ def update_user(
     telegram_id = data.get("telegram_id")
     is_active = data.get("is_active")
 
-    ok = update_user_by_admin_db(
-        admin_id=current_user["user_id"],
-        user_id=user_id,
-        username=username,
-        telegram_id=telegram_id,
-        is_active=is_active
-    )
+    try:
+        ok = update_user_by_admin_db(
+            admin_id=current_user["user_id"],
+            user_id=user_id,
+            username=username,
+            telegram_id=telegram_id,
+            is_active=is_active
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
 
     if not ok:
         raise HTTPException(403, "Not your user")

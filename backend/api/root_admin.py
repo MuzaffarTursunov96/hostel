@@ -40,7 +40,7 @@ def create_admin(
     user_stat = create_admin_from_root(telegram_id, username, password,True)
     
     if user_stat['status'] =='error':
-        raise HTTPException(400, "Admin already exists")
+        raise HTTPException(400, user_stat.get("message", "Admin already exists"))
 
     return {"ok": True}
 
@@ -73,7 +73,10 @@ def reset_password(
     if not new_password:
         raise HTTPException(400, "password required")
 
-    reset_password_db(new_password, user_id)
+    try:
+        reset_password_db(new_password, user_id)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
 
     return {"ok": True}
 
