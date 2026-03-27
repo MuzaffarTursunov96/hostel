@@ -419,7 +419,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _index = 0;
   late final _api = _ApiClient(widget.accessToken, widget.branchId);
   final ValueNotifier<int> _refreshSignal = ValueNotifier<int>(0);
@@ -427,20 +427,38 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _changingLang = false;
   int _unreadCount = 0;
   StreamSubscription<String>? _fcmTokenRefreshSub;
+  StreamSubscription<RemoteMessage>? _fcmForegroundSub;
+  Timer? _unreadPollTimer;
   bool _firebaseReady = false;
+
+  String _t(String ru, String uz) => trPair(ru: ru, uz: uz, lang: _language);
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadTopLanguage();
     _loadUnreadCount();
     _initPushNotifications();
+    _unreadPollTimer = Timer.periodic(const Duration(seconds: 25), (_) {
+      _loadUnreadCount();
+    });
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _fcmTokenRefreshSub?.cancel();
+    _fcmForegroundSub?.cancel();
+    _unreadPollTimer?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _loadUnreadCount();
+    }
   }
 
   void _notifyDataChanged() {
@@ -519,6 +537,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
       _fcmTokenRefreshSub = messaging.onTokenRefresh.listen((newToken) async {
         await _registerDeviceToken(newToken);
+      });
+
+      _fcmForegroundSub = FirebaseMessaging.onMessage.listen((event) async {
+        await _loadUnreadCount();
+        if (!mounted) return;
+        final title = event.notification?.title ?? _t('Уведомление', 'Bildirishnoma');
+        final body = event.notification?.body ?? _t('Новое сообщение', 'Yangi xabar');
+        showAppAlert(context, '$title\n$body');
       });
     } catch (_) {}
   }
@@ -1526,6 +1552,7 @@ class _DashboardPageState extends State<_DashboardPage> {
     final all = (raw as List).cast<dynamic>();
     final search = TextEditingController();
     List<dynamic> filtered = List<dynamic>.from(all);
+    String selectedRoom = '';
 
     await showModalBottomSheet(
       context: context,
@@ -1537,22 +1564,34 @@ class _DashboardPageState extends State<_DashboardPage> {
       builder: (_) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
+            String roomOf(Map<String, dynamic> b) =>
+                '${b['room_name'] ?? b['room_number'] ?? ''}'.trim();
+
             void applySearch(String q) {
               final s = q.trim().toLowerCase();
               filtered = all.where((b) {
+                final row = Map<String, dynamic>.from(b as Map);
                 final name = '${b['customer_name'] ?? ''}'.toLowerCase();
                 final passport = '${b['passport_id'] ?? ''}'.toLowerCase();
                 final room = '${b['room_name'] ?? b['room_number'] ?? ''}'.toLowerCase();
                 final bed = '${b['bed_number'] ?? ''}'.toLowerCase();
-                return s.isEmpty ||
+                final roomOk = selectedRoom.isEmpty || roomOf(row) == selectedRoom;
+                final textOk = s.isEmpty ||
                     name.contains(s) ||
                     passport.contains(s) ||
                     room.contains(s) ||
                     bed.contains(s);
+                return roomOk && textOk;
               }).toList();
             }
 
             applySearch(search.text);
+            final roomOptions = all
+                .map((e) => roomOf(Map<String, dynamic>.from(e as Map)))
+                .where((e) => e.isNotEmpty)
+                .toSet()
+                .toList()
+              ..sort();
 
             return SafeArea(
               child: Padding(
@@ -1578,10 +1617,28 @@ class _DashboardPageState extends State<_DashboardPage> {
                         controller: search,
                         onChanged: (v) => setSheetState(() => applySearch(v)),
                         decoration: InputDecoration(
-                          hintText: 'Ism, passport yoki telefon...',
+                          hintText: _t('Имя, паспорт или телефон...', 'Ism, passport yoki telefon...'),
                           prefixIcon: const Icon(Icons.search),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
                         ),
+                      ),
+                      const SizedBox(height: 10),
+                      DropdownButtonFormField<String>(
+                        value: selectedRoom.isEmpty ? '' : selectedRoom,
+                        decoration: InputDecoration(
+                          labelText: _t('Комната', 'Xona'),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        ),
+                        items: [
+                          DropdownMenuItem(value: '', child: Text(_t('Все комнаты', 'Barcha xonalar'))),
+                          ...roomOptions.map((r) => DropdownMenuItem(value: r, child: Text(r))),
+                        ],
+                        onChanged: (v) => setSheetState(() {
+                          selectedRoom = v ?? '';
+                          applySearch(search.text);
+                        }),
                       ),
                       const SizedBox(height: 10),
                       Expanded(
@@ -1614,7 +1671,10 @@ class _DashboardPageState extends State<_DashboardPage> {
                                         ),
                                         const SizedBox(height: 4),
                                         Text('🪪 ${b['passport_id'] ?? ''}', style: const TextStyle(color: Colors.black54)),
-                                        Text('🏠 ${b['room_name'] ?? b['room_number']} • 🛏 Kravat ${b['bed_number'] ?? ''}', style: const TextStyle(color: Colors.black54)),
+                                        Text(
+                                          '🏠 ${b['room_name'] ?? b['room_number']} • 🛏 ${_t("Кровать", "Kravat")} ${b['bed_number'] ?? ''}',
+                                          style: const TextStyle(color: Colors.black54),
+                                        ),
                                         Text(
                                           '🗓 ${_formatShortDate('${b['checkin_date'] ?? ''}')} → ${_formatShortDate('${b['checkout_date'] ?? ''}')}',
                                           style: const TextStyle(color: Colors.black54),
@@ -1629,7 +1689,7 @@ class _DashboardPageState extends State<_DashboardPage> {
                                                   await _openEditActiveBooking(b);
                                                 },
                                                 icon: const Icon(Icons.edit, size: 16),
-                                                label: const Text('Tahrirlash'),
+                                                label: Text(_t('Редактировать', 'Tahrirlash')),
                                               ),
                                             ),
                                             const SizedBox(width: 8),
@@ -1639,10 +1699,13 @@ class _DashboardPageState extends State<_DashboardPage> {
                                                 onPressed: () async {
                                                   final ok = await confirmAction(
                                                     context,
-                                                    title: 'Buyurtmani bekor qilish',
-                                                    message: 'Haqiqatan ham buyurtmani bekor qilasizmi?',
-                                                    confirmText: 'Bekor qilish',
-                                                    cancelText: 'Orqaga',
+                                                    title: _t('Отменить бронирование', 'Buyurtmani bekor qilish'),
+                                                    message: _t(
+                                                      'Вы уверены, что хотите отменить бронирование?',
+                                                      'Haqiqatan ham buyurtmani bekor qilasizmi?',
+                                                    ),
+                                                    confirmText: _t('Отменить', 'Bekor qilish'),
+                                                    cancelText: _t('Назад', 'Orqaga'),
                                                   );
                                                   if (!ok) return;
                                                   await widget.api.postJson('/active-bookings/cancel', {
@@ -1652,10 +1715,10 @@ class _DashboardPageState extends State<_DashboardPage> {
                                                   if (!mounted) return;
                                                   Navigator.pop(context);
                                                   setState(() {});
-                                                  showAppAlert(context, 'Buyurtma bekor qilindi');
+                                                  showAppAlert(context, _t('Бронирование отменено', 'Buyurtma bekor qilindi'));
                                                 },
                                                 icon: const Icon(Icons.close, size: 16),
-                                                label: const Text('Bekor qilish'),
+                                                label: Text(_t('Отменить', 'Bekor qilish')),
                                               ),
                                             ),
                                           ],
@@ -3834,10 +3897,12 @@ class _PaymentHistorySheet extends StatefulWidget {
 class _PaymentHistorySheetState extends State<_PaymentHistorySheet> {
   late int _year = widget.initialYear;
   late int _month = widget.initialMonth;
+  String _roomFilter = '';
   final _search = TextEditingController();
   bool _loading = true;
   String? _error;
   List<dynamic> _rows = [];
+  String _t(String ru, String uz) => trPair(ru: ru, uz: uz, lang: appLang.value);
 
   @override
   void initState() {
@@ -3877,11 +3942,22 @@ class _PaymentHistorySheetState extends State<_PaymentHistorySheet> {
 
   @override
   Widget build(BuildContext context) {
+    String roomOf(Map<String, dynamic> r) => '${r['room_name'] ?? r['room_number'] ?? ''}'.trim();
+    final roomOptions = _rows
+        .map((e) => roomOf(Map<String, dynamic>.from(e as Map)))
+        .where((e) => e.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
     final q = _search.text.trim().toLowerCase();
     final filtered = _rows.where((r) {
-      final name = '${r['customer_name'] ?? ''}'.toLowerCase();
-      final pass = '${r['passport_id'] ?? ''}'.toLowerCase();
-      return q.isEmpty || name.contains(q) || pass.contains(q);
+      final m = Map<String, dynamic>.from(r as Map);
+      final name = '${m['customer_name'] ?? ''}'.toLowerCase();
+      final pass = '${m['passport_id'] ?? ''}'.toLowerCase();
+      final room = roomOf(m);
+      final roomOk = _roomFilter.isEmpty || room == _roomFilter;
+      final textOk = q.isEmpty || name.contains(q) || pass.contains(q);
+      return roomOk && textOk;
     }).toList();
 
     return SafeArea(
@@ -3900,7 +3976,7 @@ class _PaymentHistorySheetState extends State<_PaymentHistorySheet> {
                 padding: const EdgeInsets.fromLTRB(8, 0, 4, 6),
                 child: Row(
                   children: [
-                    const Text('📜 История платежей', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                    Text('📜 ${_t('История платежей', "To'lovlar tarixi")}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
                     const Spacer(),
                     IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
                   ],
@@ -3947,7 +4023,7 @@ class _PaymentHistorySheetState extends State<_PaymentHistorySheet> {
                             backgroundColor: const Color(0xFF3D8BDF),
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                           ),
-                          child: const Text('Загрузить'),
+                          child: Text(_t('Загрузить', 'Yuklash')),
                         ),
                       ],
                     ),
@@ -3955,12 +4031,27 @@ class _PaymentHistorySheetState extends State<_PaymentHistorySheet> {
                     TextField(
                       controller: _search,
                       onChanged: (_) => setState(() {}),
-                      decoration: const InputDecoration(
-                        hintText: 'Поиск клиента / паспорта',
+                      decoration: InputDecoration(
+                        hintText: _t('Поиск клиента / паспорта', 'Mijoz / passport qidirish'),
                         border: OutlineInputBorder(),
                         isDense: true,
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       ),
+                    ),
+                    const SizedBox(height: 10),
+                    DropdownButtonFormField<String>(
+                      value: _roomFilter.isEmpty ? '' : _roomFilter,
+                      decoration: InputDecoration(
+                        labelText: _t('Комната', 'Xona'),
+                        border: const OutlineInputBorder(),
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                      items: [
+                        DropdownMenuItem(value: '', child: Text(_t('Все комнаты', 'Barcha xonalar'))),
+                        ...roomOptions.map((r) => DropdownMenuItem(value: r, child: Text(r))),
+                      ],
+                      onChanged: (v) => setState(() => _roomFilter = v ?? ''),
                     ),
                   ],
                 ),
@@ -3970,7 +4061,7 @@ class _PaymentHistorySheetState extends State<_PaymentHistorySheet> {
                 child: () {
                   if (_loading) return const Center(child: CircularProgressIndicator());
                   if (_error != null) return Center(child: Text(_error!, style: const TextStyle(color: Colors.red)));
-                  if (filtered.isEmpty) return const Center(child: Text('Платежей нет'));
+                  if (filtered.isEmpty) return Center(child: Text(_t('Платежей нет', "To'lovlar yo'q")));
                   return ListView.separated(
                     itemCount: filtered.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 10),
@@ -4001,11 +4092,11 @@ class _PaymentHistorySheetState extends State<_PaymentHistorySheet> {
                               children: [
                                 Expanded(
                                   child: Text(
-                                    '🏠 ${r['room_name'] ?? r['room_number'] ?? ''} • 🛏 Kravat ${r['bed_number'] ?? ''}',
+                                    '🏠 ${r['room_name'] ?? r['room_number'] ?? ''} • 🛏 ${_t("Кровать", "Kravat")} ${r['bed_number'] ?? ''}',
                                     style: const TextStyle(color: Color(0xFF334155)),
                                   ),
                                 ),
-                                const Text('customer', style: TextStyle(color: Color(0xFF64748B))),
+                                Text(_t('клиент', 'mijoz'), style: const TextStyle(color: Color(0xFF64748B))),
                               ],
                             ),
                           ],
@@ -4044,6 +4135,7 @@ class _ExpenseHistorySheetState extends State<_ExpenseHistorySheet> {
   bool _loading = true;
   String? _error;
   List<dynamic> _rows = [];
+  String _t(String ru, String uz) => trPair(ru: ru, uz: uz, lang: appLang.value);
 
   @override
   void initState() {
@@ -4094,7 +4186,7 @@ class _ExpenseHistorySheetState extends State<_ExpenseHistorySheet> {
                 padding: const EdgeInsets.fromLTRB(8, 0, 4, 6),
                 child: Row(
                   children: [
-                    const Text('💸 История расходов', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                    Text('💸 ${_t('История расходов', 'Xarajatlar tarixi')}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
                     const Spacer(),
                     IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
                   ],
@@ -4135,7 +4227,7 @@ class _ExpenseHistorySheetState extends State<_ExpenseHistorySheet> {
                   FilledButton(
                     onPressed: _load,
                     style: FilledButton.styleFrom(backgroundColor: const Color(0xFF3D8BDF), padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12)),
-                    child: const Text('OK'),
+                    child: Text(_t('Поиск', 'Izlash')),
                   ),
                 ],
               ),
@@ -4144,7 +4236,7 @@ class _ExpenseHistorySheetState extends State<_ExpenseHistorySheet> {
                 child: () {
                   if (_loading) return const Center(child: CircularProgressIndicator());
                   if (_error != null) return Center(child: Text(_error!, style: const TextStyle(color: Colors.red)));
-                  if (_rows.isEmpty) return const Center(child: Text('Расходов нет'));
+                  if (_rows.isEmpty) return Center(child: Text(_t('Расходов нет', "Xarajatlar yo'q")));
                   return ListView.separated(
                     itemCount: _rows.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 8),
@@ -4194,11 +4286,13 @@ class _DebtAnalyticsSheet extends StatefulWidget {
 class _DebtAnalyticsSheetState extends State<_DebtAnalyticsSheet> {
   DateTime _from = DateTime(2025, 12, 31);
   DateTime _to = DateTime.now();
+  String _roomFilter = '';
   bool _loading = true;
   String? _error;
   List<dynamic> _rows = [];
   final _search = TextEditingController();
   final Map<int, TextEditingController> _payCtrls = {};
+  String _t(String ru, String uz) => trPair(ru: ru, uz: uz, lang: appLang.value);
 
   @override
   void initState() {
@@ -4240,7 +4334,7 @@ class _DebtAnalyticsSheetState extends State<_DebtAnalyticsSheet> {
 
   Future<void> _load() async {
     if (_from.isAfter(_to)) {
-      setState(() => _error = 'Неверный диапазон дат');
+      setState(() => _error = _t('Неверный диапазон дат', "Noto'g'ri sana oralig'i"));
       return;
     }
     setState(() {
@@ -4272,7 +4366,7 @@ class _DebtAnalyticsSheetState extends State<_DebtAnalyticsSheet> {
     final ctrl = _payCtrls[bookingId];
     final amount = double.tryParse(ctrl?.text.trim() ?? '');
     if (amount == null || amount <= 0) {
-      showAppAlert(context, 'Введите сумму платежа', error: true);
+      showAppAlert(context, _t('Введите сумму платежа', "To'lov summasini kiriting"), error: true);
       return;
     }
     await widget.api.postJson('/debts/pay', {
@@ -4284,17 +4378,27 @@ class _DebtAnalyticsSheetState extends State<_DebtAnalyticsSheet> {
     ctrl?.clear();
     await _load();
     if (!mounted) return;
-    showAppAlert(context, 'Оплата проведена');
+    showAppAlert(context, _t('Оплата успешно проведена', "To'lov muvaffaqiyatli qabul qilindi"));
   }
 
   @override
   Widget build(BuildContext context) {
+    String roomOf(Map<String, dynamic> r) => '${r['room_name'] ?? r['room_number'] ?? ''}'.trim();
+    final roomOptions = _rows
+        .map((e) => roomOf(Map<String, dynamic>.from(e as Map)))
+        .where((e) => e.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
     final q = _search.text.trim().toLowerCase();
     final filtered = _rows.where((r) {
       final m = Map<String, dynamic>.from(r as Map);
       final n = '${m['customer_name'] ?? ''}'.toLowerCase();
       final p = '${m['passport_id'] ?? ''}'.toLowerCase();
-      return q.isEmpty || n.contains(q) || p.contains(q);
+      final room = roomOf(m);
+      final roomOk = _roomFilter.isEmpty || room == _roomFilter;
+      final textOk = q.isEmpty || n.contains(q) || p.contains(q);
+      return roomOk && textOk;
     }).toList();
 
     return SafeArea(
@@ -4313,7 +4417,7 @@ class _DebtAnalyticsSheetState extends State<_DebtAnalyticsSheet> {
                 padding: const EdgeInsets.fromLTRB(8, 0, 4, 6),
                 child: Row(
                   children: [
-                    const Text('💳 Аналитика долгов', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                    Text('💳 ${_t('Аналитика долгов', 'Qarzlar tahlili')}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
                     const Spacer(),
                     IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
                   ],
@@ -4389,19 +4493,34 @@ class _DebtAnalyticsSheetState extends State<_DebtAnalyticsSheet> {
                           backgroundColor: const Color(0xFF3D8BDF),
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                         ),
-                        child: const Text('Подтвердить'),
+                        child: Text(_t('Подтвердить', 'Tasdiqlash')),
                       ),
                     ),
                     const SizedBox(height: 8),
                     TextField(
                       controller: _search,
                       onChanged: (_) => setState(() {}),
-                      decoration: const InputDecoration(
-                        hintText: 'Поиск клиента / паспорта',
+                      decoration: InputDecoration(
+                        hintText: _t('Поиск клиента / паспорта', 'Mijoz / passport qidirish'),
                         border: OutlineInputBorder(),
                         isDense: true,
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       ),
+                    ),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      value: _roomFilter.isEmpty ? '' : _roomFilter,
+                      decoration: InputDecoration(
+                        labelText: _t('Комната', 'Xona'),
+                        border: const OutlineInputBorder(),
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                      items: [
+                        DropdownMenuItem(value: '', child: Text(_t('Все комнаты', 'Barcha xonalar'))),
+                        ...roomOptions.map((r) => DropdownMenuItem(value: r, child: Text(r))),
+                      ],
+                      onChanged: (v) => setState(() => _roomFilter = v ?? ''),
                     ),
                   ],
                 ),
@@ -4411,7 +4530,7 @@ class _DebtAnalyticsSheetState extends State<_DebtAnalyticsSheet> {
                 child: () {
                   if (_loading) return const Center(child: CircularProgressIndicator());
                   if (_error != null) return Center(child: Text(_error!, style: const TextStyle(color: Colors.red)));
-                  if (filtered.isEmpty) return const Center(child: Text('Долгов нет'));
+                  if (filtered.isEmpty) return Center(child: Text(_t('Долгов нет', "Qarzlar yo'q")));
                   return ListView.separated(
                     keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                     padding: const EdgeInsets.only(bottom: 16),
@@ -4438,7 +4557,7 @@ class _DebtAnalyticsSheetState extends State<_DebtAnalyticsSheet> {
                             ),
                             const SizedBox(height: 2),
                             Text('${r['passport_id'] ?? ''}', style: const TextStyle(color: Color(0xFF64748B))),
-                            Text('🏠 ${r['room_name'] ?? r['room_number'] ?? ''} • 🛏 Kravat ${r['bed_number'] ?? ''}',
+                            Text('🏠 ${r['room_name'] ?? r['room_number'] ?? ''} • 🛏 ${_t("Кровать", "Kravat")} ${r['bed_number'] ?? ''}',
                                 style: const TextStyle(color: Color(0xFF475467))),
                             Text('${r['checkin_date'] ?? ''} → ${r['checkout_date'] ?? ''}',
                                 style: const TextStyle(color: Color(0xFF64748B))),
@@ -4446,8 +4565,8 @@ class _DebtAnalyticsSheetState extends State<_DebtAnalyticsSheet> {
                             TextField(
                               controller: ctrl,
                               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                              decoration: const InputDecoration(
-                                hintText: 'Сумма платежа',
+                              decoration: InputDecoration(
+                                hintText: _t('Сумма платежа', "To'lov summasi"),
                                 border: OutlineInputBorder(),
                               ),
                             ),
@@ -4457,7 +4576,7 @@ class _DebtAnalyticsSheetState extends State<_DebtAnalyticsSheet> {
                               child: FilledButton(
                                 style: FilledButton.styleFrom(backgroundColor: const Color(0xFF57C568)),
                                 onPressed: () => _payDebt(r),
-                                child: const Text('Оплатить'),
+                                child: Text(_t('Оплатить', "To'lash")),
                               ),
                             ),
                           ],
@@ -4488,6 +4607,7 @@ class _CustomersSheetState extends State<_CustomersSheet> {
   String? _error;
   List<dynamic> _rows = [];
   final _search = TextEditingController();
+  String _t(String ru, String uz) => trPair(ru: ru, uz: uz, lang: appLang.value);
 
   @override
   void initState() {
@@ -4525,20 +4645,20 @@ class _CustomersSheetState extends State<_CustomersSheet> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Редактировать'),
+        title: Text(_t('Редактировать', 'Tahrirlash')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: name, decoration: const InputDecoration(labelText: 'Имя', border: OutlineInputBorder())),
+            TextField(controller: name, decoration: InputDecoration(labelText: _t('Имя', 'Ism'), border: const OutlineInputBorder())),
             const SizedBox(height: 8),
-            TextField(controller: pass, decoration: const InputDecoration(labelText: 'Паспорт', border: OutlineInputBorder())),
+            TextField(controller: pass, decoration: InputDecoration(labelText: _t('Паспорт', 'Passport'), border: const OutlineInputBorder())),
             const SizedBox(height: 8),
-            TextField(controller: phone, decoration: const InputDecoration(labelText: 'Телефон', border: OutlineInputBorder())),
+            TextField(controller: phone, decoration: InputDecoration(labelText: _t('Телефон', 'Telefon'), border: const OutlineInputBorder())),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Отмена')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Сохранить')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(_t('Отмена', 'Bekor qilish'))),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(_t('Сохранить', 'Saqlash'))),
         ],
       ),
     );
@@ -4555,11 +4675,11 @@ class _CustomersSheetState extends State<_CustomersSheet> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Удалить клиента'),
-        content: Text('Удалить ${c['name'] ?? ''}?'),
+        title: Text(_t('Удалить клиента', "Mijozni o'chirish")),
+        content: Text('${_t('Удалить', "O'chirish")} ${c['name'] ?? ''}?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Нет')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Да')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(_t('Нет', "Yo'q"))),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(_t('Да', 'Ha'))),
         ],
       ),
     );
@@ -4590,7 +4710,7 @@ class _CustomersSheetState extends State<_CustomersSheet> {
                 padding: const EdgeInsets.fromLTRB(8, 0, 4, 6),
                 child: Row(
                   children: [
-                    const Text('👤 Клиенты', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                    Text('👤 ${_t('Клиенты', 'Mijozlar')}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
                     const Spacer(),
                     IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
                   ],
@@ -4600,11 +4720,11 @@ class _CustomersSheetState extends State<_CustomersSheet> {
                 child: TextField(
                   controller: _search,
                   onChanged: (_) => setState(() {}),
-                  decoration: const InputDecoration(
-                    hintText: 'Поиск по имени, паспорту или телефону',
+                  decoration: InputDecoration(
+                    hintText: _t('Поиск по имени, паспорту или телефону', 'Ism, passport yoki telefon bo\'yicha qidirish'),
                     border: OutlineInputBorder(),
                     isDense: true,
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   ),
                 ),
               ),
@@ -4615,7 +4735,7 @@ class _CustomersSheetState extends State<_CustomersSheet> {
                   if (_error != null) return Center(child: Text(_error!, style: const TextStyle(color: Colors.red)));
                   return _Card(
                     child: filtered.isEmpty
-                        ? const Center(child: Padding(padding: EdgeInsets.all(20), child: Text('Клиентов нет')))
+                        ? Center(child: Padding(padding: const EdgeInsets.all(20), child: Text(_t("Mijozlar yo'q", "Mijozlar yo'q"))))
                         : ListView.separated(
                             shrinkWrap: true,
                             itemCount: filtered.length,
@@ -4685,7 +4805,7 @@ class _CustomersSheetState extends State<_CustomersSheet> {
                                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                                         ),
                                         icon: const Text('✏️', style: TextStyle(fontSize: 12)),
-                                        label: const Text('Изм.', style: TextStyle(fontSize: 12)),
+                                        label: Text(_t('Изм.', 'Tahr.'), style: const TextStyle(fontSize: 12)),
                                       ),
                                       const SizedBox(height: 6),
                                       FilledButton(
@@ -4735,6 +4855,7 @@ class _RefundsSheetState extends State<_RefundsSheet> {
   bool _loading = true;
   String? _error;
   List<dynamic> _rows = [];
+  String _t(String ru, String uz) => trPair(ru: ru, uz: uz, lang: appLang.value);
 
   String _apiDate(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
@@ -4779,7 +4900,7 @@ class _RefundsSheetState extends State<_RefundsSheet> {
                 padding: const EdgeInsets.fromLTRB(8, 0, 4, 6),
                 child: Row(
                   children: [
-                    const Text('↩️ Возвраты', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                    Text('↩️ ${_t('Возвраты', 'Qaytarishlar')}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
                     const Spacer(),
                     IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
                   ],
@@ -4820,7 +4941,7 @@ class _RefundsSheetState extends State<_RefundsSheet> {
                   FilledButton(
                     onPressed: _load,
                     style: FilledButton.styleFrom(backgroundColor: const Color(0xFF3D8BDF), padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12)),
-                    child: Text(trPair(ru: 'поиск', uz: 'izlash')),
+                    child: Text(_t('Поиск', 'Izlash')),
                   ),
                 ],
               ),
@@ -5946,6 +6067,42 @@ class _NotificationsPageState extends State<_NotificationsPage> {
     _load();
   }
 
+  String _monthName(int m) {
+    if (widget.language == 'ru') {
+      const ru = [
+        'янв', 'фев', 'мар', 'апр', 'май', 'июн',
+        'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'
+      ];
+      return ru[(m - 1).clamp(0, 11)];
+    }
+    const uz = [
+      'yan', 'fev', 'mar', 'apr', 'may', 'iun',
+      'iul', 'avg', 'sen', 'okt', 'noy', 'dek'
+    ];
+    return uz[(m - 1).clamp(0, 11)];
+  }
+
+  String _fmtDate(String raw) {
+    if (raw.trim().isEmpty) return '';
+    final dt = DateTime.tryParse(raw)?.toLocal();
+    if (dt == null) return raw;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final thatDay = DateTime(dt.year, dt.month, dt.day);
+    final diffDays = today.difference(thatDay).inDays;
+    final dd = dt.day.toString().padLeft(2, '0');
+    final hh = dt.hour.toString().padLeft(2, '0');
+    final mm = dt.minute.toString().padLeft(2, '0');
+    final timeText = '$hh:$mm';
+    if (diffDays == 0) {
+      return '${_t('Сегодня', 'Bugun')}, $timeText';
+    }
+    if (diffDays == 1) {
+      return '${_t('Вчера', 'Kecha')}, $timeText';
+    }
+    return '$dd ${_monthName(dt.month)} ${dt.year}, $timeText';
+  }
+
   Future<void> _load() async {
     setState(() {
       _loading = true;
@@ -5990,15 +6147,118 @@ class _NotificationsPageState extends State<_NotificationsPage> {
     }
   }
 
+  Future<bool> _confirmAction({
+    required String title,
+    required String message,
+    required String yesText,
+  }) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(_t('Отмена', 'Bekor qilish')),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE5534B)),
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(yesText),
+          ),
+        ],
+      ),
+    );
+    return result == true;
+  }
+
+  Future<void> _deleteOne(int id) async {
+    final ok = await _confirmAction(
+      title: _t('Удалить уведомление?', "Bildirishnomani o'chirish?"),
+      message: _t(
+        'Это действие нельзя отменить.',
+        "Bu amalni ortga qaytarib bo'lmaydi.",
+      ),
+      yesText: _t('Удалить', "O'chirish"),
+    );
+    if (!ok) return;
+    try {
+      await widget.api.deleteJson('/users/me/notifications/$id');
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      showAppAlert(context, '$e', error: true);
+    }
+  }
+
+  Future<void> _deleteRead() async {
+    final ok = await _confirmAction(
+      title: _t('Удалить прочитанные?', "O'qilganlarni o'chirish?"),
+      message: _t(
+        'Будут удалены все прочитанные уведомления.',
+        "Barcha o'qilgan bildirishnomalar o'chiriladi.",
+      ),
+      yesText: _t('Удалить', "O'chirish"),
+    );
+    if (!ok) return;
+    try {
+      await widget.api.deleteJson('/users/me/notifications/read');
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      showAppAlert(context, '$e', error: true);
+    }
+  }
+
+  Future<void> _deleteAll() async {
+    final ok = await _confirmAction(
+      title: _t('Удалить все уведомления?', "Barcha bildirishnomalarni o'chirish?"),
+      message: _t(
+        'Будут удалены все уведомления, включая новые.',
+        "Barcha bildirishnomalar, shu jumladan yangilari ham o'chiriladi.",
+      ),
+      yesText: _t('Удалить все', "Hammasini o'chirish"),
+    );
+    if (!ok) return;
+    try {
+      await widget.api.deleteJson('/users/me/notifications');
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      showAppAlert(context, '$e', error: true);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text('${_t('Уведомления', 'Bildirishnomalar')} ($_unreadCount)'),
         actions: [
-          TextButton(
+          TextButton.icon(
             onPressed: _loading || _items.isEmpty ? null : _markAllRead,
-            child: Text(_t('Прочитать все', "Barchasini o'qish")),
+            icon: const Icon(Icons.done_all_rounded, size: 18),
+            label: Text(_t('Прочитать все', "Barchasini o'qish")),
+          ),
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'delete_read') {
+                _deleteRead();
+              } else if (value == 'delete_all') {
+                _deleteAll();
+              }
+            },
+            itemBuilder: (_) => [
+              PopupMenuItem(
+                value: 'delete_read',
+                child: Text(_t('Удалить прочитанные', "O'qilganlarni o'chirish")),
+              ),
+              PopupMenuItem(
+                value: 'delete_all',
+                child: Text(_t('Удалить все', "Hammasini o'chirish")),
+              ),
+            ],
           ),
         ],
       ),
@@ -6018,7 +6278,7 @@ class _NotificationsPageState extends State<_NotificationsPage> {
                         final isRead = n['is_read'] == true;
                         final title = '${n['title'] ?? ''}';
                         final body = '${n['body'] ?? ''}';
-                        final created = '${n['created_at'] ?? ''}';
+                        final created = _fmtDate('${n['created_at'] ?? ''}');
 
                         return InkWell(
                           borderRadius: BorderRadius.circular(16),
@@ -6031,10 +6291,10 @@ class _NotificationsPageState extends State<_NotificationsPage> {
                           child: Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: isRead ? Colors.white : const Color(0xFFEFF6FF),
+                              color: isRead ? Colors.white : const Color(0xFFF0F9FF),
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
-                                color: isRead ? const Color(0xFFE5E7EB) : const Color(0xFFBFDBFE),
+                                color: isRead ? const Color(0xFFE5E7EB) : const Color(0xFF7DD3FC),
                               ),
                             ),
                             child: Row(
@@ -6049,27 +6309,69 @@ class _NotificationsPageState extends State<_NotificationsPage> {
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text(
-                                        title,
-                                        style: TextStyle(
-                                          fontWeight: isRead ? FontWeight.w600 : FontWeight.w800,
-                                          fontSize: 15,
-                                        ),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              title,
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                fontWeight: isRead ? FontWeight.w600 : FontWeight.w800,
+                                                fontSize: 15,
+                                              ),
+                                            ),
+                                          ),
+                                          if (!isRead)
+                                            Container(
+                                              margin: const EdgeInsets.only(left: 8),
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFDBEAFE),
+                                                borderRadius: BorderRadius.circular(999),
+                                              ),
+                                              child: Text(
+                                                _t('Новое', 'Yangi'),
+                                                style: const TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: Color(0xFF1D4ED8),
+                                                ),
+                                              ),
+                                            ),
+                                        ],
                                       ),
                                       const SizedBox(height: 4),
-                                      Text(body),
+                                      Text(
+                                        body,
+                                        style: const TextStyle(height: 1.3),
+                                      ),
                                       if (created.isNotEmpty) ...[
                                         const SizedBox(height: 6),
-                                        Text(
-                                          created,
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            color: Color(0xFF6B7280),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFF8FAFC),
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Text(
+                                            created,
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              color: Color(0xFF6B7280),
+                                            ),
                                           ),
                                         ),
                                       ]
                                     ],
                                   ),
+                                ),
+                                const SizedBox(width: 6),
+                                IconButton(
+                                  tooltip: _t('Удалить', "O'chirish"),
+                                  onPressed: id > 0 ? () => _deleteOne(id) : null,
+                                  icon: const Icon(Icons.delete_outline_rounded),
+                                  color: const Color(0xFFDC2626),
                                 ),
                               ],
                             ),

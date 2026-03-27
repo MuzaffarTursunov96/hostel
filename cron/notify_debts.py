@@ -33,6 +33,7 @@ MESSAGES = {
         "checkout_date": "Chiqib ketish sanasi",
         "push_title": "Qarz eslatmasi",
         "push_body": "{customer} bo'yicha {debt} so'm qarzdorlik",
+        "currency": "so'm",
     },
     "ru": {
         "title": "Напоминание о задолженности",
@@ -47,7 +48,8 @@ MESSAGES = {
         "checkout_date": "Выезд",
         "push_title": "Напоминание о долге",
         "push_body": "По клиенту {customer} долг {debt} сум",
-    }
+        "currency": "сум",
+    },
 }
 
 
@@ -86,7 +88,7 @@ async def send_notifications(rows):
                 title=t["push_title"],
                 body=t["push_body"].format(
                     customer=r["customer_name"],
-                    debt=r["remaining_amount"]
+                    debt=r["remaining_amount"],
                 ),
                 payload={
                     "booking_id": r["id"],
@@ -96,9 +98,9 @@ async def send_notifications(rows):
                     "remaining_amount": str(r["remaining_amount"]),
                     "notify_date": str(r["notify_date"]),
                     "checkout_date": str(r["checkout_date"]),
-                    "status_key": status_key
+                    "status_key": status_key,
                 },
-                dedupe_key=dedupe_key
+                dedupe_key=dedupe_key,
             )
 
             if u.get("telegram_id"):
@@ -108,16 +110,13 @@ async def send_notifications(rows):
                     f"{t['customer']}: {r['customer_name']}\n"
                     f"{t['contact']}: {r['contact'] or '-'}\n"
                     f"{t['branch']}: {r['branch_name']}\n"
-                    f"{t['debt']}: {r['remaining_amount']} so'm\n"
+                    f"{t['debt']}: {r['remaining_amount']} {t['currency']}\n"
                     f"{t['notify']}: {r['notify_date']}\n"
                     f"{t['checkout_date']}: {r['checkout_date']}"
                 )
 
                 try:
-                    await bot.send_message(
-                        u["telegram_id"],
-                        msg
-                    )
+                    await bot.send_message(u["telegram_id"], msg)
                 except Exception as e:
                     print(f"Telegram send failed ({u['telegram_id']}):", e)
 
@@ -128,7 +127,7 @@ async def send_notifications(rows):
                     title=t["push_title"],
                     body=t["push_body"].format(
                         customer=r["customer_name"],
-                        debt=r["remaining_amount"]
+                        debt=r["remaining_amount"],
                     ),
                     data={
                         "type": "debt_reminder",
@@ -138,7 +137,7 @@ async def send_notifications(rows):
                         "remaining_amount": str(r["remaining_amount"]),
                         "notify_date": str(r["notify_date"]),
                         "checkout_date": str(r["checkout_date"]),
-                    }
+                    },
                 )
 
                 for bad_token in push_result.get("invalid_tokens", []):

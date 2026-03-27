@@ -3453,6 +3453,41 @@ def mark_all_notifications_read_db(user_id: int):
     return int(res.rowcount or 0)
 
 
+def delete_notification_db(user_id: int, notification_id: int):
+    ensure_user_notifications_table()
+    with get_connection() as conn:
+        res = conn.execute(text("""
+            DELETE FROM user_notifications
+            WHERE id = :notification_id
+              AND user_id = :user_id
+        """), {
+            "notification_id": notification_id,
+            "user_id": user_id
+        })
+    return res.rowcount > 0
+
+
+def delete_read_notifications_db(user_id: int):
+    ensure_user_notifications_table()
+    with get_connection() as conn:
+        res = conn.execute(text("""
+            DELETE FROM user_notifications
+            WHERE user_id = :user_id
+              AND is_read = TRUE
+        """), {"user_id": user_id})
+    return int(res.rowcount or 0)
+
+
+def delete_all_notifications_db(user_id: int):
+    ensure_user_notifications_table()
+    with get_connection() as conn:
+        res = conn.execute(text("""
+            DELETE FROM user_notifications
+            WHERE user_id = :user_id
+        """), {"user_id": user_id})
+    return int(res.rowcount or 0)
+
+
 def get_unread_notification_count_db(user_id: int):
     ensure_user_notifications_table()
     with get_connection() as conn:
