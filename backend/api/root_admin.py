@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from api.deps import get_current_user, is_root_admin
 from datetime import datetime
+import importlib.util
+import pathlib
 from db import (
     set_admin_branches_db,
     create_admin_from_root,
@@ -16,10 +18,28 @@ from db import (
     set_app_expiry_db,
     get_app_expiry_db,
     set_admin_expiry_db,
+    get_system_setting_db,
+    set_system_setting_db,
 )
 
 
 router = APIRouter(prefix="/root", tags=["Root Admin"])
+
+
+def _load_debt_cron_run():
+    cron_path = pathlib.Path(__file__).resolve().parents[2] / "cron" / "notify_debts.py"
+    if not cron_path.exists():
+        raise RuntimeError(f"Cron script not found: {cron_path}")
+
+    spec = importlib.util.spec_from_file_location("hostel_cron_notify_debts", str(cron_path))
+    if not spec or not spec.loader:
+        raise RuntimeError("Failed to load cron module spec")
+
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    if not hasattr(mod, "run"):
+        raise RuntimeError("Cron script missing run()")
+    return mod.run
 
 @router.post("/admins")
 def create_admin(
@@ -227,3 +247,47 @@ def set_admin_expiry(user_id: int, data: dict, current_user=Depends(get_current_
 
     set_admin_expiry_db(user_id, expires_at)
     return {"ok": True, "expires_at": expires_at.isoformat()}
+
+
+@router.get("/cron/debt-notify")
+def get_debt_notify_cron_config(current_user=Depends(get_current_user)):
+    if not is_root_admin(current_user):
+        raise HTTPException(403, "Root admin only")
+
+    enabled = str(get_system_setting_db("debt_notify_enabled", "1")).strip().lower() in {"1", "true", "yes", "on"}
+    force = str(get_system_setting_db("debt_notify_force", "0")).strip().lower() in {"1", "true", "yes", "on"}
+    return {
+        "enabled": enabled,
+        "force_next_run": force,
+    }
+
+
+@router.post("/cron/debt-notify")
+def set_debt_notify_cron_config(data: dict, current_user=Depends(get_current_user)):
+    if not is_root_admin(current_user):
+        raise HTTPException(403, "Root admin only")
+
+    if "enabled" in data:
+        set_system_setting_db("debt_notify_enabled", "1" if bool(data.get("enabled")) else "0")
+    if "force_next_run" in data:
+        set_system_setting_db("debt_notify_force", "1" if bool(data.get("force_next_run")) else "0")
+
+    enabled = str(get_system_setting_db("debt_notify_enabled", "1")).strip().lower() in {"1", "true", "yes", "on"}
+    force = str(get_system_setting_db("debt_notify_force", "0")).strip().lower() in {"1", "true", "yes", "on"}
+    return {"ok": True, "enabled": enabled, "force_next_run": force}
+
+
+@router.post("/cron/debt-notify/test")
+def test_run_debt_notify_cron(data: dict | None = None, current_user=Depends(get_current_user)):
+    if not is_root_admin(current_user):
+        raise HTTPException(403, "Root admin only")
+
+    payload = data or {}
+    force = bool(payload.get("force", True))
+    try:
+        run_fn = _load_debt_cron_run()
+        result = run_fn(force=force)
+    except Exception as e:
+        raise HTTPException(500, f"Cron test failed: {e}")
+
+    return {"ok": True, "result": result or {}}

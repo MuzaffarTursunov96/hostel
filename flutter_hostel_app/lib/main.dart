@@ -5706,6 +5706,9 @@ class _RootAdminSheet extends StatefulWidget {
 
 class _RootAdminSheetState extends State<_RootAdminSheet> {
   bool _loading = true;
+  bool _cronBusy = false;
+  bool _cronEnabled = true;
+  bool _cronForceNext = false;
   String? _error;
   List<Map<String, dynamic>> _admins = [];
   List<Map<String, dynamic>> _branches = [];
@@ -5713,6 +5716,7 @@ class _RootAdminSheetState extends State<_RootAdminSheet> {
   final _newTg = TextEditingController();
   final _newName = TextEditingController();
   final _newPass = TextEditingController();
+  String _t(String ru, String uz) => trPair(ru: ru, uz: uz, lang: appLang.value);
 
   @override
   void initState() {
@@ -5768,9 +5772,18 @@ class _RootAdminSheetState extends State<_RootAdminSheet> {
     try {
       final a = await widget.api.getJson('/root/admins');
       final b = await widget.api.getJson('/root/branches');
+      bool cronEnabled = _cronEnabled;
+      bool cronForceNext = _cronForceNext;
+      try {
+        final c = Map<String, dynamic>.from(await widget.api.getJson('/root/cron/debt-notify') as Map);
+        cronEnabled = c['enabled'] == true;
+        cronForceNext = c['force_next_run'] == true;
+      } catch (_) {}
       setState(() {
         _admins = (a as List).whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
         _branches = (b as List).whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+        _cronEnabled = cronEnabled;
+        _cronForceNext = cronForceNext;
       });
     } catch (e) {
       setState(() => _error = '$e');
@@ -5938,6 +5951,53 @@ class _RootAdminSheetState extends State<_RootAdminSheet> {
     }
   }
 
+  Future<void> _saveCronConfig({
+    bool? enabled,
+    bool? forceNextRun,
+  }) async {
+    setState(() => _cronBusy = true);
+    try {
+      final body = <String, dynamic>{};
+      if (enabled != null) body['enabled'] = enabled;
+      if (forceNextRun != null) body['force_next_run'] = forceNextRun;
+      await widget.api.postJson('/root/cron/debt-notify', body);
+      final cfg = Map<String, dynamic>.from(await widget.api.getJson('/root/cron/debt-notify') as Map);
+      if (!mounted) return;
+      setState(() {
+        _cronEnabled = cfg['enabled'] == true;
+        _cronForceNext = cfg['force_next_run'] == true;
+      });
+      _snack(_t('Настройки cron сохранены', 'Cron sozlamalari saqlandi'));
+    } catch (e) {
+      _snack('$e', error: true);
+    } finally {
+      if (mounted) setState(() => _cronBusy = false);
+    }
+  }
+
+  Future<void> _runCronTestNow() async {
+    setState(() => _cronBusy = true);
+    try {
+      final res = Map<String, dynamic>.from(
+        await widget.api.postJson('/root/cron/debt-notify/test', {'force': true}) as Map,
+      );
+      final result = Map<String, dynamic>.from((res['result'] as Map?) ?? const {});
+      final rows = (result['rows'] as num?)?.toInt() ?? 0;
+      final users = (result['processed_users'] as num?)?.toInt() ?? 0;
+      _snack('${_t('Тест cron выполнен', 'Cron test ishga tushdi')}: $rows / $users');
+      final cfg = Map<String, dynamic>.from(await widget.api.getJson('/root/cron/debt-notify') as Map);
+      if (!mounted) return;
+      setState(() {
+        _cronEnabled = cfg['enabled'] == true;
+        _cronForceNext = cfg['force_next_run'] == true;
+      });
+    } catch (e) {
+      _snack('$e', error: true);
+    } finally {
+      if (mounted) setState(() => _cronBusy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final q = _search.text.trim().toLowerCase();
@@ -5984,6 +6044,49 @@ class _RootAdminSheetState extends State<_RootAdminSheet> {
                         const SizedBox(width: 8),
                         FilledButton(onPressed: _createAdmin, child: const Text('+ Admin')),
                       ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              _Card(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(_t('Управление debt cron', 'Debt cron boshqaruvi'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(child: Text(_t('Включен', 'Yoqilgan'))),
+                        Switch(
+                          value: _cronEnabled,
+                          onChanged: _cronBusy ? null : (v) => _saveCronConfig(enabled: v),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        Expanded(child: Text(_t('Принудительный следующий запуск', 'Keyingi ishga tushirish majburiy'))),
+                        Switch(
+                          value: _cronForceNext,
+                          onChanged: _cronBusy ? null : (v) => _saveCronConfig(forceNextRun: v),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: _cronBusy ? null : _runCronTestNow,
+                        icon: _cronBusy
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              )
+                            : const Icon(Icons.play_arrow_rounded),
+                        label: Text(_t('Запустить тест сейчас', 'Testni hozir ishga tushirish')),
+                      ),
                     ),
                   ],
                 ),

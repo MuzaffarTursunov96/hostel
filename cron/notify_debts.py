@@ -14,6 +14,8 @@ from db import (  # noqa: E402
     list_active_device_tokens_db,
     deactivate_device_token_db,
     create_user_notification_db,
+    get_system_setting_db,
+    set_system_setting_db,
 )
 from bot.bot import bot  # noqa: E402
 from push.fcm_sender import send_push_to_tokens  # noqa: E402
@@ -55,6 +57,8 @@ MESSAGES = {
 
 async def send_notifications(rows):
     today = date.today()
+    sent_users = 0
+    sent_rows = 0
 
     for r in rows:
         if r["checkout_date"] < today:
@@ -148,6 +152,7 @@ async def send_notifications(rows):
 
                 if push_result.get("disabled"):
                     print("Push disabled:", push_result.get("errors"))
+            sent_users += 1
 
         with get_connection() as conn:
             conn.execute(text("""
@@ -155,13 +160,27 @@ async def send_notifications(rows):
                 SET last_notified = CURRENT_DATE
                 WHERE id = :id
             """), {"id": r["id"]})
+        sent_rows += 1
 
     await bot.session.close()
+    return {"processed_bookings": sent_rows, "processed_users": sent_users}
 
 
-def run():
+def _is_true(value) -> bool:
+    return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def run(force: bool = False):
+    enabled = _is_true(get_system_setting_db("debt_notify_enabled", "1"))
+    force_from_db = _is_true(get_system_setting_db("debt_notify_force", "0"))
+    force_run = bool(force or force_from_db)
+
+    if not enabled and not force_run:
+        print("Debt notify cron is disabled by system_settings")
+        return {"ok": True, "disabled": True, "rows": 0}
+
     with get_connection() as conn:
-        rows = conn.execute(text("""
+        sql = """
             SELECT
                 b.id,
                 b.branch_id,
@@ -179,17 +198,33 @@ def run():
                     b.notify_date <= CURRENT_DATE
                     OR b.checkout_date < CURRENT_DATE
                   )
+        """
+        if not force_run:
+            sql += """
               AND (
                     b.last_notified IS NULL
                     OR b.last_notified < CURRENT_DATE
                   )
-        """)).mappings().all()
+            """
+        rows = conn.execute(text(sql)).mappings().all()
 
     if not rows:
         print("No debt notifications today")
-        return
+        if force_from_db:
+            set_system_setting_db("debt_notify_force", "0")
+        return {"ok": True, "rows": 0, "forced": force_run}
 
-    asyncio.run(send_notifications(rows))
+    result = asyncio.run(send_notifications(rows))
+
+    if force_from_db:
+        set_system_setting_db("debt_notify_force", "0")
+
+    return {
+        "ok": True,
+        "rows": len(rows),
+        "forced": force_run,
+        **(result or {}),
+    }
 
 
 if __name__ == "__main__":

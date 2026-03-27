@@ -331,6 +331,41 @@ def get_app_expiry_db():
         return None
 
 
+def set_system_setting_db(key: str, value: str | None):
+    ensure_system_settings_table()
+    k = str(key or "").strip()
+    if not k:
+        raise ValueError("key required")
+    with get_connection() as conn:
+        conn.execute(text("""
+            INSERT INTO system_settings (key, value, updated_at)
+            VALUES (:key, :value, CURRENT_TIMESTAMP)
+            ON CONFLICT (key)
+            DO UPDATE SET
+                value = EXCLUDED.value,
+                updated_at = CURRENT_TIMESTAMP
+        """), {
+            "key": k,
+            "value": None if value is None else str(value),
+        })
+
+
+def get_system_setting_db(key: str, default: str | None = None):
+    ensure_system_settings_table()
+    k = str(key or "").strip()
+    if not k:
+        return default
+    with get_connection() as conn:
+        row = conn.execute(text("""
+            SELECT value
+            FROM system_settings
+            WHERE key = :key
+        """), {"key": k}).mappings().fetchone()
+    if not row:
+        return default
+    return row.get("value") if row.get("value") is not None else default
+
+
 def is_app_expired_db(now_utc=None):
     from datetime import datetime
 
