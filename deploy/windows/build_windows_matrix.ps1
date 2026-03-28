@@ -33,7 +33,8 @@ function Resolve-Python([string]$preferred) {
 
 function New-ZipFromDir(
     [string]$sourceDir,
-    [string]$zipPath
+    [string]$zipPath,
+    [string]$pythonExe
 ) {
     if (Test-Path $zipPath) { Remove-Item -Force $zipPath }
 
@@ -43,8 +44,29 @@ function New-ZipFromDir(
         return
     }
 
-    Add-Type -AssemblyName System.IO.Compression.FileSystem
-    [System.IO.Compression.ZipFile]::CreateFromDirectory($sourceDir, $zipPath)
+    try {
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        [System.IO.Compression.ZipFile]::CreateFromDirectory($sourceDir, $zipPath)
+        return
+    } catch {
+        # Last fallback for older Windows/PowerShell: create ZIP via Python stdlib.
+        $pyCode = @"
+import os, zipfile, sys
+src = r'''$sourceDir'''
+dst = r'''$zipPath'''
+with zipfile.ZipFile(dst, 'w', zipfile.ZIP_DEFLATED) as zf:
+    for root, _, files in os.walk(src):
+        for name in files:
+            p = os.path.join(root, name)
+            arc = os.path.relpath(p, src)
+            zf.write(p, arc)
+print(dst)
+"@
+        & $pythonExe -c $pyCode
+        if ($LASTEXITCODE -ne 0) {
+            throw "Failed to create ZIP by Python fallback."
+        }
+    }
 }
 
 function Ensure-Tooling([string]$pythonExe, [string]$channel) {
@@ -151,7 +173,7 @@ function Invoke-Build(
         Copy-Item -Path $specFile -Destination (Join-Path $releaseDir "$AppName.spec") -Force
     }
 
-    New-ZipFromDir -sourceDir $releaseDir -zipPath $zipPath
+    New-ZipFromDir -sourceDir $releaseDir -zipPath $zipPath -pythonExe $pythonExe
 
     Write-Host "[$channel] EXE: $builtExe" -ForegroundColor Green
     Write-Host "[$channel] ZIP: $zipPath" -ForegroundColor Green
