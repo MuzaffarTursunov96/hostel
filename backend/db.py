@@ -925,6 +925,7 @@ def get_monthly_finance(branch_id, year, month):
             WHERE branch_id = :branch_id
               AND EXTRACT(YEAR FROM booking_date) = :year
               AND EXTRACT(MONTH FROM booking_date) = :month
+              AND status NOT IN ('canceled', 'cancelled')
         """), {
             "branch_id": branch_id,
             "year": year,
@@ -979,6 +980,7 @@ def get_yearly_finance(branch_id, year):
             FROM bookings
             WHERE branch_id = :branch_id
               AND EXTRACT(YEAR FROM booking_date) = :year
+              AND status NOT IN ('canceled', 'cancelled')
         """), {
             "branch_id": branch_id,
             "year": year
@@ -1158,6 +1160,7 @@ def get_payment_history(branch_id):
             JOIN rooms r ON r.id = b.room_id
             JOIN beds ON beds.id = b.bed_id
             WHERE bp.branch_id = :branch_id
+              AND b.status NOT IN ('canceled', 'cancelled')
             ORDER BY bp.paid_at DESC
         """), {"branch_id": branch_id})
 
@@ -1199,6 +1202,7 @@ def get_payment_history_by_month(branch_id, year, month):
             WHERE bp.branch_id = :branch_id
               AND EXTRACT(YEAR FROM bp.paid_at) = :year
               AND EXTRACT(MONTH FROM bp.paid_at) = :month
+              AND b.status NOT IN ('canceled', 'cancelled')
 
             GROUP BY
                 bp.paid_at,
@@ -1248,6 +1252,7 @@ def get_payments_by_range(branch_id, start_date, end_date):
 
             WHERE bp.branch_id = :branch_id
               AND bp.paid_at::date BETWEEN :start_date AND :end_date
+              AND b.status NOT IN ('canceled', 'cancelled')
             ORDER BY bp.paid_at DESC
         """), {
             "branch_id": branch_id,
