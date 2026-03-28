@@ -1287,6 +1287,28 @@ def cancel_booking(booking_id: int, branch_id: int):
             "branch_id": branch_id
         })
 
+def end_booking_now(booking_id: int, branch_id: int):
+    with get_connection() as conn:
+        res = conn.execute(text("""
+            UPDATE bookings
+            SET
+                status = 'completed',
+                checkout_date = CASE
+                    WHEN checkout_date > CURRENT_DATE THEN CURRENT_DATE
+                    ELSE checkout_date
+                END
+            WHERE id = :booking_id
+              AND branch_id = :branch_id
+              AND status = 'active'
+              AND checkin_date <= CURRENT_DATE
+        """), {
+            "booking_id": booking_id,
+            "branch_id": branch_id
+        })
+
+        if (res.rowcount or 0) == 0:
+            raise ValueError("No active booking found to end")
+
 
 def update_booking(booking_id, bed_id, checkin, checkout, total_amount):
     with get_connection() as conn:

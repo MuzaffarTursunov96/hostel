@@ -239,7 +239,7 @@ class ActiveBookingsDialog(QDialog):
 
         api_post(
             self.app,
-            "/active-bookings/cancel",
+            "/active-bookings/end",
             {
                 "booking_id": booking_id,
                 "branch_id": self.branch_id

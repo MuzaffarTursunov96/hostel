@@ -691,9 +691,9 @@ $("#editBookingForm").on("submit", function (e) {
    CANCEL
 ================================ */
 window.cancelBooking = function (id) {
-  if (!confirm("Cancel booking?")) return;
+  if (!confirm("End booking now?")) return;
 
-  fetch("/api2/active-bookings/cancel", {
+  fetch("/api2/active-bookings/end", {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },

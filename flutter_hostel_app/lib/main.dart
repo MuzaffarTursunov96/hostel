@@ -1766,26 +1766,26 @@ class _DashboardPageState extends State<_DashboardPage> {
                                                 onPressed: () async {
                                                   final ok = await confirmAction(
                                                     context,
-                                                    title: _t('Отменить бронирование', 'Buyurtmani bekor qilish'),
+                                                    title: _t('Завершить бронирование', 'Buyurtmani yakunlash'),
                                                     message: _t(
-                                                      'Вы уверены, что хотите отменить бронирование?',
-                                                      'Haqiqatan ham buyurtmani bekor qilasizmi?',
+                                                      'Вы уверены, что хотите завершить бронирование сейчас?',
+                                                      'Haqiqatan ham buyurtmani hozir yakunlaysizmi?',
                                                     ),
-                                                    confirmText: _t('Отменить', 'Bekor qilish'),
+                                                    confirmText: _t('Завершить', 'Yakunlash'),
                                                     cancelText: _t('Назад', 'Orqaga'),
                                                   );
                                                   if (!ok) return;
-                                                  await widget.api.postJson('/active-bookings/cancel', {
+                                                  await widget.api.postJson('/active-bookings/end', {
                                                     'booking_id': b['id'],
                                                     'branch_id': widget.api.branchId,
                                                   });
                                                   if (!mounted) return;
                                                   Navigator.pop(context);
                                                   setState(() {});
-                                                  showAppAlert(context, _t('Бронирование отменено', 'Buyurtma bekor qilindi'));
+                                                  showAppAlert(context, _t('Бронирование завершено', 'Buyurtma yakunlandi'));
                                                 },
                                                 icon: const Icon(Icons.close, size: 16),
-                                                label: Text(_t('Отменить', 'Bekor qilish')),
+                                                label: Text(_t('Завершить', 'Yakunlash')),
                                               ),
                                             ),
                                           ],
@@ -2395,7 +2395,11 @@ class _RoomsPageState extends State<_RoomsPage> {
   Future<void> _deleteSelectedRoom() async {
     final room = _selectedRoom;
     if (room == null) return;
-    final roomId = (room['id'] as num).toInt();
+    final roomId = _toInt(room['id']);
+    if (roomId == null) {
+      _showSnack(_t('Некорректный ID комнаты.', "Xona ID noto'g'ri."), error: true);
+      return;
+    }
     final has = await widget.api.getJson('/rooms/$roomId/has-bookings', query: {
       'branch_id': widget.api.branchId.toString(),
     });
@@ -2447,7 +2451,11 @@ class _RoomsPageState extends State<_RoomsPage> {
   }
 
   Future<void> _deleteBed(Map<String, dynamic> bed) async {
-    final bedId = (bed['id'] as num).toInt();
+    final bedId = _toInt(bed['id']);
+    if (bedId == null) {
+      _showSnack(_t('Некорректный ID кровати.', "Krovat ID noto'g'ri."), error: true);
+      return;
+    }
     final busy = await widget.api.getJson('/beds/$bedId/has-bookings', query: {
       'branch_id': widget.api.branchId.toString(),
     });
@@ -2622,7 +2630,8 @@ class _RoomsPageState extends State<_RoomsPage> {
                   spacing: 8,
                   runSpacing: 8,
                   children: _rooms.map((r) {
-                    final id = (r['id'] as num).toInt();
+                    final id = _toInt(r['id']);
+                    if (id == null) return const SizedBox.shrink();
                     final selected = id == _selectedRoomId;
                     return ChoiceChip(
                       label: Text('🏠 ${r['room_name'] ?? r['room_number']}'),
@@ -2818,6 +2827,11 @@ class _BookingsPageState extends State<_BookingsPage> {
   final _passport2 = TextEditingController();
   final _contact2 = TextEditingController();
   String _t(String ru, String uz) => trPair(ru: ru, uz: uz);
+  int? _toInt(dynamic v) {
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    return int.tryParse('${v ?? ''}');
+  }
 
   @override
   void initState() {
@@ -2870,7 +2884,7 @@ class _BookingsPageState extends State<_BookingsPage> {
       setState(() {
         _rooms = rooms;
         _customers = customers;
-        _roomId = rooms.isNotEmpty ? (rooms.first['id'] as num).toInt() : null;
+        _roomId = rooms.isNotEmpty ? _toInt(rooms.first['id']) : null;
       });
       await _loadAvailableBeds();
     } catch (e) {
@@ -2906,7 +2920,7 @@ class _BookingsPageState extends State<_BookingsPage> {
       setState(() {
         _availableBeds = beds;
         if (_selectedBed != null &&
-            !beds.any((b) => (b['id'] as num).toInt() == (_selectedBed!['id'] as num).toInt())) {
+            !beds.any((b) => _toInt(b['id']) == _toInt(_selectedBed!['id']))) {
           _selectedBed = null;
           _secondGuestEnabled = false;
         }
@@ -3007,6 +3021,11 @@ class _BookingsPageState extends State<_BookingsPage> {
 
     setState(() => _saving = true);
     try {
+      final bedId = _toInt(_selectedBed!['id']);
+      if (bedId == null) {
+        _snack(_t('Неверный ID кровати', 'Krovat ID noto‘g‘ri'));
+        return;
+      }
       await widget.api.postJson('/booking/', {
         'branch_id': widget.api.branchId,
         'name': _name.text.trim(),
@@ -3014,7 +3033,7 @@ class _BookingsPageState extends State<_BookingsPage> {
         'contact': _contact.text.trim(),
         'second_guest': secondGuest,
         'room_id': _roomId,
-        'bed_id': (_selectedBed!['id'] as num).toInt(),
+        'bed_id': bedId,
         'total': total,
         'paid': paid,
         'checkin': _apiDate(_checkin),
@@ -3051,9 +3070,12 @@ class _BookingsPageState extends State<_BookingsPage> {
     if (_loading) return const Center(child: CircularProgressIndicator());
     if (_error != null) return _ErrorText(error: _error!);
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
+    return RefreshIndicator(
+      onRefresh: _loadInitial,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        children: [
         Row(
           children: [
             Expanded(child: _SectionTitle('📝 ${_t("Новое бронирование", "Yangi bron")}')),
@@ -3074,10 +3096,15 @@ class _BookingsPageState extends State<_BookingsPage> {
                 value: _roomId,
                 decoration: const InputDecoration(border: OutlineInputBorder()),
                 items: _rooms
-                    .map((r) => DropdownMenuItem<int>(
-                          value: (r['id'] as num).toInt(),
-                          child: Text('${r['room_name'] ?? r['room_number']}'),
-                        ))
+                    .map((r) {
+                      final rid = _toInt(r['id']);
+                      if (rid == null) return null;
+                      return DropdownMenuItem<int>(
+                        value: rid,
+                        child: Text('${r['room_name'] ?? r['room_number']}'),
+                      );
+                    })
+                    .whereType<DropdownMenuItem<int>>()
                     .toList(),
                 onChanged: (v) async {
                   setState(() {
@@ -3272,7 +3299,8 @@ class _BookingsPageState extends State<_BookingsPage> {
                 : Text('✅ ${_t("Подтвердить бронирование", "Buyurtmani tasdiqlash")}', style: const TextStyle(fontWeight: FontWeight.w700)),
           ),
         ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -3680,9 +3708,12 @@ class _PaymentsPageState extends State<_PaymentsPage> {
     final refunds = _fmtNum(_finance['refunds'] ?? 0);
     final profit = _fmtNum((_finance['income'] ?? 0) - (_finance['expenses'] ?? 0) - (_finance['refunds'] ?? 0));
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
+    return RefreshIndicator(
+      onRefresh: _loadFinance,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        children: [
         _SectionTitle('💰 ${_t("Ежемесячные финансы", "Oylik moliya")}'),
         const SizedBox(height: 10),
         _Card(
@@ -3875,7 +3906,8 @@ class _PaymentsPageState extends State<_PaymentsPage> {
             ],
           ),
         ],
-      ],
+        ],
+      ),
     );
   }
 }

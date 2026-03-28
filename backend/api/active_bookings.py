@@ -7,6 +7,7 @@ from api.ws_manager import ws_manager
 from db import (
     get_active_bookings,
     cancel_booking,
+    end_booking_now,
     update_booking,
     update_booking_admin
 )
@@ -35,6 +36,33 @@ async def api_cancel_booking(
 ):
     
     cancel_booking(data.booking_id, data.branch_id)
+
+    await ws_manager.broadcast({
+        "type": "beds_changed",
+        "booking_id": data.booking_id,
+        "branch_id": data.branch_id
+    })
+
+    await ws_manager.broadcast({
+        "type": "booking_changed",
+        "booking_id": data.booking_id,
+        "branch_id": data.branch_id
+    })
+
+    await ws_manager.broadcast({
+        "type": "dashboard_changed",
+        "booking_id": data.booking_id,
+        "branch_id": data.branch_id
+    })
+
+    return {"status": "ok"}
+
+@router.post("/end")
+async def api_end_booking(
+    data: CancelBookingRequest,
+    user=Depends(get_current_user)
+):
+    end_booking_now(data.booking_id, data.branch_id)
 
     await ws_manager.broadcast({
         "type": "beds_changed",
