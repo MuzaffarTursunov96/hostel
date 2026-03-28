@@ -742,6 +742,7 @@ def get_debts_by_range(branch_id, from_date, to_date):
         result = conn.execute(text("""
             SELECT
                 b.id,
+                b.room_id,
                 b.customer_name,
                 b.passport_id,
                 b.contact,
@@ -782,6 +783,7 @@ def get_debts_by_range(branch_id, from_date, to_date):
 
             GROUP BY
                 b.id,
+                b.room_id,
                 r.number,
                 r.room_name,
                 beds.bed_number,
@@ -1172,6 +1174,7 @@ def get_payment_history_by_month(branch_id, year, month):
 
                 b.customer_name,
                 b.passport_id,
+                b.room_id,
 
                 r.number AS room_number,
                 COALESCE(r.room_name, r.number) AS room_name,
@@ -1203,6 +1206,7 @@ def get_payment_history_by_month(branch_id, year, month):
                 bp.paid_by,
                 b.customer_name,
                 b.passport_id,
+                b.room_id,
                 r.number,
                 r.room_name,
                 beds.bed_number

@@ -1,6 +1,7 @@
 let ALL_DEBTS = [];
 let searchTimer = null;
 let CURRENT_BRANCH = null;
+let DEBT_ROOMS = [];
 
 $(document).ready(function () {
   CURRENT_BRANCH = localStorage.getItem("CURRENT_BRANCH");
@@ -9,6 +10,7 @@ $(document).ready(function () {
   }
 
   setDefaultRange();
+  loadRoomsForDebtFilter();
   loadDebts();
 
   $("#searchInput").on("input", function () {
@@ -16,6 +18,10 @@ $(document).ready(function () {
     searchTimer = setTimeout(() => {
       renderDebts($(this).val());
     }, 300);
+  });
+
+  $("#filterRoom").on("change", function () {
+    renderDebts($("#searchInput").val());
   });
 });
 
@@ -42,8 +48,26 @@ function loadDebts() {
   });
 }
 
+function loadRoomsForDebtFilter() {
+  apiGet("/rooms", { branch_id: CURRENT_BRANCH }).done(function (rows) {
+    DEBT_ROOMS = rows || [];
+    const $sel = $("#filterRoom");
+    const lang = (window.CURRENT_LANG || "ru").toLowerCase();
+    const allLabel = lang.startsWith("uz") ? "Barcha xonalar" : "Все комнаты";
+
+    $sel.empty();
+    $sel.append(`<option value="">${allLabel}</option>`);
+
+    DEBT_ROOMS.forEach(r => {
+      const label = r.room_name || r.number || (`#${r.id}`);
+      $sel.append(`<option value="${r.id}">${label}</option>`);
+    });
+  });
+}
+
 function renderDebts(query = "") {
   const q = query.toLowerCase();
+  const selectedRoomId = ($("#filterRoom").val() || "").trim();
   const $list = $("#debtsTable");
   $list.empty();
 
@@ -58,9 +82,10 @@ function renderDebts(query = "") {
 
   ALL_DEBTS
     .filter(d =>
-      !q ||
-      d.customer_name.toLowerCase().includes(q) ||
-      d.passport_id.toLowerCase().includes(q)
+      (!q ||
+        d.customer_name.toLowerCase().includes(q) ||
+        d.passport_id.toLowerCase().includes(q)) &&
+      (!selectedRoomId || String(d.room_id) === selectedRoomId)
     )
     .forEach(d => {
       const secondGuestName =

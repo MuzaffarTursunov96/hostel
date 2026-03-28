@@ -7,6 +7,7 @@ let currentEditingBooking = null;
 
 let ALL_ACTIVE_BOOKINGS = [];
 let CURRENT_BRANCH = null;
+let ACTIVE_BOOKING_ROOM_FILTER = "";
 
 
 
@@ -416,13 +417,14 @@ window.closeActiveBookings = function () {
 
 function loadActiveBookings() {
   CURRENT_BRANCH = localStorage.getItem("CURRENT_BRANCH");
+  loadActiveBookingRoomFilter();
   fetch(`/api2/active-bookings?branch_id=${CURRENT_BRANCH}`, {
     credentials: "include"
   })
     .then(r => r.json())
     .then(rows => {
       ALL_ACTIVE_BOOKINGS = rows || [];
-      renderActiveBookings(ALL_ACTIVE_BOOKINGS);
+      applyActiveBookingsFilters();
     })
     .catch(() => {
       $("#activeBookingsTable").html(
@@ -431,23 +433,59 @@ function loadActiveBookings() {
     });
 }
 
-$(document).on("input", "#activeBookingSearch", function () {
-  const q = $(this).val().toLowerCase().trim();
+function applyActiveBookingsFilters() {
+  const searchValue = ($("#activeBookingSearch").val() || "").toLowerCase().trim();
+  const roomValue = ($("#activeBookingRoomFilter").val() || "").trim();
 
-  if (!q) {
-    renderActiveBookings(ALL_ACTIVE_BOOKINGS);
-    return;
+  let filtered = ALL_ACTIVE_BOOKINGS.slice();
+
+  if (roomValue) {
+    filtered = filtered.filter(b => String(b.room_id) === roomValue);
   }
 
-  const filtered = ALL_ACTIVE_BOOKINGS.filter(b =>
-    (b.customer_name || "").toLowerCase().includes(q) ||
-    (b.passport_id || "").toLowerCase().includes(q) ||
-    (b.room_name || "").toLowerCase().includes(q) ||
-    String(b.room_number).includes(q) ||
-    String(b.bed_number).includes(q)
-  );
+  if (searchValue) {
+    filtered = filtered.filter(b =>
+      (b.customer_name || "").toLowerCase().includes(searchValue) ||
+      (b.passport_id || "").toLowerCase().includes(searchValue) ||
+      (b.room_name || "").toLowerCase().includes(searchValue) ||
+      String(b.room_number).includes(searchValue) ||
+      String(b.bed_number).includes(searchValue)
+    );
+  }
 
   renderActiveBookings(filtered);
+}
+
+function loadActiveBookingRoomFilter() {
+  fetch(`/api2/rooms?branch_id=${CURRENT_BRANCH}`, { credentials: "include" })
+    .then(r => r.json())
+    .then(rows => {
+      const $sel = $("#activeBookingRoomFilter");
+      const lang = (window.CURRENT_LANG || "ru").toLowerCase();
+      const allLabel = lang.startsWith("uz") ? "Barcha xonalar" : "Все комнаты";
+
+      $sel.empty();
+      $sel.append(`<option value="">${allLabel}</option>`);
+
+      (rows || []).forEach(r => {
+        const label = r.room_name || r.room_number || r.number || (`#${r.id}`);
+        $sel.append(`<option value="${r.id}">${label}</option>`);
+      });
+
+      if (ACTIVE_BOOKING_ROOM_FILTER) {
+        $sel.val(ACTIVE_BOOKING_ROOM_FILTER);
+      }
+    })
+    .catch(() => {});
+}
+
+$(document).on("input", "#activeBookingSearch", function () {
+  applyActiveBookingsFilters();
+});
+
+$(document).on("change", "#activeBookingRoomFilter", function () {
+  ACTIVE_BOOKING_ROOM_FILTER = ($(this).val() || "").trim();
+  applyActiveBookingsFilters();
 });
 
 

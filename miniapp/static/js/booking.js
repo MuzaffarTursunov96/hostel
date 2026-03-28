@@ -3,6 +3,7 @@ let SELECTED_BED = null;
 let CURRENT_BRANCH = null;
 let notifyDateManuallyChanged = false;
 let BRANCH_CUSTOMERS = [];
+let BOOKING_HISTORY_ROOMS = [];
 
 
 
@@ -130,6 +131,7 @@ function loadBranchCustomers() {
 function loadRooms() {
   apiGet("/booking/rooms", { branch_id: CURRENT_BRANCH })
     .done(function (rooms) {
+      BOOKING_HISTORY_ROOMS = rooms || [];
       const $room = $("#roomSelect");
       $room.empty();
       rooms.forEach(r => {
@@ -143,12 +145,30 @@ function loadRooms() {
         CURRENT_ROOM_ID = rooms[0].id;
         loadAvailableBeds();
       }
+
+      renderBookingHistoryRoomFilter();
     });
 
   $("#roomSelect").on("change", function () {
 
     CURRENT_ROOM_ID = $(this).val();
     loadAvailableBeds();
+  });
+}
+
+function renderBookingHistoryRoomFilter() {
+  const $sel = $("#bhRoomFilter");
+  if (!$sel.length) return;
+
+  const lang = (window.CURRENT_LANG || "ru").toLowerCase();
+  const allLabel = lang.startsWith("uz") ? "Barcha xonalar" : "Все комнаты";
+
+  $sel.empty();
+  $sel.append(`<option value="">${allLabel}</option>`);
+
+  (BOOKING_HISTORY_ROOMS || []).forEach(r => {
+    const label = r.room_name || r.room_number || (`#${r.id}`);
+    $sel.append(`<option value="${r.id}">${label}</option>`);
   });
 }
 
@@ -344,6 +364,7 @@ function setBookingHistoryDefaults() {
   $("#bhFrom").val(from.toISOString().split("T")[0]);
   $("#bhTo").val(today.toISOString().split("T")[0]);
   $("#bhSearch").val("");
+  $("#bhRoomFilter").val("");
 }
 
 function loadBookingHistory() {
@@ -363,6 +384,19 @@ function loadBookingHistory() {
 
 function renderBookingHistory(rows) {
   const q = ($("#bhSearch").val() || "").toLowerCase();
+  const selectedRoomId = ($("#bhRoomFilter").val() || "").trim();
+
+  let selectedRoom = null;
+  if (selectedRoomId) {
+    selectedRoom = (BOOKING_HISTORY_ROOMS || []).find(r => String(r.id) === selectedRoomId);
+  }
+
+  const selectedRoomNames = selectedRoom ? new Set([
+    String(selectedRoom.room_name || "").toLowerCase(),
+    String(selectedRoom.room_number || "").toLowerCase(),
+    String(selectedRoom.number || "").toLowerCase()
+  ]) : null;
+
   const $c = $("#bookingHistoryTable");
   $c.empty();
 
@@ -375,9 +409,12 @@ function renderBookingHistory(rows) {
 
   rows
     .filter(r =>
-      !q ||
-      (r.customer_name || "").toLowerCase().includes(q) ||
-      (r.passport_id || "").toLowerCase().includes(q)
+      (!q ||
+        (r.customer_name || "").toLowerCase().includes(q) ||
+        (r.passport_id || "").toLowerCase().includes(q)) &&
+      (!selectedRoomNames ||
+        selectedRoomNames.has(String(r.room_name || "").toLowerCase()) ||
+        selectedRoomNames.has(String(r.room_number || "").toLowerCase()))
     )
     .forEach(r => {
       const secondGuestName =
@@ -426,5 +463,9 @@ function fmtDate(d) {
 
 /* live search */
 $("#bhSearch").on("input", function () {
+  loadBookingHistory();
+});
+
+$("#bhRoomFilter").on("change", function () {
   loadBookingHistory();
 });

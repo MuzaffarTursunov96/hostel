@@ -1,5 +1,6 @@
 let ALL_PAYMENTS = [];
 let CURRENT_BRANCH = null;
+let PAYMENT_ROOMS = [];
 
 $(document).ready(function () {
   CURRENT_BRANCH = localStorage.getItem("CURRENT_BRANCH");
@@ -8,10 +9,15 @@ $(document).ready(function () {
   }
 
   initFilters();
+  loadRoomsForPaymentFilter();
   loadPaymentHistory();
 
   $("#searchInput").on("input", function () {
     renderTable($(this).val());
+  });
+
+  $("#filterRoom").on("change", function () {
+    renderTable($("#searchInput").val());
   });
 });
 
@@ -30,6 +36,23 @@ function initFilters() {
   $("#filterYear").val(now.getFullYear());
 }
 
+function loadRoomsForPaymentFilter() {
+  apiGet("/rooms", { branch_id: CURRENT_BRANCH }).done(function (rows) {
+    PAYMENT_ROOMS = rows || [];
+    const $sel = $("#filterRoom");
+    const lang = (window.CURRENT_LANG || "ru").toLowerCase();
+    const allLabel = lang.startsWith("uz") ? "Barcha xonalar" : "Все комнаты";
+
+    $sel.empty();
+    $sel.append(`<option value="">${allLabel}</option>`);
+
+    PAYMENT_ROOMS.forEach(r => {
+      const label = r.room_name || r.number || (`#${r.id}`);
+      $sel.append(`<option value="${r.id}">${label}</option>`);
+    });
+  });
+}
+
 
 
 
@@ -46,13 +69,15 @@ function loadPaymentHistory() {
 
 function renderTable(query) {
   const q = (query || "").toLowerCase();
+  const selectedRoomId = ($("#filterRoom").val() || "").trim();
   const $list = $("#historyTable");
   $list.empty();
 
   const filtered = ALL_PAYMENTS.filter(p =>
-    !q ||
-    (p.customer_name || "").toLowerCase().includes(q) ||
-    (p.passport_id || "").toLowerCase().includes(q)
+    (!q ||
+      (p.customer_name || "").toLowerCase().includes(q) ||
+      (p.passport_id || "").toLowerCase().includes(q)) &&
+    (!selectedRoomId || String(p.room_id) === selectedRoomId)
   );
 
   if (!filtered.length) {
