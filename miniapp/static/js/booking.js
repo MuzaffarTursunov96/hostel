@@ -5,6 +5,11 @@ let notifyDateManuallyChanged = false;
 let BRANCH_CUSTOMERS = [];
 let BOOKING_HISTORY_ROOMS = [];
 
+function addOneDay(dateStr) {
+  const d = new Date(`${dateStr}T00:00:00`);
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().split("T")[0];
+}
 
 
 
@@ -188,12 +193,15 @@ function loadAvailableBeds() {
     $("#bedsList").html(`<div class="text-danger">${t("invalid_dates")}</div>`);
     return;
   }
+  const effectiveCheckout = (isHourly && checkout <= checkin)
+    ? addOneDay(checkin)
+    : checkout;
 
   apiGet("/booking/available-beds", {
     branch_id: CURRENT_BRANCH,
     room_id: CURRENT_ROOM_ID,
     checkin: checkin,
-    checkout: checkout,
+    checkout: effectiveCheckout,
     is_hourly: isHourly
   }).done(function (beds) {
 
@@ -283,6 +291,11 @@ function confirmBooking() {
   const total = $("#total").val();
   const paid = $("#paid").val();
   const isHourly = $("#isHourlyBooking").is(":checked");
+  const checkin = $("#checkin").val();
+  const checkout = $("#checkout").val();
+  const effectiveCheckout = (isHourly && checkout <= checkin)
+    ? addOneDay(checkin)
+    : checkout;
 
   if (!name || !passport || !contact || !total) {
     alert(t("fill_all_required_fields"));
@@ -330,8 +343,8 @@ function confirmBooking() {
     bed_id: SELECTED_BED.id,
     total: parseFloat(total),
     paid: paid ? parseFloat(paid) : 0,
-    checkin: $("#checkin").val(),
-    checkout: $("#checkout").val(),
+    checkin: checkin,
+    checkout: effectiveCheckout,
     notify_date: $("#notifyDate").val(),
     is_hourly: isHourly
   })

@@ -1,5 +1,6 @@
 ﻿import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -42,6 +43,11 @@ String friendlyErrorText(String raw, {String? lang}) {
     return l == 'ru'
         ? 'В сервисе временная ошибка. Попробуйте позже.'
         : 'Xizmatda vaqtinchalik xatolik. Keyinroq urinib ko‘ring.';
+  }
+  if (s.contains('same-day booking') || s.contains('enable hourly booking')) {
+    return l == 'ru'
+        ? 'Для брони в одну дату включите "Почасовое бронирование".'
+        : 'Bir kunda bron qilish uchun "Soatlik bron"ni yoqing.';
   }
   return l == 'ru'
       ? 'Произошла ошибка. Пожалуйста, попробуйте снова.'
@@ -839,33 +845,45 @@ class _ApiClient {
   _ApiClient(this.token, this.branchId);
 
   static const String baseApi = 'https://hmsuz.com/api';
-  static const Duration timeout = Duration(seconds: 40);
+  static const Duration timeout = Duration(seconds: 18);
 
   final String token;
   final int branchId;
 
+  bool _isTransientNetworkError(Object e) {
+    return e is TimeoutException || e is SocketException || e is http.ClientException;
+  }
+
+  Future<http.Response> _runWithRetry(Future<http.Response> Function() request) async {
+    try {
+      return await request().timeout(timeout);
+    } catch (e) {
+      if (!_isTransientNetworkError(e)) rethrow;
+      await Future.delayed(const Duration(milliseconds: 900));
+      return await request().timeout(timeout);
+    }
+  }
+
   Future<dynamic> getJson(String path, {Map<String, String>? query}) async {
     final uri = Uri.parse('$baseApi$path').replace(queryParameters: query);
-    final r = await http.get(
-      uri,
-      headers: {'Authorization': 'Bearer $token'},
-    ).timeout(timeout);
+    final r = await _runWithRetry(() => http.get(
+          uri,
+          headers: {'Authorization': 'Bearer $token'},
+        ));
     if (r.statusCode != 200) throw Exception('status ${r.statusCode}: ${r.body}');
     return jsonDecode(r.body);
   }
 
   Future<dynamic> postJson(String path, Map<String, dynamic> body) async {
     final uri = Uri.parse('$baseApi$path');
-    final r = await http
-        .post(
+    final r = await _runWithRetry(() => http.post(
           uri,
           headers: {
             'Authorization': 'Bearer $token',
             'Content-Type': 'application/json',
           },
           body: jsonEncode(body),
-        )
-        .timeout(timeout);
+        ));
     if (r.statusCode < 200 || r.statusCode >= 300) {
       throw Exception('status ${r.statusCode}: ${r.body}');
     }
@@ -878,16 +896,14 @@ class _ApiClient {
     Map<String, dynamic>? body,
   }) async {
     final uri = Uri.parse('$baseApi$path').replace(queryParameters: query);
-    final r = await http
-        .delete(
+    final r = await _runWithRetry(() => http.delete(
           uri,
           headers: {
             'Authorization': 'Bearer $token',
             if (body != null) 'Content-Type': 'application/json',
           },
           body: body != null ? jsonEncode(body) : null,
-        )
-        .timeout(timeout);
+        ));
     if (r.statusCode < 200 || r.statusCode >= 300) {
       throw Exception('status ${r.statusCode}: ${r.body}');
     }
@@ -896,12 +912,10 @@ class _ApiClient {
 
   Future<dynamic> putQuery(String path, Map<String, String> query) async {
     final uri = Uri.parse('$baseApi$path').replace(queryParameters: query);
-    final r = await http
-        .put(
+    final r = await _runWithRetry(() => http.put(
           uri,
           headers: {'Authorization': 'Bearer $token'},
-        )
-        .timeout(timeout);
+        ));
     if (r.statusCode < 200 || r.statusCode >= 300) {
       throw Exception('status ${r.statusCode}: ${r.body}');
     }
@@ -2723,7 +2737,25 @@ class _RoomsPageState extends State<_RoomsPage> {
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
-    if (_error != null) return _ErrorText(error: _error!);
+    if (_error != null) {
+      return RefreshIndicator(
+        onRefresh: _loadRooms,
+        child: ListView(
+          physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+          children: [
+            const SizedBox(height: 140),
+            _ErrorText(error: _error!),
+            const SizedBox(height: 10),
+            Center(
+              child: Text(
+                _t('Потяните вниз, чтобы обновить', 'Yangilash uchun pastga torting'),
+                style: const TextStyle(color: Colors.black54, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     final room = _selectedRoom;
     final beds = _selectedRoomBeds.cast<dynamic>();
     Map<String, dynamic>? selectedBed;
@@ -2737,6 +2769,7 @@ class _RoomsPageState extends State<_RoomsPage> {
     return RefreshIndicator(
       onRefresh: _loadRooms,
       child: ListView(
+        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
         padding: const EdgeInsets.all(16),
         children: [
           _SectionTitle(_t('Комнаты и кровати', 'Xonalar va yotoqlar')),
@@ -3210,12 +3243,30 @@ class _BookingsPageState extends State<_BookingsPage> {
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
-    if (_error != null) return _ErrorText(error: _error!);
+    if (_error != null) {
+      return RefreshIndicator(
+        onRefresh: _loadInitial,
+        child: ListView(
+          physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+          children: [
+            const SizedBox(height: 140),
+            _ErrorText(error: _error!),
+            const SizedBox(height: 10),
+            Center(
+              child: Text(
+                _t('Потяните вниз, чтобы обновить', 'Yangilash uchun pastga torting'),
+                style: const TextStyle(color: Colors.black54, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     return RefreshIndicator(
       onRefresh: _loadInitial,
       child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
+        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
         padding: const EdgeInsets.all(16),
         children: [
         Row(
@@ -3866,7 +3917,7 @@ class _PaymentsPageState extends State<_PaymentsPage> {
     return RefreshIndicator(
       onRefresh: _loadFinance,
       child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
+        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
         padding: const EdgeInsets.all(16),
         children: [
         _SectionTitle('💰 ${_t("Ежемесячные финансы", "Oylik moliya")}'),
@@ -5316,6 +5367,14 @@ class _SettingsPageState extends State<_SettingsPage> {
     final raw = '$e';
     final lower = raw.toLowerCase();
 
+    if (lower.contains('socketexception') ||
+        lower.contains('failed host lookup') ||
+        lower.contains('timeoutexception') ||
+        lower.contains('future not completed') ||
+        lower.contains('network')) {
+      return friendlyErrorText(raw, lang: _language);
+    }
+
     if (lower.contains('username already exists')) {
       return _t('Пользователь с таким именем уже существует', 'Bunday foydalanuvchi nomi allaqachon mavjud');
     }
@@ -5393,7 +5452,7 @@ class _SettingsPageState extends State<_SettingsPage> {
       });
       await _loadSelectedUserNotify();
     } catch (e) {
-      setState(() => _error = '$e');
+      setState(() => _error = _friendlyError(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -5705,12 +5764,30 @@ class _SettingsPageState extends State<_SettingsPage> {
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
-    if (_error != null) return _ErrorText(error: _error!);
+    if (_error != null) {
+      return RefreshIndicator(
+        onRefresh: _loadRole,
+        child: ListView(
+          physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+          children: [
+            const SizedBox(height: 140),
+            _ErrorText(error: _error!),
+            const SizedBox(height: 10),
+            Center(
+              child: Text(
+                _t('Потяните вниз, чтобы обновить', 'Yangilash uchun pastga torting'),
+                style: const TextStyle(color: Colors.black54, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     return RefreshIndicator(
       onRefresh: _loadRole,
       child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
+        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
         padding: const EdgeInsets.all(16),
         children: [
           Row(
@@ -6004,16 +6081,8 @@ class _RootAdminSheetState extends State<_RootAdminSheet> {
   }
 
   void _snack(String text, {bool error = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(text, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-        backgroundColor: error ? const Color(0xFFDC2626) : const Color(0xFF16A34A),
-        behavior: SnackBarBehavior.floating,
-        margin: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    final msg = error ? friendlyErrorText(text) : text;
+    showAppAlert(context, msg, error: error);
   }
 
   int? _toInt(dynamic v) {
@@ -6056,7 +6125,7 @@ class _RootAdminSheetState extends State<_RootAdminSheet> {
         _cronForceNext = cronForceNext;
       });
     } catch (e) {
-      setState(() => _error = '$e');
+      setState(() => _error = friendlyErrorText('$e'));
     } finally {
       if (mounted) setState(() => _loading = false);
     }

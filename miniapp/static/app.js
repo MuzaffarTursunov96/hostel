@@ -70,6 +70,9 @@ function translateBackendError(msg) {
     "Old password is incorrect": isUz
       ? "Eski parol noto'g'ri"
       : "Старый пароль неверный",
+    "For same-day booking, enable hourly booking.": isUz
+      ? "Bir kunda bron qilish uchun \"Soatlik bron\"ni yoqing"
+      : "Для брони в одну дату включите \"Почасовое бронирование\"",
   };
 
   return byExact[raw] || raw;

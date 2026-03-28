@@ -537,7 +537,12 @@ def add_booking(
         ):
     ensure_bookings_hourly_column()
 
-    if is_hourly and checkout_date <= checkin_date:
+    if (not is_hourly and checkout_date <= checkin_date) or (is_hourly and checkout_date < checkin_date):
+        raise HTTPException(
+            status_code=400,
+            detail="For same-day booking, enable hourly booking."
+        )
+    if is_hourly and checkout_date == checkin_date:
         checkout_date = checkin_date + timedelta(days=1)
 
     with get_connection() as conn:

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 from datetime import date, timedelta
@@ -39,6 +39,11 @@ def booking_available_beds(
     is_hourly: bool = False,
     user=Depends(get_current_user)
 ):
+    if (not is_hourly and checkout <= checkin) or (is_hourly and checkout < checkin):
+        raise HTTPException(
+            status_code=400,
+            detail="For same-day booking, enable hourly booking."
+        )
     if is_hourly and checkout <= checkin:
         checkout = checkin + timedelta(days=1)
     return get_available_beds(branch_id, room_id, checkin, checkout)
