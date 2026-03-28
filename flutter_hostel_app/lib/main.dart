@@ -802,7 +802,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         children: [
           _DashboardPage(api: _api, refreshSignal: _refreshSignal),
           _RoomsPage(api: _api, onDataChanged: _notifyDataChanged),
-          _BookingsPage(api: _api),
+          _BookingsPage(api: _api, onDataChanged: _notifyDataChanged),
           _PaymentsPage(api: _api),
           _SettingsPage(api: _api),
         ],
@@ -813,7 +813,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         indicatorColor: const Color(0xFFDDF3F1),
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
+        onDestinationSelected: (i) {
+          setState(() => _index = i);
+          if (i == 0) {
+            _notifyDataChanged();
+          }
+        },
         destinations: [
           NavigationDestination(
             icon: const _WebIcon('home_menu', size: 22),
@@ -2961,8 +2966,9 @@ class _RoomsPageState extends State<_RoomsPage> {
 }
 
 class _BookingsPage extends StatefulWidget {
-  const _BookingsPage({required this.api});
+  const _BookingsPage({required this.api, required this.onDataChanged});
   final _ApiClient api;
+  final VoidCallback onDataChanged;
 
   @override
   State<_BookingsPage> createState() => _BookingsPageState();
@@ -2985,8 +2991,8 @@ class _BookingsPageState extends State<_BookingsPage> {
   bool _isHourlyBooking = false;
 
   DateTime _checkin = DateTime.now();
-  DateTime _checkout = DateTime.now();
-  DateTime _notifyDate = DateTime.now();
+  DateTime _checkout = DateTime.now().add(const Duration(days: 1));
+  DateTime _notifyDate = DateTime.now().add(const Duration(days: 1));
 
   final _name = TextEditingController();
   final _passport = TextEditingController();
@@ -3070,8 +3076,11 @@ class _BookingsPageState extends State<_BookingsPage> {
       setState(() => _availableBeds = []);
       return;
     }
-    final sameDayAllowed = _isHourlyBooking && _checkout.isAtSameMomentAs(_checkin);
-    if ((!_checkout.isAfter(_checkin)) && !sameDayAllowed) {
+    final checkinDay = DateUtils.dateOnly(_checkin);
+    final checkoutDay = DateUtils.dateOnly(_checkout);
+    final sameDay = checkoutDay.isAtSameMomentAs(checkinDay);
+    final sameDayAllowed = _isHourlyBooking && sameDay;
+    if ((!checkoutDay.isAfter(checkinDay)) && !sameDayAllowed) {
       setState(() {
         _dateError = _t('Неверные даты', 'Noto‘g‘ri sanalar');
         _availableBeds = [];
@@ -3101,7 +3110,7 @@ class _BookingsPageState extends State<_BookingsPage> {
     } catch (e) {
       setState(() {
         _availableBeds = [];
-        _error = e.toString();
+        _dateError = friendlyErrorText(e.toString());
       });
     }
   }
@@ -3229,6 +3238,7 @@ class _BookingsPageState extends State<_BookingsPage> {
         _isHourlyBooking = false;
       });
       await _loadAvailableBeds();
+      widget.onDataChanged();
     } catch (e) {
       _snack('$e');
     } finally {

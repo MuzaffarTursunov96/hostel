@@ -1,7 +1,7 @@
 TRANSLATIONS = {
     'ru': {
-        'dashboard': 'Панель управления',
-        'bookings': 'Бронирования',
+        'dashboard': 'Главная',
+        'bookings': 'Бронь',
         'payments': 'Платежи',
         'debts': 'Долговая книга',
         'rooms': 'Комнаты',
@@ -564,3 +564,4 @@ TRANSLATIONS = {
         'hourly_booking_hint': "Bron soatlik bo'lsa belgilang",
     },
 }
+
