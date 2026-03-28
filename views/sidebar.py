@@ -70,6 +70,7 @@ class Sidebar(QFrame):
         self.add_btn(layout, t("payments"), "payments", resource_path("assets/icons/payment.png"))
         self.add_btn(layout, t("debts"), "debts", resource_path("assets/icons/money.png"))
         self.add_btn(layout, t("settings"), "settings", resource_path("assets/icons/settings.png"))
+        self.add_btn(layout, t("refresh"), "refresh", resource_path("assets/icons/refresh.png"))
 
                 # ===== Root Admin (ONLY FOR ROOT) =====
         if (
@@ -106,7 +107,8 @@ class Sidebar(QFrame):
         self.buttons[key] = btn
 
     def handle_click(self, key):
-        self.set_active(key)
+        if key != "refresh":
+            self.set_active(key)
         self.on_nav(key)
 
     def set_active(self, key):

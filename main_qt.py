@@ -187,6 +187,11 @@ class App(QMainWindow):
             QApplication.quit()
             return
 
+        if page == "refresh":
+            if self.current_page and hasattr(self.current_page, "refresh"):
+                self.current_page.refresh()
+            return
+
         if page == "root_admin":
             self.open_root_admin()
             return
@@ -286,6 +291,27 @@ class App(QMainWindow):
             w = self.stack.widget(0)
             self.stack.removeWidget(w)
             w.deleteLater()
+
+    def redirect_to_login(self):
+        # Clear auth state and safely return to login UI.
+        self.access_token = None
+        self.user_id = None
+        self.is_admin = False
+
+        if hasattr(self, "ws_client"):
+            try:
+                self.ws_client.stop()
+            except Exception:
+                pass
+
+        if self.sidebar:
+            self.layout.removeWidget(self.sidebar)
+            self.sidebar.deleteLater()
+            self.sidebar = None
+
+        self.pages = {}
+        self.current_page = None
+        self.create_login()
 
     def closeEvent(self, event):
         if hasattr(self, "ws_client"):
