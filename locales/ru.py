@@ -59,7 +59,7 @@
     'available_beds': 'Доступные кровати на выбранное время',
     'customer_and_payment': 'Клиент и оплата',
     'customer_name': 'Имя клиента',
-    'contact_info': 'Контактная информация',
+    'contact_info': 'Контакт',
     'paid_amount': 'Оплаченная сумма',
     'remaining': 'Оставшаяся сумма',
     'confirm_booking': 'Подтвердить бронирование',

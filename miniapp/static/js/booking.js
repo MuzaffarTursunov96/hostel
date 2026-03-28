@@ -28,6 +28,7 @@ $(document).ready(function () {
   document.addEventListener("DOMContentLoaded", startWebSocket);
 
   $("#checkin, #checkout").on("change", loadAvailableBeds);
+  $("#isHourlyBooking").on("change", loadAvailableBeds);
   $("#total, #paid").on("input", updateRemaining);
 
   $("#notifyDate").on("change", function () {
@@ -181,8 +182,9 @@ function loadAvailableBeds() {
 
   const checkin = $("#checkin").val();
   const checkout = $("#checkout").val();
+  const isHourly = $("#isHourlyBooking").is(":checked");
 
-  if (!checkin || !checkout || checkout <= checkin) {
+  if (!checkin || !checkout || (!isHourly && checkout <= checkin) || (isHourly && checkout < checkin)) {
     $("#bedsList").html(`<div class="text-danger">${t("invalid_dates")}</div>`);
     return;
   }
@@ -191,7 +193,8 @@ function loadAvailableBeds() {
     branch_id: CURRENT_BRANCH,
     room_id: CURRENT_ROOM_ID,
     checkin: checkin,
-    checkout: checkout
+    checkout: checkout,
+    is_hourly: isHourly
   }).done(function (beds) {
 
     if (!beds.length) {

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from typing import Optional
-from datetime import date
+from datetime import date, timedelta
 from api.deps import get_current_user
 from api.ws_manager import ws_manager
 
@@ -36,8 +36,11 @@ def booking_available_beds(
     room_id: int,
     checkin: date,
     checkout: date,
+    is_hourly: bool = False,
     user=Depends(get_current_user)
 ):
+    if is_hourly and checkout <= checkin:
+        checkout = checkin + timedelta(days=1)
     return get_available_beds(branch_id, room_id, checkin, checkout)
 
 

@@ -20,6 +20,34 @@ String trPair({
   return normLang(lang ?? appLang.value) == 'ru' ? ru : uz;
 }
 
+String friendlyErrorText(String raw, {String? lang}) {
+  final l = normLang(lang ?? appLang.value);
+  final s = raw.toLowerCase();
+  if (s.contains('failed host lookup') || s.contains('socketexception') || s.contains('network is unreachable')) {
+    return l == 'ru'
+        ? 'Нет интернета. Проверьте сеть и попробуйте снова.'
+        : "Internet yo'q. Tarmoqni tekshirib, qayta urinib ko'ring.";
+  }
+  if (s.contains('timeoutexception') || s.contains('future not completed') || s.contains('timed out')) {
+    return l == 'ru'
+        ? 'Сервер долго не отвечает. Повторите попытку.'
+        : 'Server javobi kechikdi. Qayta urinib ko‘ring.';
+  }
+  if (s.contains('status 401') || s.contains('unauthorized')) {
+    return l == 'ru'
+        ? 'Сессия истекла. Войдите снова.'
+        : 'Sessiya tugagan. Qaytadan kiring.';
+  }
+  if (s.contains('status 5')) {
+    return l == 'ru'
+        ? 'В сервисе временная ошибка. Попробуйте позже.'
+        : 'Xizmatda vaqtinchalik xatolik. Keyinroq urinib ko‘ring.';
+  }
+  return l == 'ru'
+      ? 'Произошла ошибка. Пожалуйста, попробуйте снова.'
+      : 'Xatolik yuz berdi. Iltimos, qayta urinib ko‘ring.';
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final prefs = await SharedPreferences.getInstance();
@@ -32,6 +60,32 @@ void showAppAlert(
   String text, {
   bool error = false,
 }) {
+  if (error) {
+    showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: Row(
+          children: [
+            const Icon(Icons.wifi_off_rounded, color: Color(0xFFDC2626)),
+            const SizedBox(width: 8),
+            Text(trPair(ru: 'Внимание', uz: 'Diqqat')),
+          ],
+        ),
+        content: Text(
+          friendlyErrorText(text),
+          style: const TextStyle(height: 1.35),
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+    return;
+  }
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
       content: Text(
@@ -230,7 +284,11 @@ class _LoginScreenState extends State<LoginScreen> {
               ru: 'Неверное имя пользователя или пароль',
               uz: "Login yoki parol noto'g'ri",
             );
-        setState(() => _error = 'API /auth/login failed\nstatus: ${r.statusCode}\nmessage: $message');
+        final friendly = friendlyErrorText(message, lang: _uiLang);
+        setState(() => _error = friendly);
+        if (mounted) {
+          showAppAlert(context, friendly, error: true);
+        }
         return;
       }
 
@@ -242,12 +300,12 @@ class _LoginScreenState extends State<LoginScreen> {
           : int.tryParse(branchIdRaw?.toString() ?? '');
 
       if (token.isEmpty || branchId == null) {
-        setState(
-          () => _error = _tr(
-            ru: 'Вход выполнен, но token/branch_id отсутствует.',
-            uz: 'Kirish bajarildi, lekin token/branch_id topilmadi.',
-          ),
+        final msg = _tr(
+          ru: 'Вход выполнен, но token/branch_id отсутствует.',
+          uz: 'Kirish bajarildi, lekin token/branch_id topilmadi.',
         );
+        setState(() => _error = msg);
+        if (mounted) showAppAlert(context, msg, error: true);
         return;
       }
 
@@ -266,20 +324,14 @@ class _LoginScreenState extends State<LoginScreen> {
           builder: (_) => HomeScreen(accessToken: token, branchId: branchId),
         ),
       );
-    } on TimeoutException {
-      setState(
-        () => _error = _tr(
-          ru: 'Превышено время ожидания (${requestTimeout.inSeconds}s).',
-          uz: "So'rov vaqti tugadi (${requestTimeout.inSeconds}s).",
-        ),
-      );
+    } on TimeoutException catch (e) {
+      final msg = friendlyErrorText(e.toString(), lang: _uiLang);
+      setState(() => _error = msg);
+      if (mounted) showAppAlert(context, msg, error: true);
     } catch (e) {
-      setState(
-        () => _error = _tr(
-          ru: 'Ошибка сети: $e',
-          uz: 'Tarmoq xatosi: $e',
-        ),
-      );
+      final msg = friendlyErrorText(e.toString(), lang: _uiLang);
+      setState(() => _error = msg);
+      if (mounted) showAppAlert(context, msg, error: true);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -1857,7 +1909,7 @@ class _DashboardPageState extends State<_DashboardPage> {
                                             label: Text(_t('Завершить', 'Yakunlash')),
                                           ),
                                         ),
-                                    ),
+                                      ],
                                   ),
                                 );
                                 },
@@ -2985,7 +3037,8 @@ class _BookingsPageState extends State<_BookingsPage> {
       setState(() => _availableBeds = []);
       return;
     }
-    if (!_checkout.isAfter(_checkin)) {
+    final sameDayAllowed = _isHourlyBooking && _checkout.isAtSameMomentAs(_checkin);
+    if ((!_checkout.isAfter(_checkin)) && !sameDayAllowed) {
       setState(() {
         _dateError = _t('Неверные даты', 'Noto‘g‘ri sanalar');
         _availableBeds = [];
@@ -3001,6 +3054,7 @@ class _BookingsPageState extends State<_BookingsPage> {
         'room_id': _roomId.toString(),
         'checkin': _apiDate(_checkin),
         'checkout': _apiDate(_checkout),
+        'is_hourly': _isHourlyBooking ? 'true' : 'false',
       });
       final beds = (rows as List).cast<dynamic>();
       setState(() {
@@ -3230,7 +3284,10 @@ class _BookingsPageState extends State<_BookingsPage> {
                 controlAffinity: ListTileControlAffinity.leading,
                 title: Text(_t('Почасовое бронирование', 'Soatlik bron')),
                 subtitle: Text(_t('Отмечайте, если бронь почасовая', "Bron soatlik bo'lsa belgilang"), style: const TextStyle(fontSize: 12)),
-                onChanged: (v) => setState(() => _isHourlyBooking = v ?? false),
+                onChanged: (v) async {
+                  setState(() => _isHourlyBooking = v ?? false);
+                  await _loadAvailableBeds();
+                },
               ),
             ],
           ),
@@ -6704,10 +6761,26 @@ class _ErrorText extends StatelessWidget {
   final String error;
   @override
   Widget build(BuildContext context) {
+    final message = friendlyErrorText(error);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Text('Load error:\n$error', textAlign: TextAlign.center, style: const TextStyle(color: Colors.red)),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFF1F2),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFFECACA)),
+          ),
+          child: Text(
+            '⚠ $message',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Color(0xFFB91C1C),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
       ),
     );
   }

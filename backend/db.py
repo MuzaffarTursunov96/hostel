@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 import json
 from security import hash_password, verify_password
 from database import engine
@@ -536,6 +536,10 @@ def add_booking(
             is_hourly=False,
         ):
     ensure_bookings_hourly_column()
+
+    if is_hourly and checkout_date <= checkin_date:
+        checkout_date = checkin_date + timedelta(days=1)
+
     with get_connection() as conn:
 
         # -----------------------------

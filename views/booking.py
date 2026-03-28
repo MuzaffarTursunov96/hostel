@@ -142,6 +142,7 @@ class BookingPage(QWidget):
 
         self.hourly_checkbox = QCheckBox(t("hourly_booking"))
         self.hourly_checkbox.setStyleSheet("font-weight:600;color:#334155;")
+        self.hourly_checkbox.stateChanged.connect(lambda _: self.load_available_beds())
         left_layout.addWidget(self.hourly_checkbox)
 
 
@@ -338,8 +339,9 @@ class BookingPage(QWidget):
 
         checkin = self.checkin.date().toPython()
         checkout = self.checkout.date().toPython()
+        is_hourly = self.hourly_checkbox.isChecked()
 
-        if checkout <= checkin:
+        if (not is_hourly and checkout <= checkin) or (is_hourly and checkout < checkin):
             self.beds_container.addWidget(QLabel(t("checkout_date_must_be_after_checkin")))
             return
 
@@ -350,7 +352,8 @@ class BookingPage(QWidget):
                 "branch_id": self.branch_id,
                 "room_id": self.current_room_id,
                 "checkin": checkin.isoformat(),
-                "checkout": checkout.isoformat()
+                "checkout": checkout.isoformat(),
+                "is_hourly": str(is_hourly).lower(),
             }
         )
 
