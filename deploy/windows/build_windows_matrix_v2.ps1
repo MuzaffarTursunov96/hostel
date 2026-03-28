@@ -96,7 +96,7 @@ function Ensure-Tooling([string]$pythonExe, [string]$channel) {
 
     $requirementsPath = Join-Path $repoRoot 'requirements.txt'
     $legacyRequirementsPath = Join-Path $repoRoot 'requirements2.txt'
-    if (Test-Path $requirementsPath -or (Test-Path $legacyRequirementsPath)) {
+    if ((Test-Path $requirementsPath) -or (Test-Path $legacyRequirementsPath)) {
         Write-Host "[$channel] Installing project requirements..." -ForegroundColor Cyan
         if ($channel -eq 'legacy') {
             if (Test-Path $legacyRequirementsPath) {
