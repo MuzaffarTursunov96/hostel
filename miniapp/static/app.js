@@ -1,11 +1,25 @@
 window.t = function (key) {
   const lang = window.CURRENT_LANG || "ru";
-  return (
+  const value = (
     (window.TRANSLATIONS &&
       window.TRANSLATIONS[lang] &&
       window.TRANSLATIONS[lang][key]) ||
     key
   );
+  const broken =
+    typeof value === "string" &&
+    ["Рџ", "Р°", "СЃ", "вЂ", "Ð", "Ñ", "�"].some((token) =>
+      value.includes(token)
+    );
+  if (broken) {
+    const uzFallback =
+      (window.TRANSLATIONS &&
+        window.TRANSLATIONS.uz &&
+        window.TRANSLATIONS.uz[key]) ||
+      key;
+    return uzFallback;
+  }
+  return value;
 };
 
 let __expiryAlertShown = false;

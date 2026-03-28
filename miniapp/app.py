@@ -46,8 +46,17 @@ from utils.i18n import TRANSLATIONS  # adjust import
 def inject_globals():
     lang = session.get("language", "ru")
 
+    def looks_broken(text):
+        if not isinstance(text, str):
+            return False
+        bad_tokens = ("Рџ", "Р°", "СЃ", "вЂ", "Ð", "Ñ", "�")
+        return any(token in text for token in bad_tokens)
+
     def t(key):
-        return TRANSLATIONS.get(lang, {}).get(key, key)
+        value = TRANSLATIONS.get(lang, {}).get(key, key)
+        if looks_broken(value):
+            return TRANSLATIONS.get("uz", {}).get(key, key)
+        return value
 
     return {
         "t": t,                       # for HTML
