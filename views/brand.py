@@ -42,7 +42,7 @@ class BrandWidget(QWidget):
         """)
 
         # ===== SUBTITLE =====
-        subtitle = QLabel("Hotel Management System")
+        subtitle = QLabel("HMS")
         subtitle.setAlignment(Qt.AlignCenter)
         subtitle.setStyleSheet("""
             font-size: 11px;

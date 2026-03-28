@@ -1,0 +1,139 @@
+﻿<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HMSUZ - Hostel va Hotel Boshqaruv Tizimi</title>
+  <meta name="description" content="HMSUZ bilan bronlar, check-in/check-out, moliya va hisobotlarni bitta tizimda boshqaring.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/marketing.css?v=20260328b">
+</head>
+<body>
+  <div class="noise"></div>
+
+  <header class="topbar">
+    <div class="brand">HMSUZ</div>
+    <nav class="topbar-actions">
+      <div class="lang-switch" role="group" aria-label="Language switch">
+        <button type="button" class="link-btn lang-btn active" data-lang="uz">UZ</button>
+        <button type="button" class="link-btn lang-btn" data-lang="ru">RU</button>
+      </div>
+      <a class="link-btn" href="/login" data-i18n="login">Telegram Login</a>
+      <a class="link-btn" href="#pricing" data-i18n="prices">Narxlar</a>
+      <a class="primary-btn" href="#demo" data-i18n="apply">Ariza Qoldirish</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <p class="eyebrow" data-i18n="for_hostel">Hostel va Hotel uchun</p>
+      <h1 data-i18n="hero_title">Bronlardan hisobotgacha hammasi bitta tizimda</h1>
+      <p class="hero-copy" data-i18n="hero_copy">
+        HMSUZ menejer va egalar uchun kundalik boshqaruvni yengillashtiradi:
+        xonalar holati, tolovlar, qarzdorlik va mijoz tarixi real vaqtda korinadi.
+      </p>
+      <div class="hero-actions">
+        <a class="primary-btn" href="#demo" data-i18n="apply">Ariza Qoldirish</a>
+        <a class="ghost-btn" href="tel:+998991422110" data-i18n="call">Qongiroq: +998 99 142 21 10</a>
+      </div>
+      <ul class="hero-metrics">
+        <li><strong>1 kun</strong><span data-i18n="m1">ichida ishga tushirish</span></li>
+        <li><strong>24/7</strong><span data-i18n="m2">texnik yordam</span></li>
+        <li><strong>100%</strong><span data-i18n="m3">uzbekcha interfeys</span></li>
+      </ul>
+    </section>
+
+    <section class="features">
+      <article>
+        <h3 data-i18n="f1t">Bron va xona nazorati</h3>
+        <p data-i18n="f1d">Bo'sh va band xonalar, check-in/check-out, muddatni uzaytirish va bekor qilish jarayonlari tez boshqariladi.</p>
+      </article>
+      <article>
+        <h3 data-i18n="f2t">Moliya aniq korinadi</h3>
+        <p data-i18n="f2d">Tolovlar, qarzlar, qaytarimlar va kunlik/yillik hisobotlar avtomatik shakllanadi.</p>
+      </article>
+      <article>
+        <h3 data-i18n="f3t">Xodimlar uchun qulay</h3>
+        <p data-i18n="f3d">Bir necha klik bilan asosiy amallar bajariladi, xatolar kamayadi va vaqt tejaladi.</p>
+      </article>
+    </section>
+
+    <section class="offer">
+      <div>
+        <h2 data-i18n="offer_t">Nima uchun egalar HMSUZni tanlaydi?</h2>
+        <p data-i18n="offer_d">Excel va qogozdan chiqib, barcha jarayonlarni yagona platformada boshqarish mumkin. Natija: tezroq servis, toza hisobot, kuchli nazorat.</p>
+      </div>
+      <a class="primary-btn" target="_blank" rel="noopener" href="https://t.me/{{ ROOT_ADMIN_TELEGRAM }}" data-i18n="write_tg">Telegram orqali yozish</a>
+    </section>
+
+    <section class="dynamic-content">
+      <div class="section-head">
+        <h2 data-i18n="content_title">Mahsulot kontenti</h2>
+        <p data-i18n="content_sub">Rasmlar va matnlar marketing uchun dinamik yuklanadi.</p>
+      </div>
+      <div id="contentGrid" class="content-grid"></div>
+    </section>
+
+    <section class="videos">
+      <div class="section-head">
+        <h2 data-i18n="video_title">Video taqdimotlar</h2>
+        <p data-i18n="video_sub">YouTube videolarni sahifaga bemalol joylashingiz mumkin.</p>
+      </div>
+      <div id="videoGrid" class="video-grid"></div>
+    </section>
+
+    <section class="pricing" id="pricing">
+      <div class="section-head">
+        <h2 data-i18n="pricing_title">Narxlar (so'm)</h2>
+        <p id="pricingNote" data-i18n="pricing_sub">Narxlar dinamik va konfiguratsiya faylidan olinadi.</p>
+      </div>
+      <div id="pricingGrid" class="pricing-grid"></div>
+    </section>
+
+    <section class="demo" id="demo">
+      <div class="demo-head">
+        <h2 data-i18n="form_title">Ariza qoldiring</h2>
+        <p data-i18n="form_sub">Ism va telefon raqamingizni qoldiring. Muzaffar siz bilan tez orada boglanadi.</p>
+      </div>
+
+      <form id="leadForm" class="lead-form">
+        <input type="hidden" name="lang" id="leadLang" value="uz" />
+
+        <label data-i18n="l_name">Ism va familiya
+          <input name="manager_name" required data-ph="ph_name" placeholder="Masalan: Azizbek Karimov" />
+        </label>
+        <label data-i18n="l_phone">Telefon raqam
+          <input name="phone" required data-ph="ph_phone" placeholder="+998 90 123 45 67" />
+        </label>
+        <label data-i18n="l_property">Hostel/Hotel nomi
+          <input name="property_name" required data-ph="ph_property" placeholder="Masalan: City Nest Hostel" />
+        </label>
+        <label data-i18n="l_city">Shahar
+          <input name="city" required data-ph="ph_city" placeholder="Masalan: Toshkent" />
+        </label>
+        <label data-i18n="l_rooms">Xonalar soni (ixtiyoriy)
+          <input name="rooms" data-ph="ph_rooms" placeholder="Masalan: 18" />
+        </label>
+        <label data-i18n="l_time">Qulay boglanish vaqti (ixtiyoriy)
+          <input name="preferred_time" data-ph="ph_time" placeholder="Masalan: 10:00 - 12:00" />
+        </label>
+        <label data-i18n="l_note">Izoh (ixtiyoriy)
+          <textarea name="note" rows="4" data-ph="ph_note" placeholder="Hozir qaysi tizimdan foydalanyapsiz?"></textarea>
+        </label>
+
+        <button type="submit" class="primary-btn" data-i18n="send">Ariza yuborish</button>
+        <p id="leadStatus" class="lead-status"></p>
+      </form>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>Muzaffar: <a href="tel:+998991422110">+998 99 142 21 10</a> | Telegram: <a href="https://t.me/{{ ROOT_ADMIN_TELEGRAM }}" target="_blank" rel="noopener">@{{ ROOT_ADMIN_TELEGRAM }}</a></p>
+    <p>© 2026 HMSUZ</p>
+  </footer>
+
+  <script src="/static/js/marketing.js?v=20260328b"></script>
+</body>
+</html>

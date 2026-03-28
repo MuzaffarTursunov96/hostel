@@ -34,6 +34,21 @@
       <tbody id="rootAdminTable"></tbody>
     </table>
   </div>
+
+  <div class="bg-white rounded-2xl shadow p-4 space-y-3">
+    <div class="flex items-center justify-between gap-2">
+      <h2 id="rmMarketingTitle" class="text-lg font-semibold">Marketing Content (Website)</h2>
+      <div class="flex gap-2">
+        <button id="rmMarketingReload" onclick="loadMarketingContentEditor()" class="px-3 py-2 rounded-xl border border-gray-300">Reload</button>
+        <button id="rmMarketingSave" onclick="saveMarketingContentEditor()" class="px-3 py-2 rounded-xl bg-green-600 text-white">Save Content</button>
+      </div>
+    </div>
+    <p id="rmMarketingHelp" class="text-sm text-gray-600">Edit JSON for prices/videos/content cards shown on hmsuz.com</p>
+    <textarea id="rmMarketingJson"
+              class="w-full h-[320px] p-3 rounded-xl border border-gray-300 font-mono text-sm"
+              spellcheck="false"></textarea>
+    <p id="rmMarketingStatus" class="text-sm text-gray-700"></p>
+  </div>
 </div>
 
 <div id="branchModal" class="fixed inset-0 hidden z-50 bg-black/40 items-center justify-center">

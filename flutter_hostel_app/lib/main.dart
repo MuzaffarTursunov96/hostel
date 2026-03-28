@@ -82,7 +82,7 @@ class HostelApp extends StatelessWidget {
       builder: (_, __, ___) {
         return MaterialApp(
           debugShowCheckedModeBanner: false,
-          title: 'Hostel Mobile',
+          title: 'Hotel Mobile',
           theme: ThemeData(
             colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1E88E5)),
             useMaterial3: true,
@@ -301,94 +301,161 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       body: Stack(
         children: [
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFFEAF2FF),
+                    Color(0xFFF8FAFC),
+                    Color(0xFFE6F4FF),
+                  ],
+                ),
+              ),
+            ),
+          ),
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(20),
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 420),
-                  child: Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(18),
-                      child: Form(
-                        key: _formKey,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Text(
-                              'Hostel Manager',
-                              style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
-                            ),
-                            const SizedBox(height: 8),
-                            SegmentedButton<String>(
-                              segments: const [
-                                ButtonSegment<String>(value: 'ru', label: Text('RU')),
-                                ButtonSegment<String>(value: 'uz', label: Text('UZ')),
-                              ],
-                              selected: {_uiLang},
-                              onSelectionChanged: (v) {
-                                if (v.isNotEmpty) _setLoginLanguage(v.first);
-                              },
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              _tr(
-                                ru: 'Войдите, чтобы продолжить',
-                                uz: 'Davom etish uchun kiring',
-                              ),
-                            ),
-                            const SizedBox(height: 18),
-                            TextFormField(
-                              controller: _usernameController,
-                              decoration: InputDecoration(
-                                labelText: _tr(
-                                  ru: 'Имя пользователя',
-                                  uz: 'Foydalanuvchi nomi',
-                                ),
-                                border: const OutlineInputBorder(),
-                              ),
-                              validator: (v) => (v == null || v.trim().isEmpty)
-                                  ? _tr(
-                                      ru: 'Введите имя пользователя',
-                                      uz: 'Foydalanuvchi nomini kiriting',
-                                    )
-                                  : null,
-                            ),
-                            const SizedBox(height: 12),
-                            TextFormField(
-                              controller: _passwordController,
-                              obscureText: true,
-                              decoration: InputDecoration(
-                                labelText: _tr(ru: 'Пароль', uz: 'Parol'),
-                                border: const OutlineInputBorder(),
-                              ),
-                              validator: (v) => (v == null || v.isEmpty)
-                                  ? _tr(ru: 'Введите пароль', uz: 'Parolni kiriting')
-                                  : null,
-                            ),
-                            const SizedBox(height: 12),
-                            if (_error != null)
-                              Text(
-                                _error!,
-                                style: const TextStyle(color: Colors.red),
-                                textAlign: TextAlign.center,
-                              ),
-                            const SizedBox(height: 8),
-                            SizedBox(
-                              width: double.infinity,
-                              child: FilledButton(
-                                onPressed: _loading ? null : _login,
-                                child: _loading
-                                    ? const SizedBox(
-                                        height: 18,
-                                        width: 18,
-                                        child: CircularProgressIndicator(strokeWidth: 2),
-                                      )
-                                    : Text(_tr(ru: 'Войти', uz: 'Kirish')),
-                              ),
-                            ),
-                          ],
+                  child: Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.96),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: const Color(0xFFDCE7FF)),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x220F172A),
+                          blurRadius: 30,
+                          offset: Offset(0, 12),
                         ),
+                      ],
+                    ),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            height: 58,
+                            width: 58,
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: LinearGradient(
+                                colors: [Color(0xFF1D4ED8), Color(0xFF0284C7)],
+                              ),
+                            ),
+                            alignment: Alignment.center,
+                            child: const Text(
+                              'HMS',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.6,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'HMS',
+                            style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, letterSpacing: 1.1),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            _tr(
+                              ru: 'Система управления отелем',
+                              uz: 'Hotel boshqaruv tizimi',
+                            ),
+                            style: const TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 12),
+                          SegmentedButton<String>(
+                            segments: const [
+                              ButtonSegment<String>(value: 'ru', label: Text('RU')),
+                              ButtonSegment<String>(value: 'uz', label: Text('UZ')),
+                            ],
+                            selected: {_uiLang},
+                            onSelectionChanged: (v) {
+                              if (v.isNotEmpty) _setLoginLanguage(v.first);
+                            },
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _tr(
+                              ru: 'Войдите, чтобы продолжить',
+                              uz: 'Davom etish uchun kiring',
+                            ),
+                            style: const TextStyle(color: Color(0xFF475569)),
+                          ),
+                          const SizedBox(height: 18),
+                          TextFormField(
+                            controller: _usernameController,
+                            decoration: InputDecoration(
+                              labelText: _tr(
+                                ru: 'Имя пользователя',
+                                uz: 'Foydalanuvchi nomi',
+                              ),
+                              prefixIcon: const Icon(Icons.person_outline_rounded),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            validator: (v) => (v == null || v.trim().isEmpty)
+                                ? _tr(
+                                    ru: 'Введите имя пользователя',
+                                    uz: 'Foydalanuvchi nomini kiriting',
+                                  )
+                                : null,
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _passwordController,
+                            obscureText: true,
+                            decoration: InputDecoration(
+                              labelText: _tr(ru: 'Пароль', uz: 'Parol'),
+                              prefixIcon: const Icon(Icons.lock_outline_rounded),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            validator: (v) => (v == null || v.isEmpty)
+                                ? _tr(ru: 'Введите пароль', uz: 'Parolni kiriting')
+                                : null,
+                          ),
+                          const SizedBox(height: 12),
+                          if (_error != null)
+                            Text(
+                              _error!,
+                              style: const TextStyle(color: Color(0xFFDC2626), fontWeight: FontWeight.w600),
+                              textAlign: TextAlign.center,
+                            ),
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            width: double.infinity,
+                            child: FilledButton(
+                              style: FilledButton.styleFrom(
+                                backgroundColor: const Color(0xFF1D4ED8),
+                                foregroundColor: Colors.white,
+                                minimumSize: const Size.fromHeight(50),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                              ),
+                              onPressed: _loading ? null : _login,
+                              child: _loading
+                                  ? const SizedBox(
+                                      height: 18,
+                                      width: 18,
+                                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                    )
+                                  : Text(_tr(ru: 'Войти', uz: 'Kirish')),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -700,7 +767,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ),
           NavigationDestination(
             icon: const _WebIcon('booking_menu', size: 22),
-            label: trPair(ru: 'Бронирования', uz: 'Buyurtmalar', lang: lang),
+            label: trPair(ru: 'Бронь', uz: 'Buyurtmalar', lang: lang),
           ),
           NavigationDestination(
             icon: const _WebIcon('payments_menu', size: 22),

@@ -12,6 +12,7 @@ node_modules/
 dist/
 *.pkg
 *.exe
+*.zip
 
 # OS
 .DS_Store

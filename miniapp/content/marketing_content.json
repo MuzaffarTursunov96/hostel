@@ -1,0 +1,81 @@
+{
+  "content_cards": [
+    {
+      "image_url": "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?auto=format&fit=crop&w=900&q=80",
+      "text_ru": "РЎРЅРёР¶Р°РµС‚СЃСЏ РѕС‡РµСЂРµРґСЊ РЅР° СЂРµСЃРµРїС€РµРЅРµ, РіРѕСЃС‚Рё Р·Р°СЃРµР»СЏСЋС‚СЃСЏ Р±С‹СЃС‚СЂРµРµ.",
+      "text_uz": "Resepshnda navbat kamayadi, mehmonlar tez joylashtiriladi.",
+      "title_ru": "Check-in Рё Check-out СѓСЃРєРѕСЂСЏСЋС‚СЃСЏ",
+      "title_uz": "Check-in va Check-out tezlashadi"
+    },
+    {
+      "image_url": "https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=900&q=80",
+      "text_ru": "Р•Р¶РµРґРЅРµРІРЅР°СЏ РІС‹СЂСѓС‡РєР°, РґРѕР»РіРё Рё РІРѕР·РІСЂР°С‚С‹ РІРёРґРЅС‹ РІ РѕРґРЅРѕРј РѕРєРЅРµ.",
+      "text_uz": "Kunlik tushum, qarzlar va qaytarimlar bir oynada korinadi.",
+      "title_ru": "Р¤РёРЅР°РЅСЃС‹ СЃС‚Р°РЅРѕРІСЏС‚СЃСЏ РїСЂРѕР·СЂР°С‡РЅС‹РјРё",
+      "title_uz": "Moliya shaffof boladi"
+    },
+    {
+      "image_url": "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?auto=format&fit=crop&w=900&q=80",
+      "text_ru": "РљР°Р¶РґСѓСЋ РЅРµРґРµР»СЋ Рё РјРµСЃСЏС† РІС‹ РїСЂРёРЅРёРјР°РµС‚Рµ СЂРµС€РµРЅРёСЏ РЅР° РѕСЃРЅРѕРІРµ С‚РѕС‡РЅС‹С… С†РёС„СЂ.",
+      "text_uz": "Har hafta va oy yakunida tayyor raqamlar bilan qaror qabul qilasiz.",
+      "title_ru": "РџРѕРЅСЏС‚РЅР°СЏ РѕС‚С‡РµС‚РЅРѕСЃС‚СЊ РґР»СЏ РІР»Р°РґРµР»СЊС†Р°",
+      "title_uz": "Egalar uchun aniq hisobot"
+    }
+  ],
+  "currency": "UZS",
+  "pricing": [
+    {
+      "description_ru": "Р‘Р°Р·РѕРІС‹Р№ РїР°РєРµС‚ РґР»СЏ РЅРµР±РѕР»СЊС€РёС… hostel",
+      "description_uz": "Kichik hostel uchun asosiy boshqaruv paketi",
+      "features_ru": [
+        "Р‘СЂРѕРЅРёСЂРѕРІР°РЅРёРµ Рё СѓРїСЂР°РІР»РµРЅРёРµ РЅРѕРјРµСЂР°РјРё",
+        "РљРѕРЅС‚СЂРѕР»СЊ РѕРїР»Р°С‚ Рё РґРѕР»РіРѕРІ",
+        "Р‘Р°Р·РѕРІС‹Рµ РѕС‚С‡РµС‚С‹"
+      ],
+      "features_uz": [
+        "Bron va xona boshqaruvi",
+        "Tolov va qarzdorlik nazorati",
+        "Asosiy hisobotlar"
+      ],
+      "id": "start",
+      "monthly_uzs": 490000,
+      "name_ru": "Start",
+      "name_uz": "Start",
+      "setup_uzs": 0
+    },
+    {
+      "description_ru": "РџРѕР»РЅС‹Р№ РїР°РєРµС‚ РґР»СЏ СЃСЂРµРґРЅРёС… Рё РєСЂСѓРїРЅС‹С… РѕР±СЉРµРєС‚РѕРІ",
+      "description_uz": "Orta va katta obyektlar uchun toliq paket",
+      "features_ru": [
+        "Р’СЃРµ РІРѕР·РјРѕР¶РЅРѕСЃС‚Рё РїР°РєРµС‚Р° Start",
+        "Р Р°СЃС€РёСЂРµРЅРЅР°СЏ Р°РЅР°Р»РёС‚РёРєР°",
+        "РЈРїСЂР°РІР»РµРЅРёРµ РЅРµСЃРєРѕР»СЊРєРёРјРё С„РёР»РёР°Р»Р°РјРё",
+        "РџСЂРёРѕСЂРёС‚РµС‚РЅР°СЏ РїРѕРґРґРµСЂР¶РєР°"
+      ],
+      "features_uz": [
+        "Start paketdagi hamma imkoniyatlar",
+        "Kengaytirilgan hisobotlar",
+        "Bir nechta filialni boshqarish",
+        "Ustuvor texnik yordam"
+      ],
+      "id": "pro",
+      "monthly_uzs": 890000,
+      "name_ru": "Pro",
+      "name_uz": "Pro",
+      "setup_uzs": 290000
+    }
+  ],
+  "updated_at": "2026-03-28",
+  "videos": [
+    {
+      "title_ru": "Р”РµРјРѕ HMSUZ: РѕР±С‰РёР№ РѕР±Р·РѕСЂ",
+      "title_uz": "HMSUZ demo: umumiy korinish",
+      "youtube_id": "dQw4w9WgXcQ"
+    },
+    {
+      "title_ru": "РЈРїСЂР°РІР»РµРЅРёРµ РїСЂРѕС†РµСЃСЃРѕРј Р±СЂРѕРЅРёСЂРѕРІР°РЅРёСЏ",
+      "title_uz": "Bron jarayonini boshqarish",
+      "youtube_id": "3JZ_D3ELwOQ"
+    }
+  ]
+}

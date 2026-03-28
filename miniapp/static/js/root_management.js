@@ -36,7 +36,16 @@ const RM_I18N = {
     filials_updated: 'Филиалы обновлены',
     telegram_password_required: 'Нужны Telegram ID и пароль',
     admin_created: 'Админ создан',
-    search_placeholder: 'Поиск по ID, имени, Telegram или филиалу...'
+    search_placeholder: 'Поиск по ID, имени, Telegram или филиалу...',
+    marketing_title: 'Маркетинг контент (сайт)',
+    marketing_reload: 'Обновить',
+    marketing_save: 'Сохранить контент',
+    marketing_help: 'Редактируйте JSON с ценами, видео и карточками контента для hmsuz.com',
+    marketing_loading: 'Загрузка контента...',
+    marketing_loaded: 'Контент загружен',
+    marketing_saved: 'Контент сохранен',
+    marketing_invalid_json: 'Некорректный JSON',
+    marketing_save_error: 'Ошибка при сохранении контента'
   },
   uz: {
     title: 'Root Admin boshqaruvi',
@@ -70,7 +79,16 @@ const RM_I18N = {
     filials_updated: 'Filiallar yangilandi',
     telegram_password_required: 'Telegram ID va parol kerak',
     admin_created: 'Admin yaratildi',
-    search_placeholder: 'ID, ism, Telegram yoki filial bo\'yicha qidirish...'
+    search_placeholder: 'ID, ism, Telegram yoki filial bo\'yicha qidirish...',
+    marketing_title: 'Marketing kontent (sayt)',
+    marketing_reload: 'Qayta yuklash',
+    marketing_save: 'Kontentni saqlash',
+    marketing_help: 'hmsuz.com uchun narxlar, videolar va kontent kartalari JSON faylini tahrir qiling',
+    marketing_loading: 'Kontent yuklanmoqda...',
+    marketing_loaded: 'Kontent yuklandi',
+    marketing_saved: 'Kontent saqlandi',
+    marketing_invalid_json: 'JSON formati noto\'g\'ri',
+    marketing_save_error: 'Kontentni saqlashda xatolik'
   }
 };
 
@@ -82,6 +100,7 @@ function rt(k) {
 $(function () {
   applyRootTexts();
   loadRootManagement();
+  loadMarketingContentEditor();
 });
 
 function applyRootTexts() {
@@ -108,6 +127,11 @@ function applyRootTexts() {
   $('#rmCreateSave').text(rt('create_admin'));
   $('#rmCreateCancel').text(rt('cancel'));
   $('#rmSearch').attr('placeholder', rt('search_placeholder'));
+
+  $('#rmMarketingTitle').text(rt('marketing_title'));
+  $('#rmMarketingReload').text(rt('marketing_reload'));
+  $('#rmMarketingSave').text(rt('marketing_save'));
+  $('#rmMarketingHelp').text(rt('marketing_help'));
 }
 
 function loadRootManagement() {
@@ -274,5 +298,52 @@ function createAdmin() {
     closeCreateAdmin();
     alert(rt('admin_created'));
     loadRootManagement();
+  });
+}
+
+function loadMarketingContentEditor() {
+  $('#rmMarketingStatus').text(rt('marketing_loading'));
+  $.ajax({
+    url: '/root-marketing-content',
+    method: 'GET',
+    dataType: 'json'
+  }).done((res) => {
+    const content = (res && res.content) || {};
+    $('#rmMarketingJson').val(JSON.stringify(content, null, 2));
+    $('#rmMarketingStatus').text(rt('marketing_loaded'));
+  }).fail(() => {
+    $('#rmMarketingStatus').text(rt('marketing_save_error'));
+  });
+}
+
+function saveMarketingContentEditor() {
+  let content;
+  try {
+    content = JSON.parse($('#rmMarketingJson').val() || '{}');
+  } catch (_) {
+    $('#rmMarketingStatus').text(rt('marketing_invalid_json'));
+    return;
+  }
+
+  $('#rmMarketingStatus').text(rt('marketing_loading'));
+  $.ajax({
+    url: '/root-marketing-content',
+    method: 'POST',
+    contentType: 'application/json',
+    data: JSON.stringify({ content }),
+    dataType: 'json'
+  }).done((res) => {
+    if (res && res.ok) {
+      $('#rmMarketingStatus').text(rt('marketing_saved'));
+      return;
+    }
+    $('#rmMarketingStatus').text((res && res.error) || rt('marketing_save_error'));
+  }).fail((xhr) => {
+    let msg = rt('marketing_save_error');
+    try {
+      const data = JSON.parse(xhr.responseText || '{}');
+      msg = data.error || msg;
+    } catch (_) {}
+    $('#rmMarketingStatus').text(msg);
   });
 }

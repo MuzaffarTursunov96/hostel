@@ -1,7 +1,7 @@
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QLabel,
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QLineEdit, QPushButton, QFrame,
-    QGraphicsDropShadowEffect, QSizePolicy, QMessageBox
+    QGraphicsDropShadowEffect, QSizePolicy, QMessageBox, QCheckBox
 )
 from PySide6.QtCore import Qt, QThread, Signal, QObject,QTimer
 from PySide6.QtGui import QPixmap,QIcon
@@ -129,23 +129,19 @@ class LoginPage(QWidget):
         overlay.setStyleSheet("""
             background: qlineargradient(
                 x1:0, y1:0, x2:1, y2:1,
-                stop:0 rgba(15, 23, 42, 0.72),
-                stop:1 rgba(30, 64, 175, 0.58)
+                stop:0 rgba(15, 23, 42, 0.56),
+                stop:1 rgba(15, 23, 42, 0.42)
             );
         """)
 
         overlay_layout = QVBoxLayout(overlay)
+        overlay_layout.setContentsMargins(20, 20, 20, 20)
         overlay_layout.setAlignment(Qt.AlignCenter)
 
         # ===== LOGIN CARD =====
         card = QFrame()
-        card.setFixedWidth(440)
-        card.setStyleSheet("""
-            background-color: rgba(255,255,255,0.97);
-            border: 1px solid rgba(148, 163, 184, 0.35);
-            border-radius: 20px;
-            padding: 30px;
-        """)
+        card.setObjectName("LoginCard")
+        card.setFixedWidth(460)
 
         shadow = QGraphicsDropShadowEffect()
         shadow.setBlurRadius(48)
@@ -155,22 +151,31 @@ class LoginPage(QWidget):
 
         layout = QVBoxLayout(card)
         layout.setSpacing(16)
+        layout.setContentsMargins(32, 30, 32, 28)
         layout.setAlignment(Qt.AlignTop)
 
-        # ===== TITLE =====
-        title = QLabel("HMS")
+        # ===== TITLE / SUBTITLE =====
+        badge = QLabel("HMS")
+        badge.setObjectName("LoginBadge")
+        badge.setAlignment(Qt.AlignCenter)
+
+        title = QLabel(t("welcome_back"))
+        title.setObjectName("LoginTitle")
         title.setAlignment(Qt.AlignCenter)
-        title.setStyleSheet("""
-            font-size: 34px;
-            font-weight: 800;
-            letter-spacing: 2px;
-            color: #0F172A;
-        """)
+
+        subtitle = QLabel(t("sign_in_to_continue"))
+        subtitle.setObjectName("LoginSubtitle")
+        subtitle.setAlignment(Qt.AlignCenter)
+
+        self.login_hint = QLabel(t("login_use_username_password"))
+        self.login_hint.setObjectName("LoginHint")
+        self.login_hint.setAlignment(Qt.AlignCenter)
 
 
         # ===== INPUTS =====
         # ===== INPUTS =====
         self.username = QLineEdit()
+        self.username.setObjectName("LoginInput")
         self.username.setPlaceholderText(t("username"))
         self.username.setFixedHeight(50)
         self.username.addAction(
@@ -180,6 +185,7 @@ class LoginPage(QWidget):
         self.username.returnPressed.connect(self.try_login)
 
         self.password = QLineEdit()
+        self.password.setObjectName("LoginInput")
         self.password.setPlaceholderText(t("password"))
         self.password.setEchoMode(QLineEdit.Password)
         self.password.setFixedHeight(50)
@@ -189,6 +195,15 @@ class LoginPage(QWidget):
         )
         self.password.returnPressed.connect(self.try_login)
 
+        self.show_password = QCheckBox(t("show_password"))
+        self.show_password.setObjectName("ShowPassword")
+        self.show_password.stateChanged.connect(self.toggle_password_visibility)
+
+        controls_row = QHBoxLayout()
+        controls_row.setContentsMargins(2, 0, 2, 0)
+        controls_row.addWidget(self.show_password, 0, Qt.AlignLeft)
+        controls_row.addStretch(1)
+
 
         # ===== BUTTON =====
         self.login_btn = QPushButton(t("login"))
@@ -196,30 +211,6 @@ class LoginPage(QWidget):
         self.login_btn.setFixedHeight(52)
         self.login_btn.setCursor(Qt.PointingHandCursor)
         self.login_btn.clicked.connect(self.try_login)
-
-        self.login_btn.setStyleSheet("""
-            QPushButton#LoginButton {
-                background-color: #2563EB;
-                color: white;
-                font-size: 16px;
-                font-weight: 600;
-                border-radius: 12px;
-                padding: 8px 16px;
-            }
-
-            QPushButton#LoginButton:hover {
-                background-color: #1D4ED8;
-            }
-
-            QPushButton#LoginButton:pressed {
-                background-color: #1E40AF;
-            }
-
-            QPushButton#LoginButton:disabled {
-                background-color: #93C5FD;
-                color: white;
-            }
-            """)
 
 
         # ===== SPINNER =====
@@ -243,10 +234,14 @@ class LoginPage(QWidget):
 
 
         # ===== LAYOUT =====
+        layout.addWidget(badge, 0, Qt.AlignHCenter)
         layout.addWidget(title)
-        layout.addSpacing(8)
+        layout.addWidget(subtitle)
+        layout.addWidget(self.login_hint)
+        layout.addSpacing(6)
         layout.addWidget(self.username)
         layout.addWidget(self.password)
+        layout.addLayout(controls_row)
         layout.addSpacing(6)
         layout.addWidget(self.login_btn)
         layout.addWidget(self.spinner)
@@ -290,6 +285,7 @@ class LoginPage(QWidget):
         self.thread.start()
         self.username.setEnabled(False)
         self.password.setEnabled(False)
+        self.show_password.setEnabled(False)
 
     # =========================
     def login_success(self, data):
@@ -311,6 +307,7 @@ class LoginPage(QWidget):
         self.login_btn.setEnabled(True)
         self.username.setEnabled(True)
         self.password.setEnabled(True)
+        self.show_password.setEnabled(True)
         self.on_success()                # THEN rebuild UI
 
 
@@ -320,6 +317,7 @@ class LoginPage(QWidget):
         self.login_btn.setEnabled(True)
         self.username.setEnabled(True)
         self.password.setEnabled(True)
+        self.show_password.setEnabled(True)
 
         pretty = msg
         try:
@@ -338,3 +336,9 @@ class LoginPage(QWidget):
             pretty = t("invalid_username_or_password")
 
         self.show_alert(pretty)
+
+    def toggle_password_visibility(self):
+        if self.show_password.isChecked():
+            self.password.setEchoMode(QLineEdit.Normal)
+        else:
+            self.password.setEchoMode(QLineEdit.Password)
