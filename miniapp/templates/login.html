@@ -1,8 +1,8 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Загрузка...</title>
+  <title>Р—Р°РіСЂСѓР·РєР°...</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
   <style>
@@ -46,13 +46,17 @@
 
 <div id="app-loading" class="loading-screen">
   <div class="spinner"></div>
-  <div class="loading-text">Подключение к Telegram...</div>
+  <div class="loading-text">РџРѕРґРєР»СЋС‡РµРЅРёРµ Рє Telegram...</div>
 </div>
 
 <script>
-const tg = window.Telegram.WebApp;
+const tg = window.Telegram && window.Telegram.WebApp;
 const ROOT_ADMIN_TELEGRAM = "muzaffar_developer";
 const ROOT_ADMIN_PHONE = "+998991422110";
+
+if (!tg) {
+  window.location.replace("/");
+}
 
 // Telegram init
 tg.ready();
@@ -69,21 +73,21 @@ function withAdminContact(message) {
   const m = String(message || "");
   if (
     m.includes("Telegram: @") ||
-    m.includes("Телефон:") ||
-    m.includes("Свяжитесь с администратором")
+    m.includes("РўРµР»РµС„РѕРЅ:") ||
+    m.includes("РЎРІСЏР¶РёС‚РµСЃСЊ СЃ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂРѕРј")
   ) {
     return m;
   }
   return (
     m +
-    "\n\nСвяжитесь с администратором:" +
+    "\n\nРЎРІСЏР¶РёС‚РµСЃСЊ СЃ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂРѕРј:" +
     "\nTelegram: @" + ROOT_ADMIN_TELEGRAM +
-    "\nТелефон: " + ROOT_ADMIN_PHONE
+    "\nРўРµР»РµС„РѕРЅ: " + ROOT_ADMIN_PHONE
   );
 }
 
 if (!tg.initData) {
-  showError(withAdminContact("Пожалуйста, откройте это приложение из Telegram"));
+  window.location.replace("/");
 } else {
   fetch("/auth/telegram", {
     method: "POST",
@@ -103,14 +107,16 @@ if (!tg.initData) {
       return;
     }
 
-    const msg = data.error || data.detail || "Ошибка авторизации через Telegram";
+    const msg = data.error || data.detail || "РћС€РёР±РєР° Р°РІС‚РѕСЂРёР·Р°С†РёРё С‡РµСЂРµР· Telegram";
     showError(withAdminContact(msg));
   })
   .catch(() => {
-    showError(withAdminContact("Ошибка сети. Попробуйте еще раз."));
+    showError(withAdminContact("РћС€РёР±РєР° СЃРµС‚Рё. РџРѕРїСЂРѕР±СѓР№С‚Рµ РµС‰Рµ СЂР°Р·."));
   });
 }
 </script>
 
 </body>
 </html>
+
+
