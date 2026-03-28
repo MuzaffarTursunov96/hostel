@@ -54,6 +54,7 @@ def dashboard_rooms(
                 "bed_type": bed["bed_type"],
                 "is_busy": booking is not None,
                 "checkout_date": booking["checkout_date"] if booking else None,
+                "is_hourly": bool(booking["is_hourly"]) if booking else False,
                 "has_future": bed_future_exists(branch_id, bed["id"])
             })
 

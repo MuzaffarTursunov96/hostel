@@ -265,6 +265,14 @@ TRANSLATIONS = {
         "address_optional": "Адрес (необязательно)",
         "latitude_optional": "Широта (необязательно)",
         "longitude_optional": "Долгота (необязательно)",
+        "end_booking": "Завершить",
+        "are_you_sure_end_booking": "Вы уверены, что хотите завершить это бронирование сейчас?",
+        "ended": "Бронирование завершено",
+        "ended_text": "Бронирование успешно завершено.",
+        "confirm_debt_paid_on_end": "Долг по этому бронированию погашен? Если да, сумма долга перейдет в доход.",
+        "hourly_booking": "Почасовое бронирование",
+        "hourly_booking_hint": "Отметьте, если бронирование почасовое",
+        "hourly_short": "Почас",
 
         },
         "uz": {
@@ -546,7 +554,15 @@ TRANSLATIONS = {
         "phone":"Telefon raqam",
         "no_customers":"Klientlar hozirda mavjud emas",
         "bed_has_bookings_cannot_delete": "Bu krovat band qilingan. Avval bandlovni bekor qiling.",
-        "room_has_booked_beds": "Bu xonada band qilingan krovatlar mavjud. Avval bandlovlarni bekor qiling."
+        "room_has_booked_beds": "Bu xonada band qilingan krovatlar mavjud. Avval bandlovlarni bekor qiling.",
+        "end_booking": "Yakunlash",
+        "are_you_sure_end_booking": "Ushbu bronni hozir yakunlamoqchimisiz?",
+        "ended": "Bron yakunlandi",
+        "ended_text": "Bron muvaffaqiyatli yakunlandi.",
+        "confirm_debt_paid_on_end": "Ushbu bron bo'yicha qarz yopildimi? Ha bo'lsa qarz summasi daromadga qo'shiladi.",
+        "hourly_booking": "Soatlik bron",
+        "hourly_booking_hint": "Bron soatlik bo'lsa belgilang",
+        "hourly_short": "Soatlik"
 
     }
 }

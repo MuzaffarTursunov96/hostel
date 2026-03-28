@@ -6,6 +6,8 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
 
+_hourly_column_checked = False
+
 def get_connection():
     return engine.begin()
 
@@ -160,6 +162,7 @@ def init_db():
 
             checkin_date DATE NOT NULL,
             checkout_date DATE NOT NULL,
+            is_hourly BOOLEAN NOT NULL DEFAULT FALSE,
             status TEXT DEFAULT 'active',
             booking_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             notify_date DATE,
@@ -432,6 +435,18 @@ def ensure_admin_expiry_column():
             ADD COLUMN IF NOT EXISTS admin_expires_at TIMESTAMP NULL
         """))
 
+
+def ensure_bookings_hourly_column():
+    global _hourly_column_checked
+    if _hourly_column_checked:
+        return
+    with get_connection() as conn:
+        conn.execute(text("""
+            ALTER TABLE bookings
+            ADD COLUMN IF NOT EXISTS is_hourly BOOLEAN NOT NULL DEFAULT FALSE
+        """))
+    _hourly_column_checked = True
+
 def get_rooms_with_beds(branch_id):
     with get_connection() as conn:
         result = conn.execute(text("""
@@ -518,7 +533,9 @@ def add_booking(
             checkin_date,
             checkout_date,
             notify_date,
+            is_hourly=False,
         ):
+    ensure_bookings_hourly_column()
     with get_connection() as conn:
 
         # -----------------------------
@@ -577,6 +594,7 @@ def add_booking(
                     checkin_date,
                     checkout_date,
                     notify_date,
+                    is_hourly,
                     status
                 )
                 VALUES (
@@ -593,6 +611,7 @@ def add_booking(
                     :checkin_date,
                     :checkout_date,
                     :notify_date,
+                    :is_hourly,
                     'active'
                 )
                 RETURNING id
@@ -610,6 +629,7 @@ def add_booking(
                 "checkin_date": checkin_date,
                 "checkout_date": checkout_date,
                 "notify_date": notify_date,
+                "is_hourly": bool(is_hourly),
             }).scalar()
 
 
@@ -683,6 +703,7 @@ def is_bed_busy_today(branch_id, bed_id):
 
 
 def get_active_booking_now(branch_id, bed_id):
+    ensure_bookings_hourly_column()
     with get_connection() as conn:
         row = conn.execute(text("""
             SELECT *
@@ -1292,8 +1313,59 @@ def cancel_booking(booking_id: int, branch_id: int):
             "branch_id": branch_id
         })
 
-def end_booking_now(booking_id: int, branch_id: int):
+def end_booking_now(booking_id: int, branch_id: int, settle_debt: bool = False):
     with get_connection() as conn:
+        if settle_debt:
+            row = conn.execute(text("""
+                SELECT remaining_amount
+                FROM bookings
+                WHERE id = :booking_id
+                  AND branch_id = :branch_id
+                  AND status = 'active'
+                  AND checkin_date <= CURRENT_DATE
+                LIMIT 1
+            """), {
+                "booking_id": booking_id,
+                "branch_id": branch_id
+            }).mappings().fetchone()
+
+            if row:
+                remain = float(row["remaining_amount"] or 0)
+                if remain > 0:
+                    conn.execute(text("""
+                        UPDATE bookings
+                        SET
+                            paid_amount = paid_amount + :remain,
+                            remaining_amount = 0,
+                            payment_status = 'paid'
+                        WHERE id = :booking_id
+                          AND branch_id = :branch_id
+                    """), {
+                        "remain": remain,
+                        "booking_id": booking_id,
+                        "branch_id": branch_id
+                    })
+
+                    conn.execute(text("""
+                        INSERT INTO booking_payments (
+                            booking_id,
+                            branch_id,
+                            paid_amount,
+                            paid_by
+                        )
+                        VALUES (
+                            :booking_id,
+                            :branch_id,
+                            :paid_amount,
+                            :paid_by
+                        )
+                    """), {
+                        "booking_id": booking_id,
+                        "branch_id": branch_id,
+                        "paid_amount": remain,
+                        "paid_by": "manager_end"
+                    })
+
         res = conn.execute(text("""
             UPDATE bookings
             SET
@@ -1490,6 +1562,7 @@ def get_past_bookings(branch_id, from_date=None, to_date=None):
 
 def get_active_bookings(branch_id):
     today = date.today().isoformat()
+    ensure_bookings_hourly_column()
 
     with get_connection() as conn:
         rows = conn.execute(text("""
@@ -1502,6 +1575,10 @@ def get_active_bookings(branch_id):
                 bk.checkin_date,
                 bk.checkout_date,
                 bk.total_amount,
+                bk.paid_amount,
+                bk.remaining_amount,
+                bk.payment_status,
+                bk.is_hourly,
                 bk.customer_name,
                 bk.passport_id,
                 r.number AS room_number,

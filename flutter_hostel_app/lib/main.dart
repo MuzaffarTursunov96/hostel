@@ -1742,6 +1742,26 @@ class _DashboardPageState extends State<_DashboardPage> {
                                           '🏠 ${b['room_name'] ?? b['room_number']} • 🛏 ${_t("Кровать", "Kravat")} ${b['bed_number'] ?? ''}',
                                           style: const TextStyle(color: Colors.black54),
                                         ),
+                                        if (b['is_hourly'] == true)
+                                          Padding(
+                                            padding: const EdgeInsets.only(top: 4),
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFFFF4D6),
+                                                borderRadius: BorderRadius.circular(999),
+                                                border: Border.all(color: const Color(0xFFFCD34D)),
+                                              ),
+                                              child: Text(
+                                                '⏱ ${_t("Почасовое бронирование", "Soatlik bron")}',
+                                                style: const TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: Color(0xFFB45309),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
                                         Text(
                                           '🗓 ${_formatShortDate('${b['checkin_date'] ?? ''}')} → ${_formatShortDate('${b['checkout_date'] ?? ''}')}',
                                           style: const TextStyle(color: Colors.black54),
@@ -1807,9 +1827,26 @@ class _DashboardPageState extends State<_DashboardPage> {
                                                 cancelText: _t('Назад', 'Orqaga'),
                                               );
                                               if (!ok) return;
+                                              bool settleDebt = false;
+                                              final remaining = (b['remaining_amount'] is num)
+                                                  ? (b['remaining_amount'] as num).toDouble()
+                                                  : double.tryParse('${b['remaining_amount'] ?? 0}') ?? 0;
+                                              if (remaining > 0) {
+                                                settleDebt = await confirmAction(
+                                                  context,
+                                                  title: _t('Есть долг', 'Qarz bor'),
+                                                  message: _t(
+                                                    'Долг по этому бронированию погашен? Если да, сумма долга перейдет в доход.',
+                                                    'Ushbu bron bo‘yicha qarz yopildimi? Ha bo‘lsa qarz summasi daromadga qo‘shiladi.',
+                                                  ),
+                                                  confirmText: _t('Да, погашен', 'Ha, yopildi'),
+                                                  cancelText: _t('Нет', 'Yo‘q'),
+                                                );
+                                              }
                                               await widget.api.postJson('/active-bookings/end', {
                                                 'booking_id': b['id'],
                                                 'branch_id': widget.api.branchId,
+                                                'settle_debt': settleDebt,
                                               });
                                               if (!mounted) return;
                                               Navigator.pop(context);
@@ -2210,6 +2247,24 @@ class _DashboardPageState extends State<_DashboardPage> {
                                         color: bookedLikeFinal ? const Color(0xFFB91C1C) : const Color(0xFF166534),
                                       ),
                                     ),
+                                    if (busy && bed['is_hourly'] == true)
+                                      Container(
+                                        margin: const EdgeInsets.only(top: 4),
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFFFF4D6),
+                                          borderRadius: BorderRadius.circular(999),
+                                          border: Border.all(color: const Color(0xFFFCD34D)),
+                                        ),
+                                        child: Text(
+                                          '⏱ ${_t("Почасовая", "Soatlik")}',
+                                          style: const TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w700,
+                                            color: Color(0xFFB45309),
+                                          ),
+                                        ),
+                                      ),
                                   ],
                                 ),
                               ),
@@ -2842,6 +2897,7 @@ class _BookingsPageState extends State<_BookingsPage> {
   int? _roomId;
   Map<String, dynamic>? _selectedBed;
   bool _secondGuestEnabled = false;
+  bool _isHourlyBooking = false;
 
   DateTime _checkin = DateTime.now();
   DateTime _checkout = DateTime.now();
@@ -3069,6 +3125,7 @@ class _BookingsPageState extends State<_BookingsPage> {
         'checkin': _apiDate(_checkin),
         'checkout': _apiDate(_checkout),
         'notify_date': _apiDate(_notifyDate),
+        'is_hourly': _isHourlyBooking,
       });
       _snack(_t('Бронирование создано', 'Buyurtma yaratildi'));
       setState(() {
@@ -3082,6 +3139,7 @@ class _BookingsPageState extends State<_BookingsPage> {
         _contact2.clear();
         _total.clear();
         _paid.clear();
+        _isHourlyBooking = false;
       });
       await _loadAvailableBeds();
     } catch (e) {
@@ -3164,6 +3222,16 @@ class _BookingsPageState extends State<_BookingsPage> {
               _DateField(label: '🔔 ${_t("Дата напоминания", "Eslatma sanasi")}', value: _fmt(_notifyDate), onTap: () => _pickDate(checkin: false, notify: true)),
               const SizedBox(height: 4),
               Text(_t('Дата отправки напоминания об оплате', "To'lov bo'yicha eslatma yuboriladigan sana"), style: const TextStyle(fontSize: 12, color: Colors.black45)),
+              const SizedBox(height: 6),
+              CheckboxListTile(
+                value: _isHourlyBooking,
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                title: Text(_t('Почасовое бронирование', 'Soatlik bron')),
+                subtitle: Text(_t('Отмечайте, если бронь почасовая', "Bron soatlik bo'lsa belgilang"), style: const TextStyle(fontSize: 12)),
+                onChanged: (v) => setState(() => _isHourlyBooking = v ?? false),
+              ),
             ],
           ),
         ),
@@ -5184,16 +5252,32 @@ class _SettingsPageState extends State<_SettingsPage> {
   }
 
   void _snack(String text, {bool error = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(text, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-        backgroundColor: error ? const Color(0xFFDC2626) : const Color(0xFF16A34A),
-        behavior: SnackBarBehavior.floating,
-        margin: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    showAppAlert(context, text, error: error);
+  }
+
+  String _friendlyError(Object e) {
+    final raw = '$e';
+    final lower = raw.toLowerCase();
+
+    if (lower.contains('username already exists')) {
+      return _t('Пользователь с таким именем уже существует', 'Bunday foydalanuvchi nomi allaqachon mavjud');
+    }
+    if (lower.contains('telegram') && lower.contains('already exists')) {
+      return _t('Этот Telegram ID уже используется', 'Bu Telegram ID allaqachon ishlatilgan');
+    }
+    if (lower.contains('permission') || lower.contains('forbidden') || lower.contains('status 403')) {
+      return _t('У вас нет доступа для этого действия', 'Bu amal uchun sizda ruxsat yo‘q');
+    }
+    if (lower.contains('status 401')) {
+      return _t('Сессия истекла. Войдите снова', 'Sessiya tugadi. Qayta kiring');
+    }
+
+    final m = RegExp(r'"detail"\s*:\s*"([^"]+)"').firstMatch(raw);
+    if (m != null && m.groupCount >= 1) {
+      return m.group(1) ?? raw;
+    }
+
+    return _t('Произошла ошибка. Попробуйте ещё раз', 'Xatolik yuz berdi. Qayta urinib ko‘ring');
   }
 
   int? _toInt(dynamic v) {
@@ -5311,7 +5395,7 @@ class _SettingsPageState extends State<_SettingsPage> {
       await _loadRole();
       _snack('User created');
     } catch (e) {
-      _snack('$e', error: true);
+      _snack(_friendlyError(e), error: true);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -5333,7 +5417,7 @@ class _SettingsPageState extends State<_SettingsPage> {
       await _loadRole();
       _snack('User deleted');
     } catch (e) {
-      _snack('$e', error: true);
+      _snack(_friendlyError(e), error: true);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -5421,7 +5505,7 @@ class _SettingsPageState extends State<_SettingsPage> {
       }
       await _loadRole();
     } catch (e) {
-      _snack('$e', error: true);
+      _snack(_friendlyError(e), error: true);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -5464,7 +5548,7 @@ class _SettingsPageState extends State<_SettingsPage> {
       await _loadRole();
       _snack('Branch created');
     } catch (e) {
-      _snack('$e', error: true);
+      _snack(_friendlyError(e), error: true);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -5486,7 +5570,7 @@ class _SettingsPageState extends State<_SettingsPage> {
       await _loadRole();
       _snack('Branch deleted');
     } catch (e) {
-      _snack('$e', error: true);
+      _snack(_friendlyError(e), error: true);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -5500,7 +5584,7 @@ class _SettingsPageState extends State<_SettingsPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _userNotify = !v);
-      _snack('$e', error: true);
+      _snack(_friendlyError(e), error: true);
     }
   }
 
@@ -5511,7 +5595,7 @@ class _SettingsPageState extends State<_SettingsPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _myNotify = !v);
-      _snack('$e', error: true);
+      _snack(_friendlyError(e), error: true);
     }
   }
 
@@ -5538,7 +5622,7 @@ class _SettingsPageState extends State<_SettingsPage> {
       _confirmPassCtrl.clear();
       _snack('Password changed');
     } catch (e) {
-      _snack('$e', error: true);
+      _snack(_friendlyError(e), error: true);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -5557,7 +5641,7 @@ class _SettingsPageState extends State<_SettingsPage> {
       _snack('Language saved');
     } catch (e) {
       if (mounted) setState(() => _language = prev);
-      _snack('$e', error: true);
+      _snack(_friendlyError(e), error: true);
     }
   }
 

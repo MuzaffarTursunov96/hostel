@@ -140,6 +140,10 @@ class BookingPage(QWidget):
 
         left_layout.addWidget(self.notify_date)
 
+        self.hourly_checkbox = QCheckBox(t("hourly_booking"))
+        self.hourly_checkbox.setStyleSheet("font-weight:600;color:#334155;")
+        left_layout.addWidget(self.hourly_checkbox)
+
 
         self.notify_date.dateChanged.connect(self.on_notify_date_changed)
         self.checkout.dateChanged.connect(self.on_checkout_changed)
@@ -489,6 +493,7 @@ class BookingPage(QWidget):
                 "checkin": self.checkin.date().toString("yyyy-MM-dd"),
                 "checkout": self.checkout.date().toString("yyyy-MM-dd"),
                 "notify_date": self.notify_date.date().toString("yyyy-MM-dd"),
+                "is_hourly": self.hourly_checkbox.isChecked(),
                 "second_guest": second_guest
             }
         )
@@ -534,6 +539,7 @@ class BookingPage(QWidget):
         self.checkout.setDate(QDate.currentDate().addDays(1))
         self.notify_date.setDate(QDate.currentDate())
         self.notify_date_manually_changed = False
+        self.hourly_checkbox.setChecked(False)
 
 
         # reload data for new branch
@@ -566,6 +572,7 @@ class BookingPage(QWidget):
 
         self.notify_date.setDate(QDate.currentDate())
         self.notify_date_manually_changed = False
+        self.hourly_checkbox.setChecked(False)
 
 
         # reload beds for current room

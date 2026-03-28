@@ -28,6 +28,11 @@ class CancelBookingRequest(BaseModel):
     booking_id: int
     branch_id: int
 
+class EndBookingRequest(BaseModel):
+    booking_id: int
+    branch_id: int
+    settle_debt: bool = False
+
 # ---------- CANCEL ----------
 @router.post("/cancel")
 async def api_cancel_booking(
@@ -59,10 +64,10 @@ async def api_cancel_booking(
 
 @router.post("/end")
 async def api_end_booking(
-    data: CancelBookingRequest,
+    data: EndBookingRequest,
     user=Depends(get_current_user)
 ):
-    end_booking_now(data.booking_id, data.branch_id)
+    end_booking_now(data.booking_id, data.branch_id, settle_debt=data.settle_debt)
 
     await ws_manager.broadcast({
         "type": "beds_changed",

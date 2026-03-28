@@ -144,6 +144,13 @@ class ActiveBookingsDialog(QDialog):
                 )
                 customer_layout.addWidget(second_lbl)
 
+        if r.get("is_hourly"):
+            hourly_lbl = QLabel(f"⏱ {t('hourly_booking')}")
+            hourly_lbl.setStyleSheet(
+                "font-size:10px;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:2px 6px;margin-left:8px;"
+            )
+            customer_layout.addWidget(hourly_lbl)
+
         customer_widget.setFixedWidth(220)
         customer_widget.setStyleSheet("background: transparent; border: none;")
         layout.addWidget(customer_widget)
@@ -227,7 +234,7 @@ class ActiveBookingsDialog(QDialog):
         btn_end.setIcon(QIcon(resource_path("assets/icons/checklist2.png")))
         btn_end.setIconSize(QSize(14, 14))
         btn_end.clicked.connect(
-            lambda: self.end_booking_action(r["id"])
+            lambda: self.end_booking_action(r)
         )
         btn_end.setCursor(QCursor(Qt.PointingHandCursor))
         btn_end.setFocusPolicy(Qt.NoFocus)
@@ -280,7 +287,8 @@ class ActiveBookingsDialog(QDialog):
         self.refresh()
         self.dashboard.refresh()
 
-    def end_booking_action(self, booking_id):
+    def end_booking_action(self, booking):
+        booking_id = booking["id"]
         if QMessageBox.question(
             self,
             t("end_booking"),
@@ -288,12 +296,22 @@ class ActiveBookingsDialog(QDialog):
         ) != QMessageBox.Yes:
             return
 
+        settle_debt = False
+        remaining = float(booking.get("remaining_amount") or 0)
+        if remaining > 0:
+            settle_debt = QMessageBox.question(
+                self,
+                t("end_booking"),
+                t("confirm_debt_paid_on_end")
+            ) == QMessageBox.Yes
+
         api_post(
             self.app,
             "/active-bookings/end",
             {
                 "booking_id": booking_id,
-                "branch_id": self.branch_id
+                "branch_id": self.branch_id,
+                "settle_debt": settle_debt
             }
         )
 

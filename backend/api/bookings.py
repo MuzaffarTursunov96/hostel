@@ -66,6 +66,7 @@ class BookingCreate(BaseModel):
     checkin: date
     checkout: date
     notify_date: date | None = None
+    is_hourly: bool = False
 
 
 @router.post("/")
@@ -83,7 +84,8 @@ async def create_booking(data: BookingCreate, user=Depends(get_current_user)):
         data.paid,
         data.checkin,
         data.checkout,
-        data.notify_date or data.checkout
+        data.notify_date or data.checkout,
+        data.is_hourly
     )
 
     # 2️⃣ save primary guest

@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Р—Р°РіСЂСѓР·РєР°...</title>
+  <title>Загрузка...</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
   <style>
@@ -46,7 +46,7 @@
 
 <div id="app-loading" class="loading-screen">
   <div class="spinner"></div>
-  <div class="loading-text">РџРѕРґРєР»СЋС‡РµРЅРёРµ Рє Telegram...</div>
+  <div class="loading-text">Подключение к Telegram...</div>
 </div>
 
 <script>
@@ -73,16 +73,16 @@ function withAdminContact(message) {
   const m = String(message || "");
   if (
     m.includes("Telegram: @") ||
-    m.includes("РўРµР»РµС„РѕРЅ:") ||
-    m.includes("РЎРІСЏР¶РёС‚РµСЃСЊ СЃ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂРѕРј")
+    m.includes("Телефон:") ||
+    m.includes("Свяжитесь с администратором")
   ) {
     return m;
   }
   return (
     m +
-    "\n\nРЎРІСЏР¶РёС‚РµСЃСЊ СЃ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂРѕРј:" +
+    "\n\nСвяжитесь с администратором:" +
     "\nTelegram: @" + ROOT_ADMIN_TELEGRAM +
-    "\nРўРµР»РµС„РѕРЅ: " + ROOT_ADMIN_PHONE
+    "\nТелефон: " + ROOT_ADMIN_PHONE
   );
 }
 
@@ -107,11 +107,11 @@ if (!tg.initData) {
       return;
     }
 
-    const msg = data.error || data.detail || "РћС€РёР±РєР° Р°РІС‚РѕСЂРёР·Р°С†РёРё С‡РµСЂРµР· Telegram";
+    const msg = data.error || data.detail || "Ошибка авторизации через Telegram";
     showError(withAdminContact(msg));
   })
   .catch(() => {
-    showError(withAdminContact("РћС€РёР±РєР° СЃРµС‚Рё. РџРѕРїСЂРѕР±СѓР№С‚Рµ РµС‰Рµ СЂР°Р·."));
+    showError(withAdminContact("Ошибка сети. Попробуйте еще раз."));
   });
 }
 </script>

@@ -279,6 +279,7 @@ function confirmBooking() {
   const contact = $("#contact").val().trim();
   const total = $("#total").val();
   const paid = $("#paid").val();
+  const isHourly = $("#isHourlyBooking").is(":checked");
 
   if (!name || !passport || !contact || !total) {
     alert(t("fill_all_required_fields"));
@@ -328,7 +329,8 @@ function confirmBooking() {
     paid: paid ? parseFloat(paid) : 0,
     checkin: $("#checkin").val(),
     checkout: $("#checkout").val(),
-    notify_date: $("#notifyDate").val()
+    notify_date: $("#notifyDate").val(),
+    is_hourly: isHourly
   })
   .done(function () {
     alert("✅ " + t("booking_created"));

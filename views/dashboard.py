@@ -98,6 +98,13 @@ class CalendarBedCell(QFrame):
         top_row.addWidget(title)
         top_row.addStretch()
 
+        if bed.get("is_busy") and bed.get("is_hourly"):
+            hourly_badge = QLabel(f"⏱ {t('hourly_short')}")
+            hourly_badge.setStyleSheet(
+                "font-size:8px;font-weight:700;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:7px;padding:1px 4px;"
+            )
+            top_row.addWidget(hourly_badge)
+
         # future icon (INLINE, NOT NEW LINE)
         if bed.get("has_future"):
             icon = QLabel()

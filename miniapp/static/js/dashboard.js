@@ -118,6 +118,11 @@ function loadDashboard(filter=false) {
                         ? `<span class="text-red-700 inline-flex">🕒 ${formatDate(bed.checkout_date)}</span>`
                         : `<span class="text-green-700 inline-flex">✔ ${t("free")}</span>`
                     }
+                    ${
+                      isBusy && bed.is_hourly
+                        ? `<span class="ml-1 inline-flex items-center rounded-full bg-amber-100 text-amber-700 px-1.5 py-0.5 text-[9px] font-semibold">⏱ ${t("hourly_short")}</span>`
+                        : ``
+                    }
                   </div>
 
                   <div class="bed-status h-1 ${isBusy ? 'bg-red-500' : 'bg-green-500'}"></div>
@@ -536,6 +541,11 @@ function renderActiveBookings(bookings) {
         🏠 ${b.room_name || b.room_number} • 🛏 ${t("bed")} ${b.bed_number}
 
       </div>
+      ${
+        b.is_hourly
+          ? `<div class="text-xs"><span class="inline-flex items-center rounded-full bg-amber-100 text-amber-700 px-2 py-0.5 font-semibold">⏱ ${t("hourly_booking")}</span></div>`
+          : ``
+      }
 
       <!-- DATES -->
       <div class="text-sm text-gray-600">
@@ -557,7 +567,7 @@ function renderActiveBookings(bookings) {
         </button>
         <button
           class="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-2 rounded-lg text-sm"
-          onclick="endBooking(${b.id})">
+          onclick='endBooking(${JSON.stringify(b)})'>
           ⏹ ${t("end_booking")}
         </button>
       </div>
@@ -724,8 +734,14 @@ window.cancelBooking = function (id) {
   });
 };
 
-window.endBooking = function (id) {
+window.endBooking = function (booking) {
+  const id = Number(booking.id);
   if (!confirm(t("are_you_sure_end_booking"))) return;
+  let settleDebt = false;
+  const remaining = Number(booking.remaining_amount || 0);
+  if (remaining > 0) {
+    settleDebt = confirm(t("confirm_debt_paid_on_end"));
+  }
 
   fetch("/api2/active-bookings/end", {
     method: "POST",
@@ -733,7 +749,8 @@ window.endBooking = function (id) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       booking_id: id,
-      branch_id: CURRENT_BRANCH
+      branch_id: CURRENT_BRANCH,
+      settle_debt: settleDebt
     })
   })
   .then(() => {
