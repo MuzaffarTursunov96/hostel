@@ -31,6 +31,22 @@ function Resolve-Python([string]$preferred) {
     return 'python'
 }
 
+function New-ZipFromDir(
+    [string]$sourceDir,
+    [string]$zipPath
+) {
+    if (Test-Path $zipPath) { Remove-Item -Force $zipPath }
+
+    $compressCmd = Get-Command Compress-Archive -ErrorAction SilentlyContinue
+    if ($compressCmd) {
+        Compress-Archive -Path (Join-Path $sourceDir '*') -DestinationPath $zipPath
+        return
+    }
+
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    [System.IO.Compression.ZipFile]::CreateFromDirectory($sourceDir, $zipPath)
+}
+
 function Ensure-Tooling([string]$pythonExe, [string]$channel) {
     Write-Host "[$channel] Ensuring pip tooling..." -ForegroundColor Cyan
     # Keep setuptools with pkg_resources for both channels.
@@ -135,8 +151,7 @@ function Invoke-Build(
         Copy-Item -Path $specFile -Destination (Join-Path $releaseDir "$AppName.spec") -Force
     }
 
-    if (Test-Path $zipPath) { Remove-Item -Force $zipPath }
-    Compress-Archive -Path (Join-Path $releaseDir '*') -DestinationPath $zipPath
+    New-ZipFromDir -sourceDir $releaseDir -zipPath $zipPath
 
     Write-Host "[$channel] EXE: $builtExe" -ForegroundColor Green
     Write-Host "[$channel] ZIP: $zipPath" -ForegroundColor Green
