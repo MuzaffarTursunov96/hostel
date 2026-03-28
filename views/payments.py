@@ -5,10 +5,22 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, QDate,QSize
 from PySide6.QtGui import QPainter,QCursor,QIcon
+import os
 
-from PySide6.QtCharts import (
-    QChart, QChartView, QPieSeries
-)
+HAS_QT_CHARTS = False
+if os.getenv("HMS_NO_QTCHARTS", "0") != "1":
+    try:
+        from PySide6.QtCharts import QChart, QChartView, QPieSeries
+        HAS_QT_CHARTS = True
+    except Exception:
+        try:
+            from PySide2.QtCharts import QChart, QChartView, QPieSeries  # type: ignore
+            HAS_QT_CHARTS = True
+        except Exception:
+            HAS_QT_CHARTS = False
+            QChart = QChartView = QPieSeries = None  # type: ignore
+else:
+    QChart = QChartView = QPieSeries = None  # type: ignore
 
 from datetime import date
 from i18n import t
@@ -127,15 +139,20 @@ class PaymentsPage(QWidget):
         chart_layout = QVBoxLayout(chart_wrap)
         chart_layout.setContentsMargins(8, 8, 8, 8)
 
-        self.chart = QChart()
-        self.chart.legend().setVisible(True)
-        self.chart.setAnimationOptions(QChart.SeriesAnimations)
+        self.chart = None
+        if HAS_QT_CHARTS:
+            self.chart = QChart()
+            self.chart.legend().setVisible(True)
+            self.chart.setAnimationOptions(QChart.SeriesAnimations)
 
-        self.chart_view = QChartView(self.chart)
-        self.chart_view.setRenderHint(QPainter.Antialiasing)
-        self.chart_view.setMinimumHeight(260)
-
-        chart_layout.addWidget(self.chart_view)
+            self.chart_view = QChartView(self.chart)
+            self.chart_view.setRenderHint(QPainter.Antialiasing)
+            self.chart_view.setMinimumHeight(260)
+            chart_layout.addWidget(self.chart_view)
+        else:
+            no_chart_lbl = QLabel(t("error"))
+            no_chart_lbl.setStyleSheet("color:#6b7280;padding:16px;")
+            chart_layout.addWidget(no_chart_lbl)
         self.main.addWidget(chart_wrap)
 
         
@@ -291,6 +308,8 @@ class PaymentsPage(QWidget):
 
     # ================= PIE =================
     def draw_pie(self, finance: dict):
+        if not HAS_QT_CHARTS or self.chart is None:
+            return
         self.chart.removeAllSeries()
         series = QPieSeries()
 

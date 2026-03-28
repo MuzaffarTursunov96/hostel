@@ -3,11 +3,29 @@ from PySide6.QtWidgets import (
     QLabel, QFrame, QComboBox
 )
 from PySide6.QtCore import Qt
-from PySide6.QtCharts import (
-    QChart, QChartView,
-    QBarSeries, QBarSet,
-    QBarCategoryAxis, QValueAxis
-)
+import os
+HAS_QT_CHARTS = False
+if os.getenv("HMS_NO_QTCHARTS", "0") != "1":
+    try:
+        from PySide6.QtCharts import (
+            QChart, QChartView,
+            QBarSeries, QBarSet,
+            QBarCategoryAxis, QValueAxis
+        )
+        HAS_QT_CHARTS = True
+    except Exception:
+        try:
+            from PySide2.QtCharts import (  # type: ignore
+                QChart, QChartView,
+                QBarSeries, QBarSet,
+                QBarCategoryAxis, QValueAxis
+            )
+            HAS_QT_CHARTS = True
+        except Exception:
+            HAS_QT_CHARTS = False
+            QChart = QChartView = QBarSeries = QBarSet = QBarCategoryAxis = QValueAxis = None  # type: ignore
+else:
+    QChart = QChartView = QBarSeries = QBarSet = QBarCategoryAxis = QValueAxis = None  # type: ignore
 
 from i18n import t
 
@@ -46,14 +64,17 @@ class YearlyFinancePage(QWidget):
 
         card_layout = QVBoxLayout(card)
 
-        self.chart = QChart()
-        self.chart.setAnimationOptions(QChart.SeriesAnimations)
-        self.chart.legend().setVisible(True)
+        self.chart = None
+        if HAS_QT_CHARTS:
+            self.chart = QChart()
+            self.chart.setAnimationOptions(QChart.SeriesAnimations)
+            self.chart.legend().setVisible(True)
 
-        self.chart_view = QChartView(self.chart)
-        self.chart_view.setRenderHint(self.chart_view.renderHints())
-
-        card_layout.addWidget(self.chart_view)
+            self.chart_view = QChartView(self.chart)
+            self.chart_view.setRenderHint(self.chart_view.renderHints())
+            card_layout.addWidget(self.chart_view)
+        else:
+            card_layout.addWidget(QLabel(t("error")))
         main.addWidget(card, 1)
 
         self.refresh()
@@ -64,6 +85,8 @@ class YearlyFinancePage(QWidget):
         self.refresh()
 
     def refresh(self):
+        if not HAS_QT_CHARTS or self.chart is None:
+            return
         year = int(self.year_select.currentText())
         data = self.get_data(year)
 

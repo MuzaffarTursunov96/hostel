@@ -1,4 +1,5 @@
 import importlib
+import os
 import sys
 
 # Legacy bridge for Windows 7/8 builds:
@@ -39,6 +40,9 @@ def main() -> int:
     # Reuse original app startup from main_qt
     from PySide2.QtGui import QIcon  # type: ignore
     from PySide2.QtWidgets import QApplication  # type: ignore
+
+    # Disable QtCharts for legacy runtime (Win7/8) to avoid startup crashes.
+    os.environ["HMS_NO_QTCHARTS"] = "1"
 
     app = QApplication(sys.argv)
     icon_path = resource_path("assets/app1.ico")
