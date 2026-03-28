@@ -93,6 +93,31 @@ function Ensure-Tooling([string]$pythonExe, [string]$channel) {
     if ($LASTEXITCODE -ne 0) {
         throw "[$channel] Failed to install pyinstaller."
     }
+
+    $requirementsPath = Join-Path $repoRoot 'requirements.txt'
+    $legacyRequirementsPath = Join-Path $repoRoot 'requirements2.txt'
+    if (Test-Path $requirementsPath -or (Test-Path $legacyRequirementsPath)) {
+        Write-Host "[$channel] Installing project requirements..." -ForegroundColor Cyan
+        if ($channel -eq 'legacy') {
+            if (Test-Path $legacyRequirementsPath) {
+                & $pythonExe -m pip install -r $legacyRequirementsPath
+            } elseif (Test-Path $requirementsPath) {
+                $legacyReq = Join-Path $repoRoot 'build\legacy_requirements.txt'
+                New-Item -ItemType Directory -Path (Split-Path $legacyReq -Parent) -Force | Out-Null
+                Get-Content $requirementsPath |
+                    Where-Object { $_ -and ($_ -notmatch '^\s*PySide6(\s|$|[<>=])') } |
+                    Set-Content -Path $legacyReq -Encoding UTF8
+                & $pythonExe -m pip install -r $legacyReq
+            }
+        } else {
+            if (Test-Path $requirementsPath) {
+                & $pythonExe -m pip install -r $requirementsPath
+            }
+        }
+        if ($LASTEXITCODE -ne 0) {
+            throw "[$channel] Failed to install project requirements."
+        }
+    }
 }
 
 function Invoke-Build(
