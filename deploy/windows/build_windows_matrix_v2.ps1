@@ -9,7 +9,9 @@ param(
 
     [string]$LegacyPython = '',
 
-    [switch]$SkipLegacy
+    [switch]$SkipLegacy,
+
+    [switch]$SkipModern
 )
 
 $ErrorActionPreference = 'Stop'
@@ -31,15 +33,24 @@ function Resolve-Python([string]$preferred) {
 
 function Ensure-Tooling([string]$pythonExe, [string]$channel) {
     Write-Host "[$channel] Ensuring pip tooling..." -ForegroundColor Cyan
-    & $pythonExe -m pip install --upgrade pip setuptools wheel
+    # Keep setuptools with pkg_resources for both channels.
+    & $pythonExe -m pip install --upgrade pip wheel
     if ($LASTEXITCODE -ne 0) {
-        throw "[$channel] Failed to upgrade pip tooling."
+        throw "[$channel] Failed to upgrade pip/wheel."
+    }
+    & $pythonExe -m pip install "setuptools<81"
+    if ($LASTEXITCODE -ne 0) {
+        throw "[$channel] Failed to install compatible setuptools."
     }
 
     if ($channel -eq 'legacy') {
-        & $pythonExe -m pip install "pyinstaller<6"
+        $pyTag = (& $pythonExe -c "import sys; print(f'{sys.version_info[0]}.{sys.version_info[1]}')").Trim()
+        if (@('3.8', '3.9', '3.10') -notcontains $pyTag) {
+            throw "[legacy] Python $pyTag detected. Legacy build requires Python 3.8/3.9/3.10."
+        }
+        & $pythonExe -m pip install "setuptools<81" "pyinstaller<6" "pyinstaller-hooks-contrib<2025" "PySide2==5.15.2.1" "shiboken2==5.15.2.1"
     } else {
-        & $pythonExe -m pip install pyinstaller
+        & $pythonExe -m pip install "pyinstaller>=6,<7" "PySide6" "shiboken6"
     }
     if ($LASTEXITCODE -ne 0) {
         throw "[$channel] Failed to install pyinstaller."
@@ -69,6 +80,9 @@ function Invoke-Build(
     $assetsPath = (Join-Path $repoRoot 'assets')
     $stylePath = (Join-Path $repoRoot 'style.qss')
     $envPath = (Join-Path $repoRoot '.env')
+    $entryScript = if ($channel -eq 'legacy') { 'main_qt_legacy.py' } else { 'main_qt.py' }
+    $qtPkg = if ($channel -eq 'legacy') { 'PySide2' } else { 'PySide6' }
+    $shibokenPkg = if ($channel -eq 'legacy') { 'shiboken2' } else { 'shiboken6' }
 
     $args = @(
         '-m', 'PyInstaller',
@@ -79,12 +93,12 @@ function Invoke-Build(
         '--onefile',
         "--icon=$iconPath",
         '--add-data', "$assetsPath;assets",
-        '--collect-all', 'PySide6',
-        '--collect-all', 'shiboken6',
+        '--collect-all', $qtPkg,
+        '--collect-all', $shibokenPkg,
         '--distpath', $distPath,
         '--workpath', $workPath,
         '--specpath', $specPath,
-        'main_qt.py'
+        $entryScript
     )
 
     if (Test-Path $stylePath) {
@@ -133,12 +147,17 @@ try {
     if (-not (Test-Path 'main_qt.py')) {
         throw 'main_qt.py not found in repository root.'
     }
+    if (-not (Test-Path 'main_qt_legacy.py')) {
+        throw 'main_qt_legacy.py not found in repository root.'
+    }
     if (-not (Test-Path 'assets\app_comfy.ico')) {
         throw 'assets\app_comfy.ico not found.'
     }
 
-    $modernPy = Resolve-Python -preferred $ModernPython
-    Invoke-Build -channel 'modern' -pythonExe $modernPy -osTag 'win10-11'
+    if (-not $SkipModern) {
+        $modernPy = Resolve-Python -preferred $ModernPython
+        Invoke-Build -channel 'modern' -pythonExe $modernPy -osTag 'win10-11'
+    }
 
     if (-not $SkipLegacy) {
         $legacyPy = Resolve-Python -preferred $LegacyPython
