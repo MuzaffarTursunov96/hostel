@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, session, redirect, Response
+﻿from flask import Flask, render_template, request, jsonify, session, redirect, Response
 import requests
 from functools import wraps
 import os
@@ -11,7 +11,7 @@ import json
 
 
 API_URL = "http://backend:8000"
-VERSION ="2026-23-03-19-16"
+VERSION ="2026-28-03-19-16"
 load_dotenv()
 ROOT_ADMIN_TELEGRAM = os.getenv("ROOT_ADMIN_TELEGRAM", "muzaffar_developer")
 ROOT_ADMIN_PHONE = os.getenv("ROOT_ADMIN_PHONE", "+998991422110")
