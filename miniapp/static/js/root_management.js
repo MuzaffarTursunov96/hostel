@@ -45,7 +45,21 @@ const RM_I18N = {
     marketing_loaded: 'Контент загружен',
     marketing_saved: 'Контент сохранен',
     marketing_invalid_json: 'Некорректный JSON',
-    marketing_save_error: 'Ошибка при сохранении контента'
+    marketing_save_error: 'Ошибка при сохранении контента',
+    leads_title: 'Заявки клиентов',
+    leads_reload: 'Обновить',
+    leads_date: 'Дата',
+    leads_name: 'Имя',
+    leads_phone: 'Телефон',
+    leads_property: 'Объект',
+    leads_city: 'Город',
+    leads_rooms: 'Комнаты',
+    leads_time: 'Удобное время',
+    leads_note: 'Комментарий',
+    leads_loading: 'Загрузка заявок...',
+    leads_loaded: 'Заявки загружены',
+    leads_empty: 'Пока нет заявок',
+    leads_error: 'Ошибка загрузки заявок'
   },
   uz: {
     title: 'Root Admin boshqaruvi',
@@ -88,7 +102,21 @@ const RM_I18N = {
     marketing_loaded: 'Kontent yuklandi',
     marketing_saved: 'Kontent saqlandi',
     marketing_invalid_json: 'JSON formati noto\'g\'ri',
-    marketing_save_error: 'Kontentni saqlashda xatolik'
+    marketing_save_error: 'Kontentni saqlashda xatolik',
+    leads_title: 'Mijoz arizalari',
+    leads_reload: 'Qayta yuklash',
+    leads_date: 'Sana',
+    leads_name: 'Ism',
+    leads_phone: 'Telefon',
+    leads_property: 'Obyekt',
+    leads_city: 'Shahar',
+    leads_rooms: 'Xonalar',
+    leads_time: 'Qulay vaqt',
+    leads_note: 'Izoh',
+    leads_loading: 'Arizalar yuklanmoqda...',
+    leads_loaded: 'Arizalar yuklandi',
+    leads_empty: 'Hozircha arizalar yo\'q',
+    leads_error: 'Arizalarni yuklashda xatolik'
   }
 };
 
@@ -101,6 +129,7 @@ $(function () {
   applyRootTexts();
   loadRootManagement();
   loadMarketingContentEditor();
+  loadLeadsTable();
 });
 
 function applyRootTexts() {
@@ -132,6 +161,17 @@ function applyRootTexts() {
   $('#rmMarketingReload').text(rt('marketing_reload'));
   $('#rmMarketingSave').text(rt('marketing_save'));
   $('#rmMarketingHelp').text(rt('marketing_help'));
+
+  $('#rmLeadsTitle').text(rt('leads_title'));
+  $('#rmLeadsReload').text(rt('leads_reload'));
+  $('#rmLeadDate').text(rt('leads_date'));
+  $('#rmLeadName').text(rt('leads_name'));
+  $('#rmLeadPhone').text(rt('leads_phone'));
+  $('#rmLeadProperty').text(rt('leads_property'));
+  $('#rmLeadCity').text(rt('leads_city'));
+  $('#rmLeadRooms').text(rt('leads_rooms'));
+  $('#rmLeadTime').text(rt('leads_time'));
+  $('#rmLeadNote').text(rt('leads_note'));
 }
 
 function loadRootManagement() {
@@ -345,5 +385,50 @@ function saveMarketingContentEditor() {
       msg = data.error || msg;
     } catch (_) {}
     $('#rmMarketingStatus').text(msg);
+  });
+}
+
+function esc(v) {
+  return String(v == null ? '' : v)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('\"', '&quot;');
+}
+
+function loadLeadsTable() {
+  $('#rmLeadsStatus').text(rt('leads_loading'));
+  $.ajax({
+    url: '/root-leads',
+    method: 'GET',
+    dataType: 'json'
+  }).done((res) => {
+    const leads = (res && res.leads) || [];
+    const $tb = $('#rmLeadsTable').empty();
+    if (!leads.length) {
+      $tb.append(`<tr><td colspan=\"8\" class=\"py-2 text-gray-500\">${rt('leads_empty')}</td></tr>`);
+      $('#rmLeadsStatus').text(rt('leads_loaded'));
+      return;
+    }
+
+    leads.forEach((lead) => {
+      const row = `
+        <tr class=\"border-b align-top\">
+          <td class=\"py-2\">${esc(lead.created_at || '')}</td>
+          <td class=\"py-2\">${esc(lead.manager_name || '')}</td>
+          <td class=\"py-2\">${esc(lead.phone || '')}</td>
+          <td class=\"py-2\">${esc(lead.property_name || '')}</td>
+          <td class=\"py-2\">${esc(lead.city || '')}</td>
+          <td class=\"py-2\">${esc(lead.rooms || '')}</td>
+          <td class=\"py-2\">${esc(lead.preferred_time || '')}</td>
+          <td class=\"py-2\">${esc(lead.note || '')}</td>
+        </tr>
+      `;
+      $tb.append(row);
+    });
+
+    $('#rmLeadsStatus').text(rt('leads_loaded'));
+  }).fail(() => {
+    $('#rmLeadsStatus').text(rt('leads_error'));
   });
 }

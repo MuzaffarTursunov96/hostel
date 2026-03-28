@@ -4,7 +4,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>HMSUZ - Hostel va Hotel Boshqaruv Tizimi</title>
-  <meta name="description" content="HMSUZ bilan bronlar, check-in/check-out, moliya va hisobotlarni bitta tizimda boshqaring.">
+  <meta name="description" content="HMSUZ bilan bronlar, kirish/chiqish, moliya va hisobotlarni bitta tizimda boshqaring.">
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script>
+    if (window.Telegram && window.Telegram.WebApp) {
+      window.Telegram.WebApp.ready();
+      if (window.Telegram.WebApp.initData) {
+        window.location.replace("/login");
+      }
+    }
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
@@ -48,7 +57,7 @@
     <section class="features">
       <article>
         <h3 data-i18n="f1t">Bron va xona nazorati</h3>
-        <p data-i18n="f1d">Bo'sh va band xonalar, check-in/check-out, muddatni uzaytirish va bekor qilish jarayonlari tez boshqariladi.</p>
+        <p data-i18n="f1d">Bo'sh va band xonalar, kirish/chiqish, muddatni uzaytirish va bekor qilish jarayonlari tez boshqariladi.</p>
       </article>
       <article>
         <h3 data-i18n="f2t">Moliya aniq korinadi</h3>
@@ -101,25 +110,25 @@
       <form id="leadForm" class="lead-form">
         <input type="hidden" name="lang" id="leadLang" value="uz" />
 
-        <label data-i18n="l_name">Ism va familiya
+        <label><span data-i18n="l_name">Ism va familiya</span>
           <input name="manager_name" required data-ph="ph_name" placeholder="Masalan: Azizbek Karimov" />
         </label>
-        <label data-i18n="l_phone">Telefon raqam
+        <label><span data-i18n="l_phone">Telefon raqam</span>
           <input name="phone" required data-ph="ph_phone" placeholder="+998 90 123 45 67" />
         </label>
-        <label data-i18n="l_property">Hostel/Hotel nomi
+        <label><span data-i18n="l_property">Hostel/Hotel nomi</span>
           <input name="property_name" required data-ph="ph_property" placeholder="Masalan: City Nest Hostel" />
         </label>
-        <label data-i18n="l_city">Shahar
+        <label><span data-i18n="l_city">Shahar</span>
           <input name="city" required data-ph="ph_city" placeholder="Masalan: Toshkent" />
         </label>
-        <label data-i18n="l_rooms">Xonalar soni (ixtiyoriy)
+        <label><span data-i18n="l_rooms">Xonalar soni (ixtiyoriy)</span>
           <input name="rooms" data-ph="ph_rooms" placeholder="Masalan: 18" />
         </label>
-        <label data-i18n="l_time">Qulay boglanish vaqti (ixtiyoriy)
+        <label><span data-i18n="l_time">Qulay boglanish vaqti (ixtiyoriy)</span>
           <input name="preferred_time" data-ph="ph_time" placeholder="Masalan: 10:00 - 12:00" />
         </label>
-        <label data-i18n="l_note">Izoh (ixtiyoriy)
+        <label><span data-i18n="l_note">Izoh (ixtiyoriy)</span>
           <textarea name="note" rows="4" data-ph="ph_note" placeholder="Hozir qaysi tizimdan foydalanyapsiz?"></textarea>
         </label>
 

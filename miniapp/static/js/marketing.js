@@ -12,7 +12,7 @@
       m2: "texnik yordam",
       m3: "uzbekcha interfeys",
       f1t: "Bron va xona nazorati",
-      f1d: "Bo'sh va band xonalar, check-in/check-out, muddatni uzaytirish va bekor qilish jarayonlari tez boshqariladi.",
+      f1d: "Bo'sh va band xonalar, kirish/chiqish, muddatni uzaytirish va bekor qilish jarayonlari tez boshqariladi.",
       f2t: "Moliya aniq korinadi",
       f2d: "Tolovlar, qarzlar, qaytarimlar va kunlik/yillik hisobotlar avtomatik shakllanadi.",
       f3t: "Xodimlar uchun qulay",

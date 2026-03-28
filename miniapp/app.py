@@ -159,6 +159,30 @@ def save_root_marketing_content():
     except Exception:
         return jsonify({"ok": False, "error": "Failed to save content"}), 500
 
+
+@app.get("/root-leads")
+@login_required
+def root_leads():
+    if not is_root_admin_session():
+        return jsonify({"ok": False, "error": "Root admin only"}), 403
+
+    leads = []
+    try:
+        if os.path.exists(LEADS_FILE):
+            with open(LEADS_FILE, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        leads.append(json.loads(line))
+                    except Exception:
+                        continue
+        leads = list(reversed(leads[-200:]))
+        return jsonify({"ok": True, "leads": leads})
+    except Exception:
+        return jsonify({"ok": False, "error": "Failed to read leads"}), 500
+
 @app.route("/")
 def marketing_page():
     return render_template("marketing.html")

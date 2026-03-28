@@ -134,7 +134,7 @@ function handleApiError(xhr) {
     if (!__expiryAlertShown) {
       __expiryAlertShown = true;
       alert(buildExpiryContactMessage(msg));
-      window.location.href = "/";
+      window.location.href = "/login";
     }
     return;
   }

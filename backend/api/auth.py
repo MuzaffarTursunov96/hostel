@@ -9,6 +9,7 @@ from db import (
     get_default_branch_id,
     get_app_expiry_db,
     sync_admin_active_by_expiry_db,
+    create_admin_if_not_exists,
 )
 from api.deps import get_current_user
 
@@ -30,9 +31,9 @@ def _contact_block(lang_hint="ru"):
             f"Telefon: {ROOT_ADMIN_PHONE}"
         )
     return (
-        f"Свяжитесь с администратором:\n"
+        f"РЎРІСЏР¶РёС‚РµСЃСЊ СЃ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂРѕРј:\n"
         f"Telegram: @{ROOT_ADMIN_TELEGRAM}\n"
-        f"Телефон: {ROOT_ADMIN_PHONE}"
+        f"РўРµР»РµС„РѕРЅ: {ROOT_ADMIN_PHONE}"
     )
 
 
@@ -43,7 +44,7 @@ def _assert_not_expired(lang_hint="ru"):
     # Block login if expiry is not configured (None)
     if not expires_at:
         msg = (
-            "Срок доступа не настроен. Вход временно запрещен.\n\n"
+            "РЎСЂРѕРє РґРѕСЃС‚СѓРїР° РЅРµ РЅР°СЃС‚СЂРѕРµРЅ. Р’С…РѕРґ РІСЂРµРјРµРЅРЅРѕ Р·Р°РїСЂРµС‰РµРЅ.\n\n"
             if lang == "ru" else
             "Muddat sozlanmagan. Kirish vaqtincha taqiqlangan.\n\n"
         )
@@ -53,7 +54,7 @@ def _assert_not_expired(lang_hint="ru"):
     if datetime.utcnow() > expires_at:
         expiry_text = expires_at.strftime("%Y-%m-%d %H:%M:%S")
         msg = (
-            f"Срок доступа истек: {expiry_text}.\n\n"
+            f"РЎСЂРѕРє РґРѕСЃС‚СѓРїР° РёСЃС‚РµРє: {expiry_text}.\n\n"
             if lang == "ru" else
             f"Kirish muddati tugagan: {expiry_text}.\n\n"
         )
@@ -86,7 +87,7 @@ def _assert_user_not_expired(u):
     if datetime.utcnow() > expires_at:
         lang = _lang_code(u.get("language") if isinstance(u, dict) else "ru")
         msg = (
-            f"Срок действия вашей учетной записи администратора истек: {expires_at.strftime('%Y-%m-%d %H:%M:%S')}.\n\n"
+            f"РЎСЂРѕРє РґРµР№СЃС‚РІРёСЏ РІР°С€РµР№ СѓС‡РµС‚РЅРѕР№ Р·Р°РїРёСЃРё Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР° РёСЃС‚РµРє: {expires_at.strftime('%Y-%m-%d %H:%M:%S')}.\n\n"
             if lang == "ru" else
             f"Admin hisobingiz muddati tugagan: {expires_at.strftime('%Y-%m-%d %H:%M:%S')}.\n\n"
         )
@@ -103,7 +104,7 @@ def _assert_parent_admin_not_blocked(u):
     if u.get("created_by") and u.get("creator_is_active") is False:
         lang = _lang_code(u.get("language") or "ru")
         msg = (
-            "Ваш администратор заблокирован. Доступ временно запрещен.\n\n"
+            "Р’Р°С€ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂ Р·Р°Р±Р»РѕРєРёСЂРѕРІР°РЅ. Р”РѕСЃС‚СѓРї РІСЂРµРјРµРЅРЅРѕ Р·Р°РїСЂРµС‰РµРЅ.\n\n"
             if lang == "ru" else
             "Adminingiz bloklangan. Kirish vaqtincha taqiqlangan.\n\n"
         )
@@ -134,7 +135,7 @@ def login(data: LoginIn):
     if not u or not verify_password(data.password, u["password_hash"]):
         # Default language is Russian. If user exists, use their saved language.
         lang = (u.get("language") if isinstance(u, dict) else None) or "ru"
-        msg = "Неверный логин или пароль."
+        msg = "РќРµРІРµСЂРЅС‹Р№ Р»РѕРіРёРЅ РёР»Рё РїР°СЂРѕР»СЊ."
         if str(lang).lower().startswith("uz"):
             msg = "Login yoki parol noto'g'ri."
         raise HTTPException(401, msg)
@@ -164,30 +165,33 @@ def login(data: LoginIn):
 def telegram_login(data: TelegramLoginIn):
     sync_admin_active_by_expiry_db(ROOT_TELEGRAM_ID)
     u = telegram_login_db(data.telegram_id)
+
     # Global/system expiry applies to non-admin users only.
     # Admins are controlled by admin_expires_at.
     if not (u and _is_root_user(u)) and int(data.telegram_id) != ROOT_TELEGRAM_ID and not _is_admin_user(u):
         _assert_not_expired((u or {}).get("language", "ru"))
     _assert_parent_admin_not_blocked(u)
 
-    if not u:
-        # AUTO CREATE USER (VERY IMPORTANT)
+    # Root admin must always be able to log in by Telegram ID.
+    if not u and int(data.telegram_id) == ROOT_TELEGRAM_ID:
+        create_admin_if_not_exists()
+        u = telegram_login_db(data.telegram_id)
 
+    if not u:
         raise HTTPException(
             status_code=401,
-            detail="Пользователь не зарегистрирован. Пожалуйста, свяжитесь с администратором."
+            detail="User is not registered. Please contact admin."
         )
-    else:
-        _assert_user_not_expired(u)
-        user_id = u["id"]
-        is_admin = u["is_admin"]
 
-    default_branch = get_default_branch_id(user_id)
+    _assert_user_not_expired(u)
+    user_id = u["id"]
+    is_admin = u["is_admin"]
+    branch_id = get_default_branch_id(user_id) or u.get("branch_id")
 
     token = create_token({
         "user_id": user_id,
         "is_admin": is_admin,
-        "branch_id": default_branch,
+        "branch_id": branch_id,
         "language": u["language"] or "ru",
         "telegram_id": data.telegram_id
     })
@@ -196,6 +200,8 @@ def telegram_login(data: TelegramLoginIn):
         "access_token": token,
         "user_id": user_id,
         "is_admin": is_admin,
+        "branch_id": branch_id,
+        "language": u["language"] or "ru",
         "telegram_id": data.telegram_id
     }
 
