@@ -223,8 +223,38 @@ class ActiveBookingsDialog(QDialog):
             }
         """)
 
+        btn_end = QPushButton(t("end_booking"))
+        btn_end.setIcon(QIcon(resource_path("assets/icons/checklist2.png")))
+        btn_end.setIconSize(QSize(14, 14))
+        btn_end.clicked.connect(
+            lambda: self.end_booking_action(r["id"])
+        )
+        btn_end.setCursor(QCursor(Qt.PointingHandCursor))
+        btn_end.setFocusPolicy(Qt.NoFocus)
+        btn_end.setStyleSheet("""
+            QPushButton {
+                background: #fffbeb;
+                color: #b45309;
+                border: 1px solid #fde68a;
+                border-radius: 9px;
+                padding: 7px 12px;
+                font-weight: 600;
+            }
+            QPushButton:hover {
+                background: #fef3c7;
+                border: 1px solid #fcd34d;
+            }
+            QPushButton:pressed {
+                background: #fde68a;
+            }
+            QPushButton:focus {
+                outline: none;
+            }
+        """)
+
         actions.addWidget(btn_edit)
         actions.addWidget(btn_cancel)
+        actions.addWidget(btn_end)
         layout.addLayout(actions)
 
         self.table.addWidget(row)
@@ -239,7 +269,7 @@ class ActiveBookingsDialog(QDialog):
 
         api_post(
             self.app,
-            "/active-bookings/end",
+            "/active-bookings/cancel",
             {
                 "booking_id": booking_id,
                 "branch_id": self.branch_id
@@ -247,6 +277,27 @@ class ActiveBookingsDialog(QDialog):
         )
 
         QMessageBox.information(self, t("canceled"), t("canceled_text"))
+        self.refresh()
+        self.dashboard.refresh()
+
+    def end_booking_action(self, booking_id):
+        if QMessageBox.question(
+            self,
+            t("end_booking"),
+            t("are_you_sure_end_booking")
+        ) != QMessageBox.Yes:
+            return
+
+        api_post(
+            self.app,
+            "/active-bookings/end",
+            {
+                "booking_id": booking_id,
+                "branch_id": self.branch_id
+            }
+        )
+
+        QMessageBox.information(self, t("ended"), t("ended_text"))
         self.refresh()
         self.dashboard.refresh()
 

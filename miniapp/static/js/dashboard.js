@@ -555,6 +555,11 @@ function renderActiveBookings(bookings) {
           onclick="cancelBooking(${b.id})">
           ❌ ${t("cancel")}
         </button>
+        <button
+          class="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-2 rounded-lg text-sm"
+          onclick="endBooking(${b.id})">
+          ⏹ ${t("end_booking")}
+        </button>
       </div>
 
     </div>
@@ -691,9 +696,9 @@ $("#editBookingForm").on("submit", function (e) {
    CANCEL
 ================================ */
 window.cancelBooking = function (id) {
-  if (!confirm("End booking now?")) return;
+  if (!confirm(t("are_you_sure_cancel_booking"))) return;
 
-  fetch("/api2/active-bookings/end", {
+  fetch("/api2/active-bookings/cancel", {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
@@ -715,8 +720,33 @@ window.cancelBooking = function (id) {
 
     // ✅ optional UX improvement
     closeActiveBookings();
+    alert(t("canceled_text"));
   });
 };
+
+window.endBooking = function (id) {
+  if (!confirm(t("are_you_sure_end_booking"))) return;
+
+  fetch("/api2/active-bookings/end", {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      booking_id: id,
+      branch_id: CURRENT_BRANCH
+    })
+  })
+  .then(() => {
+    loadActiveBookings();
+    countdownTimers.forEach((timerId) => clearInterval(timerId));
+    countdownTimers.clear();
+    loadDashboard();
+    closeActiveBookings();
+    alert(t("ended_text"));
+  });
+};
+
+
 
 
 /* ===============================
@@ -835,6 +865,7 @@ function confirmCancelFuture() {
 function closeCancelFuture() {
   $("#cancelFutureModal").addClass("hidden");
 }
+
 
 
 

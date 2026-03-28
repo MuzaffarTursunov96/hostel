@@ -1766,33 +1766,63 @@ class _DashboardPageState extends State<_DashboardPage> {
                                                 onPressed: () async {
                                                   final ok = await confirmAction(
                                                     context,
-                                                    title: _t('Завершить бронирование', 'Buyurtmani yakunlash'),
+                                                    title: _t('Отменить бронирование', 'Buyurtmani bekor qilish'),
                                                     message: _t(
-                                                      'Вы уверены, что хотите завершить бронирование сейчас?',
-                                                      'Haqiqatan ham buyurtmani hozir yakunlaysizmi?',
+                                                      'Вы уверены, что хотите отменить бронирование?',
+                                                      'Haqiqatan ham buyurtmani bekor qilasizmi?',
                                                     ),
-                                                    confirmText: _t('Завершить', 'Yakunlash'),
+                                                    confirmText: _t('Отменить', 'Bekor qilish'),
                                                     cancelText: _t('Назад', 'Orqaga'),
                                                   );
                                                   if (!ok) return;
-                                                  await widget.api.postJson('/active-bookings/end', {
+                                                  await widget.api.postJson('/active-bookings/cancel', {
                                                     'booking_id': b['id'],
                                                     'branch_id': widget.api.branchId,
                                                   });
                                                   if (!mounted) return;
                                                   Navigator.pop(context);
                                                   setState(() {});
-                                                  showAppAlert(context, _t('Бронирование завершено', 'Buyurtma yakunlandi'));
+                                                  showAppAlert(context, _t('Бронирование отменено', 'Buyurtma bekor qilindi'));
                                                 },
                                                 icon: const Icon(Icons.close, size: 16),
-                                                label: Text(_t('Завершить', 'Yakunlash')),
+                                                label: Text(_t('Отменить', 'Bekor qilish')),
                                               ),
                                             ),
                                           ],
-                                        )
-                                      ],
+                                        ),
+                                        const SizedBox(height: 8),
+                                        SizedBox(
+                                          width: double.infinity,
+                                          child: FilledButton.icon(
+                                            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFF59E0B)),
+                                            onPressed: () async {
+                                              final ok = await confirmAction(
+                                                context,
+                                                title: _t('Завершить бронирование', 'Buyurtmani yakunlash'),
+                                                message: _t(
+                                                  'Вы уверены, что хотите завершить бронирование сейчас?',
+                                                  'Haqiqatan ham buyurtmani hozir yakunlaysizmi?',
+                                                ),
+                                                confirmText: _t('Завершить', 'Yakunlash'),
+                                                cancelText: _t('Назад', 'Orqaga'),
+                                              );
+                                              if (!ok) return;
+                                              await widget.api.postJson('/active-bookings/end', {
+                                                'booking_id': b['id'],
+                                                'branch_id': widget.api.branchId,
+                                              });
+                                              if (!mounted) return;
+                                              Navigator.pop(context);
+                                              setState(() {});
+                                              showAppAlert(context, _t('Бронирование завершено', 'Buyurtma yakunlandi'));
+                                            },
+                                            icon: const Icon(Icons.check_circle_outline, size: 16),
+                                            label: Text(_t('Завершить', 'Yakunlash')),
+                                          ),
+                                        ),
                                     ),
-                                  );
+                                  ),
+                                );
                                 },
                               ),
                       ),
