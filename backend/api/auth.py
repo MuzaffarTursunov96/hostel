@@ -76,6 +76,13 @@ def _is_admin_user(u):
         return False
 
 
+def _is_manager_user(u):
+    try:
+        return bool(u) and not bool(u.get("is_admin")) and bool(u.get("created_by"))
+    except Exception:
+        return False
+
+
 def _assert_user_not_expired(u):
     expires_at = u.get("admin_expires_at") if isinstance(u, dict) else None
     if not expires_at:
@@ -128,7 +135,8 @@ def login(data: LoginIn):
     u = db_login(data.username)
     # Global/system expiry applies to non-admin users only.
     # Admins are controlled by admin_expires_at.
-    if not _is_root_user(u) and not _is_admin_user(u):
+    # Manager users (created by admin) are controlled by parent admin activity.
+    if not _is_root_user(u) and not _is_admin_user(u) and not _is_manager_user(u):
         _assert_not_expired((u or {}).get("language", "ru"))
     _assert_parent_admin_not_blocked(u)
 
@@ -170,7 +178,13 @@ def telegram_login(data: TelegramLoginIn):
 
     # Global/system expiry applies to non-admin users only.
     # Admins are controlled by admin_expires_at.
-    if not (u and _is_root_user(u)) and int(data.telegram_id) != ROOT_TELEGRAM_ID and not _is_admin_user(u):
+    # Manager users (created by admin) are controlled by parent admin activity.
+    if (
+        not (u and _is_root_user(u))
+        and int(data.telegram_id) != ROOT_TELEGRAM_ID
+        and not _is_admin_user(u)
+        and not _is_manager_user(u)
+    ):
         _assert_not_expired((u or {}).get("language", "ru"))
     _assert_parent_admin_not_blocked(u)
 

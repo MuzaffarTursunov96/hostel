@@ -41,6 +41,13 @@ def _is_root(user_row):
         return False
 
 
+def _is_manager_user(user_row):
+    try:
+        return bool(user_row) and not bool(user_row.get("is_admin")) and bool(user_row.get("created_by"))
+    except Exception:
+        return False
+
+
 def get_current_user(token=Depends(security)):
     sync_admin_active_by_expiry_db(ROOT_TELEGRAM_ID)
     try:
@@ -65,7 +72,8 @@ def get_current_user(token=Depends(security)):
         )
         raise HTTPException(status_code=403, detail=msg + _contact_block(lang))
 
-    if not _is_root(user_row) and not bool(user_row.get("is_admin")):
+    # Managers created by admins are gated by parent admin status, not global expiry.
+    if not _is_root(user_row) and not bool(user_row.get("is_admin")) and not _is_manager_user(user_row):
         expires_at = get_app_expiry_db()
         if not expires_at:
             msg = "Срок доступа не настроен. Вход запрещен.\n\n" if lang == "ru" else "Muddat sozlanmagan. Kirish taqiqlangan.\n\n"

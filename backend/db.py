@@ -3281,39 +3281,51 @@ def delete_branch_by_admin_db(admin_id, branch_id):
 
 def remove_user_from_branch_db(admin_id, user_id, branch_id):
     with get_connection() as conn:
-        res = conn.execute(text("""
-            DELETE FROM user_branches ub
-            WHERE ub.user_id = :uid
-              AND ub.branch_id = :bid
+        # user must belong to this admin
+        user_ok = conn.execute(text("""
+            SELECT 1
+            FROM users u
+            WHERE u.id = :uid
+              AND u.created_by = :aid
+            LIMIT 1
+        """), {
+            "uid": user_id,
+            "aid": admin_id
+        }).fetchone()
+        if not user_ok:
+            return False
 
-              -- user must belong to admin
-              AND EXISTS (
-                  SELECT 1
-                  FROM users u
-                  WHERE u.id = :uid
-                    AND u.created_by = :aid
+        # admin must own or be assigned to branch
+        branch_ok = conn.execute(text("""
+            SELECT 1
+            FROM branches b
+            LEFT JOIN user_branches ub_admin
+              ON ub_admin.branch_id = b.id
+             AND ub_admin.user_id = :aid
+            WHERE b.id = :bid
+              AND (
+                  b.created_by = :aid
+                  OR ub_admin.user_id IS NOT NULL
               )
+            LIMIT 1
+        """), {
+            "bid": branch_id,
+            "aid": admin_id
+        }).fetchone()
+        if not branch_ok:
+            return False
 
-              -- admin must OWN or BE ASSIGNED to branch
-              AND EXISTS (
-                  SELECT 1
-                  FROM branches b
-                  LEFT JOIN user_branches ub_admin
-                    ON ub_admin.branch_id = b.id
-                   AND ub_admin.user_id = :aid
-                  WHERE b.id = :bid
-                    AND (
-                        b.created_by = :aid
-                        OR ub_admin.user_id IS NOT NULL
-                    )
-              )
+        # Idempotent remove: it's OK if relation does not exist.
+        conn.execute(text("""
+            DELETE FROM user_branches
+            WHERE user_id = :uid
+              AND branch_id = :bid
         """), {
             "uid": user_id,
             "bid": branch_id,
-            "aid": admin_id
         })
 
-        return res.rowcount > 0
+        return True
 
 
 

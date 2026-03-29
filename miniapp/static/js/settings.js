@@ -2,6 +2,7 @@ let BRANCHES = [];
 let CURRENT_BRANCH = null;
 let CURRENT_LANG = "ru";
 let SELECTED_USER_ID = null;
+let SELECTED_USER_ASSIGNED_BRANCH_IDS = [];
 let IS_ROOT_ADMIN = false;
 
 
@@ -393,7 +394,8 @@ function openUserBranchModal() {
 
   // 1️⃣ load assigned branches FIRST
   apiGet(`/users/${SELECTED_USER_ID}/branches`).done(function (assigned) {
-    const assignedIds = assigned.map(b => b.id);
+    const assignedIds = (assigned || []).map(b => Number(b.id));
+    SELECTED_USER_ASSIGNED_BRANCH_IDS = assignedIds.slice();
 
     // 2️⃣ load all branches
     apiGet("/branches").done(function (branches) {
@@ -423,13 +425,14 @@ function saveUserBranches() {
     return Number(this.value);
   }).get();
 
-  const unchecked = $(".branch-check:not(:checked)").map(function () {
-    return Number(this.value);
-  }).get();
+  const prev = new Set(SELECTED_USER_ASSIGNED_BRANCH_IDS || []);
+  const now = new Set(checked);
+  const toAdd = checked.filter(branchId => !prev.has(branchId));
+  const toRemove = (SELECTED_USER_ASSIGNED_BRANCH_IDS || []).filter(branchId => !now.has(branchId));
 
   const requests = [];
 
-  checked.forEach(branchId => {
+  toAdd.forEach(branchId => {
     requests.push(
       apiPost(`/branches/${branchId}/assign-user`, {
         user_id: SELECTED_USER_ID
@@ -437,14 +440,20 @@ function saveUserBranches() {
     );
   });
 
-  unchecked.forEach(branchId => {
+  toRemove.forEach(branchId => {
     requests.push(
       apiDelete(`/branches/${branchId}/users/${SELECTED_USER_ID}`)
-      .catch(() => null)
     );
   });
 
-  Promise.all(requests).then(() => {
+  if (!requests.length) {
+    alert(t("saved"));
+    closeUserBranchModal();
+    return;
+  }
+
+  $.when.apply($, requests).done(() => {
+    SELECTED_USER_ASSIGNED_BRANCH_IDS = checked.slice();
     alert(t("saved"));
     closeUserBranchModal();
   });
