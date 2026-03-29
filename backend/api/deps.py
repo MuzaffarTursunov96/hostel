@@ -5,14 +5,13 @@ from security import SECRET_KEY, ALGORITHM
 from datetime import datetime
 from db import get_user_auth_state_db, get_app_expiry_db, sync_admin_active_by_expiry_db
 
-
 import os
 from dotenv import load_dotenv
+
 load_dotenv()
 ROOT_TELEGRAM_ID = int(os.getenv("ROOT_TELEGRAM_ID", "1343842535"))
 ROOT_ADMIN_TELEGRAM = os.getenv("ROOT_ADMIN_TELEGRAM", "muzaffar_developer")
 ROOT_ADMIN_PHONE = os.getenv("ROOT_ADMIN_PHONE", "+998991422110")
-
 
 security = HTTPBearer()
 
@@ -41,6 +40,7 @@ def _is_root(user_row):
     except Exception:
         return False
 
+
 def get_current_user(token=Depends(security)):
     sync_admin_active_by_expiry_db(ROOT_TELEGRAM_ID)
     try:
@@ -60,8 +60,8 @@ def get_current_user(token=Depends(security)):
     if user_row.get("created_by") and user_row.get("creator_is_active") is False:
         msg = (
             "Ваш администратор заблокирован. Доступ временно запрещен.\n\n"
-            if lang == "ru" else
-            "Adminingiz bloklangan. Kirish vaqtincha taqiqlangan.\n\n"
+            if lang == "ru"
+            else "Adminingiz bloklangan. Kirish vaqtincha taqiqlangan.\n\n"
         )
         raise HTTPException(status_code=403, detail=msg + _contact_block(lang))
 
@@ -73,8 +73,8 @@ def get_current_user(token=Depends(security)):
         if datetime.utcnow() > expires_at:
             msg = (
                 f"Срок доступа истек: {expires_at.strftime('%Y-%m-%d %H:%M:%S')}.\n\n"
-                if lang == "ru" else
-                f"Kirish muddati tugagan: {expires_at.strftime('%Y-%m-%d %H:%M:%S')}.\n\n"
+                if lang == "ru"
+                else f"Kirish muddati tugagan: {expires_at.strftime('%Y-%m-%d %H:%M:%S')}.\n\n"
             )
             raise HTTPException(status_code=403, detail=msg + _contact_block(lang))
 
@@ -83,12 +83,13 @@ def get_current_user(token=Depends(security)):
     if bool(user_row.get("is_admin")) and admin_expires_at and datetime.utcnow() > admin_expires_at and not _is_root(user_row):
         msg = (
             f"Срок действия учетной записи администратора истек: {admin_expires_at.strftime('%Y-%m-%d %H:%M:%S')}.\n\n"
-            if lang == "ru" else
-            f"Admin hisob muddati tugagan: {admin_expires_at.strftime('%Y-%m-%d %H:%M:%S')}.\n\n"
+            if lang == "ru"
+            else f"Admin hisob muddati tugagan: {admin_expires_at.strftime('%Y-%m-%d %H:%M:%S')}.\n\n"
         )
         raise HTTPException(status_code=403, detail=msg + _contact_block(lang))
 
     return payload
+
 
 def admin_required(user=Depends(get_current_user)):
     if not user.get("is_admin"):
@@ -96,14 +97,9 @@ def admin_required(user=Depends(get_current_user)):
     return user
 
 
-
 def is_root_admin(user):
-    return (
-        user["is_admin"] == 1 and
-        user["telegram_id"] == ROOT_TELEGRAM_ID
-    )
+    return user["is_admin"] == 1 and user["telegram_id"] == ROOT_TELEGRAM_ID
+
 
 def is_admin(user):
-    return (
-        user["is_admin"] == 1
-    )
+    return user["is_admin"] == 1

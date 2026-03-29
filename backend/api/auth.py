@@ -1,7 +1,7 @@
-from fastapi import APIRouter, HTTPException,Depends
+from fastapi import APIRouter, HTTPException, Depends
 from datetime import datetime
 import os
-from .schemas import LoginIn,TelegramLoginIn
+from .schemas import LoginIn, TelegramLoginIn
 from security import verify_password, create_token
 from db import (
     login as db_login,
@@ -18,6 +18,7 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
 ROOT_ADMIN_TELEGRAM = os.getenv("ROOT_ADMIN_TELEGRAM", "muzaffar_developer")
 ROOT_ADMIN_PHONE = os.getenv("ROOT_ADMIN_PHONE", "+998991422110")
 ROOT_TELEGRAM_ID = int(os.getenv("ROOT_TELEGRAM_ID", "1343842535"))
+
 
 def _lang_code(lang_hint):
     return "uz" if str(lang_hint or "ru").lower().startswith("uz") else "ru"
@@ -45,8 +46,8 @@ def _assert_not_expired(lang_hint="ru"):
     if not expires_at:
         msg = (
             "РЎСЂРѕРє РґРѕСЃС‚СѓРїР° РЅРµ РЅР°СЃС‚СЂРѕРµРЅ. Р’С…РѕРґ РІСЂРµРјРµРЅРЅРѕ Р·Р°РїСЂРµС‰РµРЅ.\n\n"
-            if lang == "ru" else
-            "Muddat sozlanmagan. Kirish vaqtincha taqiqlangan.\n\n"
+            if lang == "ru"
+            else "Muddat sozlanmagan. Kirish vaqtincha taqiqlangan.\n\n"
         )
         raise HTTPException(status_code=403, detail=msg + _contact_block(lang))
 
@@ -55,8 +56,8 @@ def _assert_not_expired(lang_hint="ru"):
         expiry_text = expires_at.strftime("%Y-%m-%d %H:%M:%S")
         msg = (
             f"РЎСЂРѕРє РґРѕСЃС‚СѓРїР° РёСЃС‚РµРє: {expiry_text}.\n\n"
-            if lang == "ru" else
-            f"Kirish muddati tugagan: {expiry_text}.\n\n"
+            if lang == "ru"
+            else f"Kirish muddati tugagan: {expiry_text}.\n\n"
         )
         raise HTTPException(status_code=403, detail=msg + _contact_block(lang))
 
@@ -88,13 +89,10 @@ def _assert_user_not_expired(u):
         lang = _lang_code(u.get("language") if isinstance(u, dict) else "ru")
         msg = (
             f"РЎСЂРѕРє РґРµР№СЃС‚РІРёСЏ РІР°С€РµР№ СѓС‡РµС‚РЅРѕР№ Р·Р°РїРёСЃРё Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР° РёСЃС‚РµРє: {expires_at.strftime('%Y-%m-%d %H:%M:%S')}.\n\n"
-            if lang == "ru" else
-            f"Admin hisobingiz muddati tugagan: {expires_at.strftime('%Y-%m-%d %H:%M:%S')}.\n\n"
+            if lang == "ru"
+            else f"Admin hisobingiz muddati tugagan: {expires_at.strftime('%Y-%m-%d %H:%M:%S')}.\n\n"
         )
-        raise HTTPException(
-            status_code=403,
-            detail=msg + _contact_block(lang)
-        )
+        raise HTTPException(status_code=403, detail=msg + _contact_block(lang))
 
 
 def _assert_parent_admin_not_blocked(u):
@@ -105,10 +103,11 @@ def _assert_parent_admin_not_blocked(u):
         lang = _lang_code(u.get("language") or "ru")
         msg = (
             "Р’Р°С€ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂ Р·Р°Р±Р»РѕРєРёСЂРѕРІР°РЅ. Р”РѕСЃС‚СѓРї РІСЂРµРјРµРЅРЅРѕ Р·Р°РїСЂРµС‰РµРЅ.\n\n"
-            if lang == "ru" else
-            "Adminingiz bloklangan. Kirish vaqtincha taqiqlangan.\n\n"
+            if lang == "ru"
+            else "Adminingiz bloklangan. Kirish vaqtincha taqiqlangan.\n\n"
         )
         raise HTTPException(status_code=403, detail=msg + _contact_block(lang))
+
 
 @router.get("/me")
 def me(user=Depends(get_current_user)):
@@ -119,8 +118,9 @@ def me(user=Depends(get_current_user)):
         "id": user["user_id"],
         "is_admin": user["is_admin"],
         "branch_id": default_branch or user.get("branch_id"),
-        "language": user.get("language") or "ru"
+        "language": user.get("language") or "ru",
     }
+
 
 @router.post("/login")
 def login(data: LoginIn):
@@ -140,26 +140,28 @@ def login(data: LoginIn):
             msg = "Login yoki parol noto'g'ri."
         raise HTTPException(401, msg)
     _assert_user_not_expired(u)
-    
+
     default_branch = get_default_branch_id(u["id"])
 
-    token = create_token({
-        "user_id": u["id"],
-        "is_admin": u["is_admin"],
-        "branch_id": default_branch or u["branch_id"],
-        "language": u["language"] or "ru",
-        "telegram_id": u["telegram_id"]
-    })
-
+    token = create_token(
+        {
+            "user_id": u["id"],
+            "is_admin": u["is_admin"],
+            "branch_id": default_branch or u["branch_id"],
+            "language": u["language"] or "ru",
+            "telegram_id": u["telegram_id"],
+        }
+    )
 
     return {
         "access_token": token,
         "user_id": u["id"],
         "is_admin": u["is_admin"],
-        "branch_id":default_branch or u["branch_id"],
+        "branch_id": default_branch or u["branch_id"],
         "language": u["language"] or "ru",
-        "telegram_id": u["telegram_id"]
+        "telegram_id": u["telegram_id"],
     }
+
 
 @router.post("/telegram")
 def telegram_login(data: TelegramLoginIn):
@@ -180,7 +182,7 @@ def telegram_login(data: TelegramLoginIn):
     if not u:
         raise HTTPException(
             status_code=401,
-            detail="User is not registered. Please contact admin."
+            detail="User is not registered. Please contact admin.",
         )
 
     _assert_user_not_expired(u)
@@ -188,13 +190,15 @@ def telegram_login(data: TelegramLoginIn):
     is_admin = u["is_admin"]
     branch_id = get_default_branch_id(user_id) or u.get("branch_id")
 
-    token = create_token({
-        "user_id": user_id,
-        "is_admin": is_admin,
-        "branch_id": branch_id,
-        "language": u["language"] or "ru",
-        "telegram_id": data.telegram_id
-    })
+    token = create_token(
+        {
+            "user_id": user_id,
+            "is_admin": is_admin,
+            "branch_id": branch_id,
+            "language": u["language"] or "ru",
+            "telegram_id": data.telegram_id,
+        }
+    )
 
     return {
         "access_token": token,
@@ -202,6 +206,5 @@ def telegram_login(data: TelegramLoginIn):
         "is_admin": is_admin,
         "branch_id": branch_id,
         "language": u["language"] or "ru",
-        "telegram_id": data.telegram_id
+        "telegram_id": data.telegram_id,
     }
-

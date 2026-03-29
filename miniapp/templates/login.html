@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
@@ -69,8 +69,19 @@ function showError(message) {
   text.innerText = message;
 }
 
+function isBrokenText(value) {
+  const s = String(value || "");
+  const badTokens = ["Рџ", "Р°", "СЃ", "вЂ", "Ð", "Ñ", "�"];
+  return badTokens.some((token) => s.includes(token));
+}
+
+function normalizeErrorMessage(message) {
+  if (!isBrokenText(message)) return String(message || "");
+  return "Срок доступа временно ограничен. Попробуйте позже или свяжитесь с администратором.";
+}
+
 function withAdminContact(message) {
-  const m = String(message || "");
+  const m = normalizeErrorMessage(message);
   if (
     m.includes("Telegram: @") ||
     m.includes("Телефон:") ||
