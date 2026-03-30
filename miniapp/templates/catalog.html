@@ -26,10 +26,13 @@
     </section>
 
     <section class="filters-toolbar">
-      <button id="toggleFiltersBtn" class="ghost-btn filter-toggle-btn" type="button">
-        <span class="filter-toggle-icon">🔎</span>
-        <span id="toggleFiltersText" data-i18n="show_filters">Filterni ko'rsatish</span>
-      </button>
+      <div class="toolbar-actions">
+        <button id="toggleFiltersBtn" class="ghost-btn filter-toggle-btn" type="button">
+          <span class="filter-toggle-icon">🔎</span>
+          <span id="toggleFiltersText" data-i18n="show_filters">Filterni ko'rsatish</span>
+        </button>
+        <button id="myHistoryBtn" class="ghost-btn filter-toggle-btn" type="button" data-i18n="my_history">Tarixim</button>
+      </div>
     </section>
 
     <section id="filtersPanel" class="filters collapsed" hidden>
@@ -161,6 +164,16 @@
     </div>
   </div>
 
-  <script src="/static/js/catalog.js?v=20260330l"></script>
+  <div id="historyModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3 id="historyTitle">Tarixim</h3>
+        <button id="closeHistory" class="ghost-btn">X</button>
+      </div>
+      <div id="historyBody" class="details-body"></div>
+    </div>
+  </div>
+
+  <script src="/static/js/catalog.js?v=20260330m"></script>
 </body>
 </html>

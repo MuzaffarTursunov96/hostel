@@ -99,6 +99,12 @@ body {
   font-weight: 700;
 }
 
+.toolbar-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .filter-toggle-icon {
   font-size: 14px;
 }
@@ -434,6 +440,12 @@ body {
   .filter-toggle-btn {
     width: 100%;
     justify-content: center;
+  }
+
+  .toolbar-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr;
   }
 
   .branch-actions button,

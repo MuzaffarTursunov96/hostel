@@ -10,6 +10,14 @@
       clear_filters: "Filterni bekor qilish",
       show_filters: "Filterni ko'rsatish",
       hide_filters: "Filterni yopish",
+      my_history: "Tarixim",
+      enter_contact_history: "Tarix uchun bookingdagi telefon raqamingizni kiriting",
+      history_empty: "Tarix topilmadi",
+      history_load_error: "Tarixni yuklab bo'lmadi",
+      history_rating: "Baho",
+      history_booking: "Bron",
+      history_room_state: "Xona holati xabari",
+      history_booking_request: "Bron ariza",
       photos: "Rasmlar",
       details: "Batafsil",
       rate: "Baholash",
@@ -80,6 +88,14 @@
       clear_filters: "Сбросить фильтры",
       show_filters: "Показать фильтры",
       hide_filters: "Скрыть фильтры",
+      my_history: "Моя история",
+      enter_contact_history: "Введите номер телефона из брони для истории",
+      history_empty: "История не найдена",
+      history_load_error: "Не удалось загрузить историю",
+      history_rating: "Оценка",
+      history_booking: "Бронь",
+      history_room_state: "Сообщение о состоянии комнаты",
+      history_booking_request: "Заявка на бронь",
       photos: "Фото",
       details: "Подробнее",
       rate: "Оценить",
@@ -149,6 +165,7 @@
   const cardsEl = document.getElementById("cards");
   const filtersPanelEl = document.getElementById("filtersPanel");
   const toggleFiltersBtnEl = document.getElementById("toggleFiltersBtn");
+  const myHistoryBtnEl = document.getElementById("myHistoryBtn");
   const toggleFiltersTextEl = document.getElementById("toggleFiltersText");
   const toggleFiltersIconEl = toggleFiltersBtnEl ? toggleFiltersBtnEl.querySelector(".filter-toggle-icon") : null;
   const searchEl = document.getElementById("searchInput");
@@ -198,6 +215,10 @@
   const bookingCheckinEl = document.getElementById("bookingCheckin");
   const bookingCheckoutEl = document.getElementById("bookingCheckout");
   const bookingMessageEl = document.getElementById("bookingMessage");
+  const historyModalEl = document.getElementById("historyModal");
+  const historyTitleEl = document.getElementById("historyTitle");
+  const historyBodyEl = document.getElementById("historyBody");
+  const closeHistoryEl = document.getElementById("closeHistory");
 
   function t(key) {
     return (tr[lang] && tr[lang][key]) || key;
@@ -356,6 +377,62 @@
     filtersPanelEl.hidden = !filtersOpen;
     if (toggleFiltersIconEl) {
       toggleFiltersIconEl.textContent = filtersOpen ? "🔽" : "🔎";
+    }
+  }
+
+  function historyTypeLabel(itemType) {
+    const tpe = String(itemType || "").toLowerCase();
+    if (tpe === "rating") return t("history_rating");
+    if (tpe === "booking") return t("history_booking");
+    if (tpe === "room_state") return t("history_room_state");
+    if (tpe === "booking_request") return t("history_booking_request");
+    return tpe;
+  }
+
+  function openHistoryModal() {
+    historyModalEl.classList.remove("hidden");
+    historyTitleEl.textContent = t("my_history");
+    historyBodyEl.innerHTML = `<div class="empty">${t("refresh")}...</div>`;
+  }
+
+  async function loadMyHistory() {
+    const last = localStorage.getItem("hms_history_contact") || "";
+    const contact = (window.prompt(t("enter_contact_history"), last) || "").trim();
+    if (!contact) return;
+    localStorage.setItem("hms_history_contact", contact);
+
+    openHistoryModal();
+    try {
+      const q = new URLSearchParams({ contact, limit: "200" });
+      const res = await fetch(`/public-api/user-history?${q.toString()}`, { cache: "no-store" });
+      const payload = await res.json();
+      const items = (payload && payload.items) || [];
+      if (!items.length) {
+        historyBodyEl.innerHTML = `<div class="empty">${t("history_empty")}</div>`;
+        return;
+      }
+      historyBodyEl.innerHTML = items.map((x) => {
+        const type = historyTypeLabel(x.item_type);
+        const branch = escapeHtml(x.branch_name || "");
+        const message = escapeHtml(x.message || "");
+        const created = escapeHtml(String(x.created_at || ""));
+        const ratingLine = x.rating ? `<div>⭐ ${Number(x.rating)}</div>` : "";
+        const source = escapeHtml(String(x.source || ""));
+        return `
+          <div class="details-room">
+            <div class="details-room-meta" style="padding:10px;">
+              <div class="details-room-title">${type}</div>
+              <div>${branch}</div>
+              ${ratingLine}
+              <div>${message}</div>
+              <div class="text-xs text-slate-500">${created}</div>
+              <div class="text-xs text-slate-500">${source}</div>
+            </div>
+          </div>
+        `;
+      }).join("");
+    } catch (_) {
+      historyBodyEl.innerHTML = `<div class="empty">${t("history_load_error")}</div>`;
     }
   }
 
@@ -694,6 +771,7 @@
     filtersPanelEl.classList.toggle("collapsed", !filtersOpen);
     updateFiltersToggleUi();
   });
+  myHistoryBtnEl.addEventListener("click", loadMyHistory);
   clearFiltersBtnEl.addEventListener("click", () => {
     searchEl.value = "";
     roomTypeEl.value = "";
@@ -732,6 +810,7 @@
   closeReportEl.addEventListener("click", () => reportModalEl.classList.add("hidden"));
   closeDetailsEl.addEventListener("click", () => detailsModalEl.classList.add("hidden"));
   closeBookingEl.addEventListener("click", () => bookingModalEl.classList.add("hidden"));
+  closeHistoryEl.addEventListener("click", () => historyModalEl.classList.add("hidden"));
   modalEl.addEventListener("click", (e) => {
     if (e.target === modalEl) modalEl.classList.add("hidden");
   });
@@ -743,6 +822,9 @@
   });
   bookingModalEl.addEventListener("click", (e) => {
     if (e.target === bookingModalEl) bookingModalEl.classList.add("hidden");
+  });
+  historyModalEl.addEventListener("click", (e) => {
+    if (e.target === historyModalEl) historyModalEl.classList.add("hidden");
   });
 
   cardsEl.addEventListener("click", (e) => {
