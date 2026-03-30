@@ -331,6 +331,13 @@
     return raw;
   }
 
+  function roomTypeCode(raw) {
+    const s = String(raw || "").trim().toLowerCase();
+    if (s === "family" || s.includes("oilav") || s.includes("family") || s.includes("сем")) return "family";
+    if (s === "bed" || s.includes("kravat") || s.includes("кроват") || s.includes("bed")) return "bed";
+    return "other";
+  }
+
   function toNum(v) {
     if (v === null || v === undefined) return null;
     const s = String(v).trim();
@@ -790,7 +797,7 @@
                     </span>
                   </div>
                   <div class="details-room-facts">
-                    <div class="details-fact"><span>${t("room_types")}</span><b>${escapeHtml(r.room_type || "-")}</b></div>
+                    <div class="details-fact"><span>${t("room_types")}</span><b><span class="meta-badge roomtype-${roomTypeCode(r.room_type)}">${escapeHtml(roomTypeUiLabel(r.room_type || "-"))}</span></b></div>
                     <div class="details-fact"><span>${t("details_beds")}</span><b>${fmtBedBreakdown(
                       Number(r.bed_count || 0),
                       Number(r.single_count || 0),
@@ -798,7 +805,7 @@
                       Number(r.child_count || 0)
                     )}</b></div>
                     <div class="details-fact"><span>${t("available_beds_label")}</span><b>${Number(r.available_beds || 0)}</b></div>
-                    <div class="details-fact"><span>${t("booking_mode")}</span><b>${bookingModeLabel(r.booking_mode)}</b></div>
+                    <div class="details-fact"><span>${t("booking_mode")}</span><b><span class="meta-badge bookingmode-${String(r.booking_mode || "bed").toLowerCase() === "full" ? "full" : "bed"}">${bookingModeLabel(r.booking_mode)}</span></b></div>
                     <div class="details-fact"><span>${t("details_price")}</span><b>${priceLine}</b></div>
                   </div>
                   ${roomPriceTabsHtml(r)}
