@@ -760,27 +760,33 @@
               <div class="details-room-top">
                 ${img}
                 <div class="details-room-meta">
-                  <div class="details-room-title">${escapeHtml(r.room_name || r.room_number || "")}</div>
-                  <div>${t("room_types")}: ${escapeHtml(r.room_type || "-")}</div>
-                  <div>${t("details_beds")}: ${fmtBedBreakdown(
-                    Number(r.bed_count || 0),
-                    Number(r.single_count || 0),
-                    Number(r.double_count || 0),
-                    Number(r.child_count || 0)
-                  )}</div>
-                  <div>${t("available_beds_label")}: ${Number(r.available_beds || 0)}</div>
-                  <div>${t("room_status")}: ${occupancyLabel(r.occupancy_status)}</div>
-                  <div>${t("booking_mode")}: ${bookingModeLabel(r.booking_mode)}</div>
-                  <div>${t("details_price")}: ${priceLine}</div>
+                  <div class="details-room-title-row">
+                    <div class="details-room-title">${escapeHtml(r.room_name || r.room_number || "")}</div>
+                    <span class="room-status-chip status-${String(r.occupancy_status || "free").toLowerCase()}">
+                      ${occupancyLabel(r.occupancy_status)}
+                    </span>
+                  </div>
+                  <div class="details-room-facts">
+                    <div class="details-fact"><span>${t("room_types")}</span><b>${escapeHtml(r.room_type || "-")}</b></div>
+                    <div class="details-fact"><span>${t("details_beds")}</span><b>${fmtBedBreakdown(
+                      Number(r.bed_count || 0),
+                      Number(r.single_count || 0),
+                      Number(r.double_count || 0),
+                      Number(r.child_count || 0)
+                    )}</b></div>
+                    <div class="details-fact"><span>${t("available_beds_label")}</span><b>${Number(r.available_beds || 0)}</b></div>
+                    <div class="details-fact"><span>${t("booking_mode")}</span><b>${bookingModeLabel(r.booking_mode)}</b></div>
+                    <div class="details-fact"><span>${t("details_price")}</span><b>${priceLine}</b></div>
+                  </div>
                   ${roomPriceTabsHtml(r)}
                   <button
                     type="button"
-                    class="solid-btn small-btn"
+                    class="solid-btn small-btn room-book-btn"
                     data-book-room="${branchId}"
                     data-book-room-name="${escapeHtml(branch.name || "")}"
                     data-book-room-label="${escapeHtml(r.room_name || r.room_number || "")} (${escapeHtml(bookingModeLabel(r.booking_mode))})"
                   >
-                    <img class="btn-ico" src="/static/icons/booking_client.png" alt=""> ${t("booking")}
+                    <img class="btn-ico" src="/static/icons/booking_client.png" alt=""> <span>${t("booking")}</span>
                   </button>
                 </div>
               </div>

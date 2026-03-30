@@ -72,10 +72,11 @@
 
     <div class="space-y-2">
       <div class="grid grid-cols-2 gap-2">
-        <input id="roomTypeInput"
-               type="text"
-               class="w-full px-3 py-2 rounded-lg border"
-               placeholder="Xona turi">
+        <select id="roomTypeInput" class="w-full px-3 py-2 rounded-lg border">
+          <option value="family">Family / Oilaviy / Семейный</option>
+          <option value="bed">Bed / Kravatli / Кровати</option>
+          <option value="other">Other / Boshqa / Другое</option>
+        </select>
         <select id="roomBookingModeInput" class="w-full px-3 py-2 rounded-lg border">
           <option value="bed">Qisman (kravat)</option>
           <option value="full">To'liq xona</option>
@@ -191,13 +192,15 @@
       />
     </div>
     <div>
-      <label class="text-sm text-gray-600">{{ t("room_type_optional") }}</label>
-      <input
+      <label class="text-sm text-gray-600">Room type / Xona turi / Тип комнаты</label>
+      <select
         id="roomTypeCreateInput"
-        type="text"
         class="w-full mt-1 px-3 py-2 rounded-xl border focus:outline-none focus:ring-2 focus:ring-tgButton"
-        placeholder="{{ t('room_type_optional') }}"
-      />
+      >
+        <option value="family">Family / Oilaviy / Семейный</option>
+        <option value="bed">Bed / Kravatli / Кровати</option>
+        <option value="other">Other / Boshqa / Другое</option>
+      </select>
     </div>
     <div>
       <label class="text-sm text-gray-600">Bron rejimi / Режим бронирования</label>

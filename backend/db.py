@@ -585,9 +585,7 @@ def _room_requires_full_booking(row) -> bool:
         return True
     if mode in {"bed", "partial", "by_bed"}:
         return False
-    rt = str((row.get("room_type") if isinstance(row, dict) else None) or "").strip().lower()
-    return ("oilav" in rt) or ("family" in rt) or ("сем" in rt)
-
+    return False
 
 def ensure_branch_contact_columns():
     global _branch_contact_columns_checked
@@ -4776,10 +4774,6 @@ def list_public_branches_with_rating_db(
                       AND NOT (
                           (
                               lower(coalesce(rr.booking_mode, 'bed')) = 'full'
-                              OR
-                              lower(coalesce(rr.room_type, '')) LIKE '%oilav%'
-                              OR lower(coalesce(rr.room_type, '')) LIKE '%family%'
-                              OR lower(coalesce(rr.room_type, '')) LIKE '%сем%'
                           )
                           AND EXISTS (
                               SELECT 1
@@ -4863,10 +4857,6 @@ def list_public_branches_with_rating_db(
                     AND NOT (
                         (
                             lower(coalesce(rr.booking_mode, 'bed')) = 'full'
-                            OR
-                            lower(coalesce(rr.room_type, '')) LIKE '%oilav%'
-                            OR lower(coalesce(rr.room_type, '')) LIKE '%family%'
-                            OR lower(coalesce(rr.room_type, '')) LIKE '%сем%'
                         )
                         AND EXISTS (
                             SELECT 1
@@ -5332,6 +5322,4 @@ def update_feedback_status_db(
             "fid": int(feedback_id),
         })
         return True
-
-
 

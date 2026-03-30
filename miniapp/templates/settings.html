@@ -9,6 +9,79 @@
     color: white;
     border-color: #2563eb;
   }
+  .settings-compact-card {
+    padding: 12px;
+    border-radius: 14px;
+    background: var(--card, #fff);
+    box-shadow: 0 1px 8px rgba(15, 23, 42, 0.08);
+  }
+  .settings-compact-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.2;
+    margin-bottom: 8px;
+  }
+  .settings-compact-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .settings-compact-input {
+    width: 100%;
+    min-height: 40px;
+    border-radius: 10px;
+    font-size: 15px;
+  }
+  .settings-compact-btn {
+    width: 100%;
+    min-height: 36px;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 0 10px;
+  }
+  .settings-compact-links {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .settings-compact-link {
+    width: 100%;
+    min-height: 36px;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 0 10px;
+    text-decoration: none;
+  }
+  .settings-compact-icon {
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
+    flex: 0 0 18px;
+  }
+  @media (max-width: 480px) {
+    .settings-compact-card {
+      padding: 10px;
+      border-radius: 12px;
+    }
+    .settings-compact-btn,
+    .settings-compact-link {
+      min-height: 34px;
+      font-size: 14px;
+    }
+  }
 </style>
 
 
@@ -122,13 +195,16 @@
 
     </div>
 
-    <div class="bg-card rounded-2xl shadow p-4 space-y-3 admin-only">
-      <h3 class="font-semibold">💳 {% if session.get('language', 'ru') == 'uz' %}Oldindan to'lov sozlamasi{% else %}Настройка предоплаты{% endif %}</h3>
-      <label class="flex items-center justify-between">
+    <div class="settings-compact-card admin-only space-y-2">
+      <h3 class="settings-compact-title">
+        <img src="/static/icons/payment.png" alt="payment" class="settings-compact-icon">
+        {% if session.get('language', 'ru') == 'uz' %}Oldindan to'lov sozlamasi{% else %}Настройка предоплаты{% endif %}
+      </h3>
+      <label class="settings-compact-row justify-between">
         <span>{% if session.get('language', 'ru') == 'uz' %}Yoqilgan{% else %}Включено{% endif %}</span>
         <input id="prepayEnabled" type="checkbox">
       </label>
-      <select id="prepayMode" class="w-full px-3 py-2 rounded-lg border bg-transparent">
+      <select id="prepayMode" class="settings-compact-input px-3 py-2 border bg-transparent">
         <option value="percent">{% if session.get('language', 'ru') == 'uz' %}Foiz{% else %}Процент{% endif %}</option>
         <option value="fixed">{% if session.get('language', 'ru') == 'uz' %}Qat'iy summa{% else %}Фиксированная сумма{% endif %}</option>
       </select>
@@ -136,30 +212,39 @@
              type="number"
              step="0.01"
              min="0"
-             class="w-full px-3 py-2 rounded-lg border bg-transparent"
+             class="settings-compact-input px-3 py-2 border bg-transparent"
              placeholder="{% if session.get('language', 'ru') == 'uz' %}Qiymat{% else %}Значение{% endif %}">
       <button onclick="savePrepaymentSettings()"
-              class="w-full py-3 rounded-xl bg-blue-600 text-white font-semibold">
-        {{t("save")}}
+              class="settings-compact-btn bg-blue-600 text-white">
+        <img src="/static/icons/edit.png" alt="save" class="settings-compact-icon">
+        <span>{{t("save")}}</span>
       </button>
     </div>
 
-    <a href="/admin-reports"
-       class="block w-full text-center py-3 rounded-xl bg-indigo-600 text-white font-semibold">
-      {% if session.get('language', 'ru') == 'uz' %}Filial hisobotlari{% else %}Отчеты по филиалам{% endif %}
-    </a>
-    <a href="/admin-feedback"
-       class="block w-full text-center py-3 rounded-xl bg-emerald-600 text-white font-semibold">
-      {% if session.get('language', 'ru') == 'uz' %}Mijoz fikrlari{% else %}Отзывы клиентов{% endif %}
-    </a>
+    <div class="settings-compact-links admin-only">
+      <a href="/admin-reports"
+         class="settings-compact-link bg-indigo-600 text-white">
+        <img src="/static/icons/dashboard.png" alt="reports" class="settings-compact-icon">
+        <span>{% if session.get('language', 'ru') == 'uz' %}Filial hisobotlari{% else %}Отчеты по филиалам{% endif %}</span>
+      </a>
+      <a href="/admin-feedback"
+         class="settings-compact-link bg-emerald-600 text-white">
+        <img src="/static/icons/messages_client.png" alt="feedback" class="settings-compact-icon">
+        <span>{% if session.get('language', 'ru') == 'uz' %}Mijoz fikrlari{% else %}Отзывы клиентов{% endif %}</span>
+      </a>
+    </div>
 
     <!-- ================= ROOT ADMIN: APP EXPIRY ================= -->
-    <div class="bg-card rounded-2xl shadow p-4 space-y-3 root-only hidden">
-      <h3 class="font-semibold">Root Admin</h3>
+    <div class="settings-compact-card root-only hidden space-y-2">
+      <h3 class="settings-compact-title">
+        <img src="/static/icons/settings_menu.png" alt="root" class="settings-compact-icon">
+        <span>Root Admin</span>
+      </h3>
       <a id="openRootManagementBtn"
          href="/root-management"
-         class="block w-full text-center py-3 rounded-xl bg-indigo-600 text-white font-semibold">
-        Open Root Management
+         class="settings-compact-link bg-indigo-600 text-white">
+        <img src="/static/icons/settings.png" alt="root-open" class="settings-compact-icon">
+        <span class="root-link-label">Open Root Management</span>
       </a>
     </div>
 

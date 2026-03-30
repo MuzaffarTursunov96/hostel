@@ -59,7 +59,13 @@ $(document).ready(function () {
     setActiveLangUI(CURRENT_LANG);
     const rootBtn = $("#openRootManagementBtn");
     if (rootBtn.length) {
-      rootBtn.text(CURRENT_LANG === "uz" ? "Root boshqaruvini ochish" : "РћС‚РєСЂС‹С‚СЊ Root СѓРїСЂР°РІР»РµРЅРёРµ");
+      const label = CURRENT_LANG === "uz" ? "Root boshqaruvini ochish" : "Открыть Root управление";
+      const rootLabel = rootBtn.find(".root-link-label");
+      if (rootLabel.length) {
+        rootLabel.text(label);
+      } else {
+        rootBtn.text(label);
+      }
     }
 
     if (prefs.notify_enabled !== undefined) {

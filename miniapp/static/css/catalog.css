@@ -403,19 +403,26 @@ body {
 
 .details-room-meta {
   display: grid;
-  gap: 4px;
+  gap: 6px;
   font-size: 13px;
 }
 
 .details-room-meta .small-btn {
   margin-top: 6px;
-  width: fit-content;
+  width: 100%;
 }
 
 .details-room-meta [data-book-room] {
-  padding: 6px 10px;
-  font-size: 12px;
+  padding: 7px 10px;
+  font-size: 13px;
   border-radius: 10px;
+}
+
+.details-room-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .price-tabs {
@@ -427,14 +434,15 @@ body {
 }
 
 .price-tab-head {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 6px;
   margin-bottom: 6px;
 }
 
 .price-tab-head .small-btn {
-  padding: 5px 8px;
-  font-size: 11px;
+  padding: 6px 8px;
+  font-size: 12px;
 }
 
 .price-tab-head .small-btn.active {
@@ -456,6 +464,68 @@ body {
 
 .details-room-title {
   font-weight: 700;
+  font-size: 20px;
+}
+
+.details-room-facts {
+  display: grid;
+  gap: 4px;
+}
+
+.details-fact {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 8px;
+  align-items: start;
+}
+
+.details-fact span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.details-fact b {
+  font-weight: 600;
+  color: #0f2b67;
+}
+
+.room-status-chip {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.room-status-chip.status-free {
+  background: #ecfdf5;
+  color: #047857;
+  border-color: #a7f3d0;
+}
+
+.room-status-chip.status-partial {
+  background: #fff7ed;
+  color: #c2410c;
+  border-color: #fdba74;
+}
+
+.room-status-chip.status-full {
+  background: #fef2f2;
+  color: #b91c1c;
+  border-color: #fca5a5;
+}
+
+.room-book-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.room-book-btn .btn-ico {
+  width: 15px;
+  height: 15px;
 }
 
 .report-form label {
@@ -513,6 +583,31 @@ body {
 
   .branch-actions {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .details-room-top {
+    grid-template-columns: 100px 1fr;
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .details-room-top .details-room-photo {
+    width: 100px;
+    height: 78px;
+  }
+
+  .details-room-title {
+    font-size: 18px;
+  }
+
+  .details-fact {
+    grid-template-columns: 84px 1fr;
+  }
+
+  .details-fact span,
+  .details-fact b {
+    font-size: 12px;
+    line-height: 1.3;
   }
 }
 

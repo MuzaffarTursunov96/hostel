@@ -3,6 +3,30 @@ let CURRENT_ROOM_ID = null;
 let CURRENT_BRANCH = null;
 let SELECTED_BED = null;
 
+function normalizeRoomType(raw) {
+  const s = String(raw || "").trim().toLowerCase();
+  if (!s) return "other";
+  if (s === "family" || s.includes("oilav") || s.includes("family") || s.includes("сем")) return "family";
+  if (s === "bed" || s.includes("kravat") || s.includes("кроват") || s.includes("bed")) return "bed";
+  if (s === "other" || s.includes("boshqa") || s.includes("друг")) return "other";
+  return "other";
+}
+
+function roomTypeDbValue(value) {
+  const v = normalizeRoomType(value);
+  if (v === "family") return "family";
+  if (v === "bed") return "bed";
+  return "other";
+}
+
+function roomTypeLabel(value) {
+  const isRu = (document.documentElement.lang || "").toLowerCase().startsWith("ru");
+  const v = normalizeRoomType(value);
+  if (v === "family") return isRu ? "Семейный" : "Oilaviy";
+  if (v === "bed") return isRu ? "Кровати" : "Kravatli";
+  return isRu ? "Другое" : "Boshqa";
+}
+
 function formatPrice(v) {
   if (v === null || v === undefined || String(v).trim() === "") return t("price_by_agreement");
   const n = Number(v);
@@ -65,7 +89,7 @@ function loadRooms() {
 
     rooms.forEach((room) => {
       const roomLabel = room.room_type
-        ? `${room.room_name || room.room_number} (${room.room_type})`
+        ? `${room.room_name || room.room_number} (${roomTypeLabel(room.room_type)})`
         : `${room.room_name || room.room_number}`;
       const mode = bookingModeLabel(room.booking_mode);
       const btn = $(`
@@ -98,7 +122,7 @@ function selectRoom(room) {
   $("#roomFixedPriceInput").val(room.price_daily ?? room.fixed_price ?? "");
   $("#roomHourlyPriceInput").val(room.price_hourly ?? "");
   $("#roomMonthlyPriceInput").val(room.price_monthly ?? "");
-  $("#roomTypeInput").val(room.room_type ?? "");
+  $("#roomTypeInput").val(normalizeRoomType(room.room_type));
   $("#roomBookingModeInput").val((room.booking_mode || "bed").toLowerCase() === "full" ? "full" : "bed");
   loadBeds(room.id);
   loadRoomImages(room.id);
@@ -256,7 +280,7 @@ function uploadRoomPhotos() {
 
 function addRoom() {
   $("#roomNameInput").val("");
-  $("#roomTypeCreateInput").val("");
+  $("#roomTypeCreateInput").val("other");
   $("#roomBookingModeCreateInput").val("bed");
   $("#roomPriceInput").val("");
   $("#roomPriceHourlyInput").val("");
@@ -270,7 +294,7 @@ function closeRoomModal() {
 
 function submitRoom() {
   const roomName = $("#roomNameInput").val().trim();
-  const roomType = String($("#roomTypeCreateInput").val() || "").trim();
+  const roomType = roomTypeDbValue($("#roomTypeCreateInput").val());
   const roomBookingMode = String($("#roomBookingModeCreateInput").val() || "bed").trim().toLowerCase();
   const roomPriceRaw = String($("#roomPriceInput").val() || "").trim();
   const roomPriceHourlyRaw = String($("#roomPriceHourlyInput").val() || "").trim();
@@ -296,7 +320,7 @@ function submitRoom() {
       price_hourly: roomPriceHourlyRaw ? Number(roomPriceHourlyRaw) : null,
       price_monthly: roomPriceMonthlyRaw ? Number(roomPriceMonthlyRaw) : null,
       booking_mode: roomBookingMode === "full" ? "full" : "bed",
-      room_type: roomType || null
+      room_type: roomType
     })
       .done(function () {
         closeRoomModal();
@@ -417,7 +441,7 @@ function saveRoomType() {
     alert(t("select_a_room_first"));
     return;
   }
-  const roomType = String($("#roomTypeInput").val() || "").trim();
+  const roomType = roomTypeDbValue($("#roomTypeInput").val());
   apiPut(`/rooms/${CURRENT_ROOM_ID}/type`, {
     branch_id: CURRENT_BRANCH,
     room_type: roomType
@@ -432,7 +456,7 @@ function saveRoomSettings() {
     return;
   }
 
-  const roomType = String($("#roomTypeInput").val() || "").trim();
+  const roomType = roomTypeDbValue($("#roomTypeInput").val());
   const mode = String($("#roomBookingModeInput").val() || "bed").trim().toLowerCase();
   const daily = String($("#roomFixedPriceInput").val() || "").trim();
   const hourly = String($("#roomHourlyPriceInput").val() || "").trim();
