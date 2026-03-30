@@ -30,6 +30,8 @@ class BookingRequestIn(BaseModel):
     branch_id: int
     full_name: str | None = None
     phone: str
+    telegram_id: int | None = None
+    user_name: str | None = None
     room_or_bed: str | None = None
     checkin: str | None = None
     checkout: str | None = None
@@ -93,7 +95,8 @@ def submit_booking_request(data: BookingRequestIn):
             branch_id=data.branch_id,
             message=summary,
             sentiment=None,
-            user_name=full_name or None,
+            telegram_id=data.telegram_id,
+            user_name=data.user_name or full_name or None,
             contact=phone,
             report_type="booking_request",
             room_label=room_or_bed or None,

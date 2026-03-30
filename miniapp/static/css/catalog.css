@@ -261,6 +261,10 @@ body {
   line-height: 1.2;
   white-space: normal;
   word-break: break-word;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 
 .branch-actions a {
@@ -278,6 +282,13 @@ body {
 .small-btn {
   border-radius: 10px;
   font-weight: 700;
+}
+
+.btn-ico {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  flex: 0 0 16px;
 }
 
 .rating-stars {

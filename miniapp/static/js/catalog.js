@@ -11,6 +11,8 @@
       show_filters: "Filterni ko'rsatish",
       hide_filters: "Filterni yopish",
       my_history: "Tarixim",
+      login_required_history: "Tarixni ko'rish uchun Telegram orqali kirish kerak",
+      login_required_rating: "Baholash uchun Telegram orqali kirish kerak",
       enter_contact_history: "Tarix uchun bookingdagi telefon raqamingizni kiriting",
       history_empty: "Tarix topilmadi",
       history_load_error: "Tarixni yuklab bo'lmadi",
@@ -89,6 +91,8 @@
       show_filters: "Показать фильтры",
       hide_filters: "Скрыть фильтры",
       my_history: "Моя история",
+      login_required_history: "Для истории нужно войти через Telegram",
+      login_required_rating: "Для оценки нужно войти через Telegram",
       enter_contact_history: "Введите номер телефона из брони для истории",
       history_empty: "История не найдена",
       history_load_error: "Не удалось загрузить историю",
@@ -161,6 +165,7 @@
   let lang = localStorage.getItem("hms_lang") === "ru" ? "ru" : "uz";
   let rows = [];
   let userGeo = null;
+  let currentTgUser = null;
 
   const cardsEl = document.getElementById("cards");
   const filtersPanelEl = document.getElementById("filtersPanel");
@@ -380,6 +385,25 @@
     }
   }
 
+  function initTelegramUser() {
+    try {
+      const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+      const u = tg && tg.initDataUnsafe ? tg.initDataUnsafe.user : null;
+      if (u && u.id) {
+        currentTgUser = {
+          id: Number(u.id),
+          username: String(u.username || ""),
+          name: String(u.first_name || u.last_name || ""),
+        };
+      }
+    } catch (_) {
+      currentTgUser = null;
+    }
+    if (myHistoryBtnEl) {
+      myHistoryBtnEl.style.display = currentTgUser ? "" : "none";
+    }
+  }
+
   function historyTypeLabel(itemType) {
     const tpe = String(itemType || "").toLowerCase();
     if (tpe === "rating") return t("history_rating");
@@ -396,14 +420,14 @@
   }
 
   async function loadMyHistory() {
-    const last = localStorage.getItem("hms_history_contact") || "";
-    const contact = (window.prompt(t("enter_contact_history"), last) || "").trim();
-    if (!contact) return;
-    localStorage.setItem("hms_history_contact", contact);
+    if (!currentTgUser || !currentTgUser.id) {
+      alert(t("login_required_history"));
+      return;
+    }
 
     openHistoryModal();
     try {
-      const q = new URLSearchParams({ contact, limit: "200" });
+      const q = new URLSearchParams({ telegram_id: String(currentTgUser.id), limit: "200" });
       const res = await fetch(`/public-api/user-history?${q.toString()}`, { cache: "no-store" });
       const payload = await res.json();
       const items = (payload && payload.items) || [];
@@ -543,6 +567,12 @@
     const distanceHtml = distance === null
       ? ""
       : `<span class="distance-chip">📍 ${distance.toFixed(1)} ${t("distance_km")}</span>`;
+    const canSendMessage = Boolean(currentTgUser && currentTgUser.id);
+    const reportButtonHtml = canSendMessage
+      ? `<button class="ghost-btn small-btn" data-report="${r.id}">
+              <img class="btn-ico" src="/static/icons/messages_client.png" alt=""> ${t("report")}
+            </button>`
+      : "";
 
     return `
       <article class="branch-card">
@@ -569,10 +599,16 @@
             <span>${t("bed_info")}: ${fmtBedBreakdown(totalBeds, singleBeds, doubleBeds, childBeds)}</span>
           </div>
           <div class="branch-actions">
-            <button class="ghost-btn small-btn" data-open-photos="${r.id}">📷 ${t("photos")}</button>
-            <button class="ghost-btn small-btn" data-open-details="${r.id}">ℹ ${t("details")}</button>
-            <button class="solid-btn small-btn" data-book="${r.id}">🛏 ${t("booking")}</button>
-            <button class="ghost-btn small-btn" data-report="${r.id}">✉ ${t("report")}</button>
+            <button class="ghost-btn small-btn" data-open-photos="${r.id}">
+              <img class="btn-ico" src="/static/icons/image_client.png" alt=""> ${t("photos")}
+            </button>
+            <button class="ghost-btn small-btn" data-open-details="${r.id}">
+              <img class="btn-ico" src="/static/icons/info_client.png" alt=""> ${t("details")}
+            </button>
+            <button class="solid-btn small-btn" data-book="${r.id}">
+              <img class="btn-ico" src="/static/icons/booking_client.png" alt=""> ${t("booking")}
+            </button>
+            ${reportButtonHtml}
           </div>
         </div>
       </article>
@@ -682,6 +718,10 @@
   }
 
   async function submitRating(branchId) {
+    if (!currentTgUser || !currentTgUser.id) {
+      alert(t("login_required_rating"));
+      return;
+    }
     const contact = (window.prompt(t("rate_phone_prompt"), "") || "").trim();
     if (!contact) return;
     const raw = window.prompt(t("rating_prompt"), "5");
@@ -693,7 +733,14 @@
     const res = await fetch(`/public-api/branches/${branchId}/ratings`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rating: value, comment: comment, contact: contact, source: "web_app" })
+      body: JSON.stringify({
+        rating: value,
+        comment: comment,
+        contact: contact,
+        source: "web_app",
+        telegram_id: currentTgUser.id,
+        user_name: currentTgUser.username || currentTgUser.name || null
+      })
     });
     if (!res.ok) {
       let msg = t("rate_not_allowed");
@@ -869,6 +916,10 @@
     if (reportRoomLabelEl.value.trim()) form.append("room_label", reportRoomLabelEl.value.trim());
     if (reportContactEl.value.trim()) form.append("contact", reportContactEl.value.trim());
     form.append("source", "web_app");
+    if (currentTgUser && currentTgUser.id) {
+      form.append("telegram_id", String(currentTgUser.id));
+      form.append("user_name", currentTgUser.username || currentTgUser.name || "");
+    }
     if (reportPhotoEl.files && reportPhotoEl.files[0]) form.append("file", reportPhotoEl.files[0]);
 
     const res = await fetch("/public-api/feedback/room-report", {
@@ -890,6 +941,8 @@
       branch_id: branchId,
       full_name: String(bookingNameEl.value || "").trim() || null,
       phone,
+      telegram_id: currentTgUser && currentTgUser.id ? currentTgUser.id : null,
+      user_name: currentTgUser ? (currentTgUser.username || currentTgUser.name || null) : null,
       room_or_bed: String(bookingRoomBedEl.value || "").trim() || null,
       checkin: String(bookingCheckinEl.value || "").trim() || null,
       checkout: String(bookingCheckoutEl.value || "").trim() || null,
@@ -908,6 +961,7 @@
   });
 
   applyLang();
+  initTelegramUser();
   filtersPanelEl.hidden = !filtersOpen;
   filtersPanelEl.classList.toggle("collapsed", !filtersOpen);
   loadBranches();
