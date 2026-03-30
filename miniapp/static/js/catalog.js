@@ -604,7 +604,7 @@
               <img class="btn-ico" src="/static/icons/image_client.png" alt=""> ${t("photos")}
             </button>
             <button class="ghost-btn small-btn" data-open-details="${r.id}">
-              <img class="btn-ico" src="/static/icons/info_client.png" alt=""> ${t("details")}
+              <img class="btn-ico" src="/static/icons/detail_client.png" alt=""> ${t("details")}
             </button>
             ${reportButtonHtml}
           </div>
