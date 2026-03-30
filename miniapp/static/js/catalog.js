@@ -67,6 +67,12 @@
       full_name_optional: "Ism (ixtiyoriy)",
       phone_required: "Telefon raqam (majburiy)",
       room_or_bed: "Xona yoki yotoq raqami",
+      room_type_label: "Xona turi",
+      rent_type_label: "Ijara turi",
+      not_selected: "Tanlanmagan",
+      room_type_family: "Oilaviy",
+      room_type_bed: "Kravatli",
+      room_type_other: "Boshqa",
       checkin_date: "Kelish sanasi",
       checkout_date: "Ketish sanasi",
       details_rooms: "Xonalar",
@@ -158,6 +164,12 @@
       full_name_optional: "Имя (необязательно)",
       phone_required: "Телефон (обязательно)",
       room_or_bed: "Комната или номер кровати",
+      room_type_label: "Тип комнаты",
+      rent_type_label: "Тип аренды",
+      not_selected: "Не выбрано",
+      room_type_family: "Семейный",
+      room_type_bed: "Кровати",
+      room_type_other: "Другое",
       checkin_date: "Дата заезда",
       checkout_date: "Дата выезда",
       details_rooms: "Комнаты",
@@ -240,6 +252,8 @@
   const bookingBranchIdEl = document.getElementById("bookingBranchId");
   const bookingNameEl = document.getElementById("bookingName");
   const bookingPhoneEl = document.getElementById("bookingPhone");
+  const bookingRoomTypeLabelEl = document.getElementById("bookingRoomTypeLabel");
+  const bookingRentTypeLabelEl = document.getElementById("bookingRentTypeLabel");
   const bookingRoomBedEl = document.getElementById("bookingRoomBed");
   const bookingCheckinEl = document.getElementById("bookingCheckin");
   const bookingCheckoutEl = document.getElementById("bookingCheckout");
@@ -306,6 +320,15 @@
   function bookingModeLabel(mode) {
     const m = String(mode || "bed").toLowerCase();
     return m === "full" ? t("booking_mode_full") : t("booking_mode_bed");
+  }
+
+  function roomTypeUiLabel(raw) {
+    const s = String(raw || "").trim().toLowerCase();
+    if (!s || s === "-") return t("not_selected");
+    if (s === "family" || s.includes("oilav") || s.includes("family") || s.includes("сем")) return t("room_type_family");
+    if (s === "bed" || s.includes("kravat") || s.includes("кроват") || s.includes("bed")) return t("room_type_bed");
+    if (s === "other" || s.includes("boshqa") || s.includes("друг")) return t("room_type_other");
+    return raw;
   }
 
   function toNum(v) {
@@ -785,6 +808,8 @@
                     data-book-room="${branchId}"
                     data-book-room-name="${escapeHtml(branch.name || "")}"
                     data-book-room-label="${escapeHtml(r.room_name || r.room_number || "")} (${escapeHtml(bookingModeLabel(r.booking_mode))})"
+                    data-book-room-type="${escapeHtml(r.room_type || "-")}"
+                    data-book-rent-type="${escapeHtml(bookingModeLabel(r.booking_mode))}"
                   >
                     <img class="btn-ico" src="/static/icons/booking_client.png" alt=""> <span>${t("booking")}</span>
                   </button>
@@ -805,7 +830,13 @@
         const bId = Number(btn.getAttribute("data-book-room"));
         const bName = btn.getAttribute("data-book-room-name") || "Branch";
         const roomLabel = btn.getAttribute("data-book-room-label") || "";
-        openBooking(bId, bName, roomLabel);
+        const roomType = btn.getAttribute("data-book-room-type") || "";
+        const rentType = btn.getAttribute("data-book-rent-type") || "";
+        openBooking(bId, bName, {
+          roomLabel,
+          roomType,
+          rentType,
+        });
       });
     });
     detailsBodyEl.querySelectorAll("[data-price-tab]").forEach((btn) => {
@@ -869,12 +900,21 @@
     reportModalEl.classList.remove("hidden");
   }
 
-  function openBooking(branchId, branchName, roomPrefill = "") {
+  function openBooking(branchId, branchName, roomMeta = {}) {
     bookingBranchIdEl.value = String(branchId);
     bookingTitleEl.textContent = `${branchName} - ${t("booking")}`;
     bookingNameEl.value = "";
     bookingPhoneEl.value = "";
-    bookingRoomBedEl.value = String(roomPrefill || "");
+    const roomLabel = typeof roomMeta === "string" ? roomMeta : String(roomMeta.roomLabel || "");
+    const roomType = typeof roomMeta === "string" ? "" : String(roomMeta.roomType || "");
+    const rentType = typeof roomMeta === "string" ? "" : String(roomMeta.rentType || "");
+    bookingRoomBedEl.value = roomLabel;
+    if (bookingRoomTypeLabelEl) {
+      bookingRoomTypeLabelEl.textContent = roomTypeUiLabel(roomType);
+    }
+    if (bookingRentTypeLabelEl) {
+      bookingRentTypeLabelEl.textContent = rentType.trim() || t("not_selected");
+    }
     bookingCheckinEl.value = "";
     bookingCheckoutEl.value = "";
     bookingMessageEl.value = "";

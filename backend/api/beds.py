@@ -14,7 +14,8 @@ from db import (
     check_bed_has_booked,
     remove_bed_db,
     busy_beds_now,
-    update_bed_db
+    update_bed_db,
+    set_room_beds_pricing_db,
 )
 
 router = APIRouter(prefix="/beds", tags=["Beds"])
@@ -138,6 +139,61 @@ def busy_beds(
         checkin=today,
         checkout=today
     )
+
+
+@router.put("/room/{room_id}/bulk-price")
+def bulk_set_room_beds_price(
+    room_id: int,
+    branch_id: int,
+    price_hourly: str | None = None,
+    price_daily: str | None = None,
+    price_monthly: str | None = None,
+    user=Depends(get_current_user),
+):
+    def _parse_num(raw: str | None, field_name: str):
+        if raw is None:
+            return None, False
+        s = str(raw).strip().lower()
+        if s in {"", "null", "none"}:
+            return None, False
+        try:
+            v = float(s)
+        except Exception:
+            raise HTTPException(400, f"Invalid {field_name}")
+        if v < 0:
+            raise HTTPException(400, f"{field_name} must be >= 0")
+        return v, True
+
+    hourly_val, set_hourly = _parse_num(price_hourly, "price_hourly")
+    daily_val, set_daily = _parse_num(price_daily, "price_daily")
+    monthly_val, set_monthly = _parse_num(price_monthly, "price_monthly")
+
+    if not (set_hourly or set_daily or set_monthly):
+        raise HTTPException(400, "No price fields provided")
+
+    try:
+        set_room_beds_pricing_db(
+            room_id=room_id,
+            branch_id=branch_id,
+            price_hourly=hourly_val,
+            price_daily=daily_val,
+            price_monthly=monthly_val,
+            set_hourly=set_hourly,
+            set_daily=set_daily,
+            set_monthly=set_monthly,
+        )
+    except ValueError as exc:
+        raise HTTPException(404, str(exc))
+
+    return {
+        "ok": True,
+        "room_id": room_id,
+        "updated": {
+            "hourly": set_hourly,
+            "daily": set_daily,
+            "monthly": set_monthly,
+        },
+    }
 
 
 @router.put("/{bed_id}")

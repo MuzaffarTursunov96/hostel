@@ -436,6 +436,38 @@ function clearRoomPrice() {
   saveRoomPrice();
 }
 
+function applyPriceToAllBeds() {
+  if (!CURRENT_ROOM_ID) {
+    alert(t("select_a_room_first"));
+    return;
+  }
+  const isRu = (document.documentElement.lang || "").toLowerCase().startsWith("ru");
+  const confirmMsg = isRu
+    ? "Применить введенные цены ко всем кроватям этой комнаты?"
+    : "Ushbu xonadagi barcha kravatlarga kiritilgan narxlarni qo'llaysizmi?";
+  if (!confirm(confirmMsg)) {
+    return;
+  }
+
+  const daily = String($("#roomFixedPriceInput").val() || "").trim();
+  const hourly = String($("#roomHourlyPriceInput").val() || "").trim();
+  const monthly = String($("#roomMonthlyPriceInput").val() || "").trim();
+
+  const params = { branch_id: CURRENT_BRANCH };
+  if (daily !== "") params.price_daily = daily;
+  if (hourly !== "") params.price_hourly = hourly;
+  if (monthly !== "") params.price_monthly = monthly;
+
+  if (params.price_daily === undefined && params.price_hourly === undefined && params.price_monthly === undefined) {
+    alert(isRu ? "Введите цену: за день, за час или за месяц." : "Narx kiriting: kunlik, soatlik yoki oylik.");
+    return;
+  }
+
+  apiPut(`/beds/room/${CURRENT_ROOM_ID}/bulk-price`, params).done(function () {
+    loadBeds(CURRENT_ROOM_ID);
+  });
+}
+
 function saveRoomType() {
   if (!CURRENT_ROOM_ID) {
     alert(t("select_a_room_first"));

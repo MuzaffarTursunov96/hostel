@@ -4349,6 +4349,50 @@ def update_bed_db(
     return {"status": "success"}
 
 
+def set_room_beds_pricing_db(
+    room_id: int,
+    branch_id: int,
+    *,
+    price_hourly=None,
+    price_daily=None,
+    price_monthly=None,
+    set_hourly: bool = False,
+    set_daily: bool = False,
+    set_monthly: bool = False,
+):
+    ensure_pricing_columns()
+    updates = []
+    params = {
+        "room_id": int(room_id),
+        "branch_id": int(branch_id),
+    }
+
+    if set_hourly:
+        updates.append("price_hourly = :price_hourly")
+        params["price_hourly"] = price_hourly
+    if set_daily:
+        updates.append("fixed_price = :price_daily")
+        updates.append("price_daily = :price_daily")
+        params["price_daily"] = price_daily
+    if set_monthly:
+        updates.append("price_monthly = :price_monthly")
+        params["price_monthly"] = price_monthly
+
+    if not updates:
+        raise ValueError("No price fields to update")
+
+    with get_connection() as conn:
+        result = conn.execute(text(f"""
+            UPDATE beds
+            SET {", ".join(updates)}
+            WHERE room_id = :room_id
+              AND branch_id = :branch_id
+        """), params)
+        if (result.rowcount or 0) <= 0:
+            raise ValueError("No beds found in this room or no access")
+    return {"status": "success"}
+
+
 def set_room_fixed_price_db(room_id: int, branch_id: int, fixed_price=None):
     ensure_pricing_columns()
     with get_connection() as conn:

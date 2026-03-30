@@ -544,6 +544,31 @@ body {
   font: inherit;
 }
 
+.booking-readonly-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.booking-readonly-item {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #f8fbff;
+  padding: 8px 10px;
+  display: grid;
+  gap: 2px;
+}
+
+.booking-readonly-item span {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.booking-readonly-item b {
+  font-size: 13px;
+  color: #0f2b67;
+}
+
 @media (max-width: 760px) {
   .filters {
     grid-template-columns: 1fr;
@@ -558,6 +583,10 @@ body {
   }
 
   .filter-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .booking-readonly-grid {
     grid-template-columns: 1fr;
   }
 
