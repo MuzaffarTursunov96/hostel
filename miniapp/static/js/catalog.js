@@ -20,6 +20,8 @@
       by_agreement: "Kelishiladi",
       min_price: "Min narx",
       max_price: "Max narx",
+      min_price_ph: "Min narx",
+      max_price_ph: "Max narx",
       room_types: "Xona turlari",
       bed_info: "Yotoqlar",
       bed_single: "Bir kishilik",
@@ -48,6 +50,11 @@
       details_rooms: "Xonalar",
       details_beds: "Kravatlar",
       details_price: "Narx",
+      available_beds_label: "Bo'sh o'rin",
+      room_status: "Holat",
+      status_free: "Bo'sh",
+      status_partial: "Qisman band",
+      status_full: "To'liq band",
       details_none: "Ma'lumot topilmadi",
       call: "Qo'ng'iroq",
       telegram: "Telegram",
@@ -77,6 +84,8 @@
       by_agreement: "Договорная",
       min_price: "Мин цена",
       max_price: "Макс цена",
+      min_price_ph: "Мин цена",
+      max_price_ph: "Макс цена",
       room_types: "Типы комнат",
       bed_info: "Кровати",
       bed_single: "Одноместные",
@@ -105,6 +114,11 @@
       details_rooms: "Комнаты",
       details_beds: "Кровати",
       details_price: "Цена",
+      available_beds_label: "Свободно мест",
+      room_status: "Статус",
+      status_free: "Свободно",
+      status_partial: "Частично занято",
+      status_full: "Полностью занято",
       details_none: "Данные не найдены",
       call: "Позвонить",
       telegram: "Telegram",
@@ -127,6 +141,12 @@
   const refreshEl = document.getElementById("refreshBtn");
   const findNearestBtnEl = document.getElementById("findNearestBtn");
   const distanceFilterEl = document.getElementById("distanceFilter");
+  const priceMinInputEl = document.getElementById("priceMinInput");
+  const priceMaxInputEl = document.getElementById("priceMaxInput");
+  const priceMinRangeEl = document.getElementById("priceMinRange");
+  const priceMaxRangeEl = document.getElementById("priceMaxRange");
+  const priceMinLabelEl = document.getElementById("priceMinLabel");
+  const priceMaxLabelEl = document.getElementById("priceMaxLabel");
 
   const modalEl = document.getElementById("galleryModal");
   const galleryEl = document.getElementById("galleryGrid");
@@ -177,6 +197,12 @@
     return `${Number(v).toLocaleString()} ${lang === "ru" ? "сум" : "so'm"}`;
   }
 
+  function starsText(avg) {
+    const v = Math.max(0, Math.min(5, Number(avg) || 0));
+    const full = Math.round(v);
+    return "★".repeat(full) + "☆".repeat(5 - full);
+  }
+
   function fmtMinMaxPrice(minPrice, maxPrice) {
     if (minPrice === null || minPrice === undefined) return t("by_agreement");
     if (maxPrice === null || maxPrice === undefined) {
@@ -192,12 +218,73 @@
     return `${total} (${t("bed_single")}: ${singleCount}, ${t("bed_double")}: ${doubleCount}, ${t("bed_child")}: ${childCount})`;
   }
 
+  function occupancyLabel(status) {
+    const s = String(status || "").toLowerCase();
+    if (s === "full") return t("status_full");
+    if (s === "partial") return t("status_partial");
+    return t("status_free");
+  }
+
   function toNum(v) {
     if (v === null || v === undefined) return null;
     const s = String(v).trim();
     if (!s) return null;
     const n = Number(s);
     return Number.isFinite(n) ? n : null;
+  }
+
+  function formatNum(n) {
+    const v = Number(n || 0);
+    return Number.isFinite(v) ? v.toLocaleString() : "0";
+  }
+
+  function getSliderBounds() {
+    const priced = rows
+      .map((r) => [toNum(r.min_price), toNum(r.max_price)])
+      .flat()
+      .filter((x) => x !== null);
+    if (!priced.length) return { min: 0, max: 10000000 };
+    const lo = Math.max(0, Math.floor(Math.min(...priced) / 1000) * 1000);
+    const hiRaw = Math.ceil(Math.max(...priced) / 1000) * 1000;
+    const hi = Math.max(lo + 1000, hiRaw);
+    return { min: lo, max: hi };
+  }
+
+  function syncPriceLabels() {
+    priceMinLabelEl.textContent = formatNum(toNum(priceMinRangeEl.value) || 0);
+    priceMaxLabelEl.textContent = formatNum(toNum(priceMaxRangeEl.value) || 0);
+  }
+
+  function syncRangeToInput() {
+    let minV = toNum(priceMinRangeEl.value) || 0;
+    let maxV = toNum(priceMaxRangeEl.value) || 0;
+    if (minV > maxV) {
+      const t = minV;
+      minV = maxV;
+      maxV = t;
+      priceMinRangeEl.value = String(minV);
+      priceMaxRangeEl.value = String(maxV);
+    }
+    priceMinInputEl.value = String(minV);
+    priceMaxInputEl.value = String(maxV);
+    syncPriceLabels();
+  }
+
+  function syncInputToRange() {
+    const bMin = toNum(priceMinRangeEl.min) || 0;
+    const bMax = toNum(priceMinRangeEl.max) || 10000000;
+    let minV = toNum(priceMinInputEl.value);
+    let maxV = toNum(priceMaxInputEl.value);
+    if (minV === null) minV = bMin;
+    if (maxV === null) maxV = bMax;
+    minV = Math.max(bMin, Math.min(bMax, minV));
+    maxV = Math.max(bMin, Math.min(bMax, maxV));
+    if (minV > maxV) maxV = minV;
+    priceMinRangeEl.value = String(minV);
+    priceMaxRangeEl.value = String(maxV);
+    priceMinInputEl.value = String(minV);
+    priceMaxInputEl.value = String(maxV);
+    syncPriceLabels();
   }
 
   function haversineKm(lat1, lon1, lat2, lon2) {
@@ -257,6 +344,18 @@
     q.set("limit", "200");
     const res = await fetch(`/public-api/branches?${q.toString()}`, { cache: "no-store" });
     rows = await res.json();
+    const bounds = getSliderBounds();
+    priceMinRangeEl.min = String(bounds.min);
+    priceMinRangeEl.max = String(bounds.max);
+    priceMaxRangeEl.min = String(bounds.min);
+    priceMaxRangeEl.max = String(bounds.max);
+    if (!priceMinInputEl.value.trim()) {
+      priceMinInputEl.value = String(bounds.min);
+    }
+    if (!priceMaxInputEl.value.trim()) {
+      priceMaxInputEl.value = String(bounds.max);
+    }
+    syncInputToRange();
     refreshRoomTypeOptions(roomType);
     render();
   }
@@ -264,12 +363,25 @@
   function filteredRows() {
     const needle = String(searchEl.value || "").trim().toLowerCase();
     const maxDistance = toNum(distanceFilterEl.value || "");
+    const userMinPrice = toNum(priceMinInputEl.value || "");
+    const userMaxPrice = toNum(priceMaxInputEl.value || "");
 
     let list = rows.filter((r) => {
       const name = String(r.name || "").toLowerCase();
       const address = String(r.address || "").toLowerCase();
       const textOk = !needle || name.includes(needle) || address.includes(needle);
       if (!textOk) return false;
+
+      const rowMin = toNum(r.min_price);
+      const rowMax = toNum(r.max_price);
+      if (userMinPrice !== null || userMaxPrice !== null) {
+        if (rowMin === null && rowMax === null) return false;
+        const a = rowMin ?? rowMax;
+        const b = rowMax ?? rowMin;
+        const minBound = userMinPrice ?? Number.NEGATIVE_INFINITY;
+        const maxBound = userMaxPrice ?? Number.POSITIVE_INFINITY;
+        if (a > maxBound || b < minBound) return false;
+      }
 
       if (maxDistance === null) return true;
       const d = rowDistance(r);
@@ -317,7 +429,7 @@
           <h3 class="branch-title">${escapeHtml(r.name)}</h3>
           <p class="branch-address">${escapeHtml(r.address || "")}</p>
           <div class="branch-meta">
-            <span>* ${rating} (${ratingCount} ${t("reviews")})</span>
+            <span class="rating-stars">${starsText(r.avg_rating)} <b>${rating}</b> (${ratingCount} ${t("reviews")})</span>
             <span>${photoCount} ${t("photo_count")}</span>
           </div>
           <div class="branch-meta">
@@ -400,13 +512,14 @@
       <div class="details-top">
         <div><b>${escapeHtml(branch.name || "")}</b></div>
         <div>${escapeHtml(branch.address || "")}</div>
-        <div>* ${Number(branch.avg_rating || 0).toFixed(1)} (${Number(branch.rating_count || 0)} ${t("reviews")})</div>
+        <div class="rating-stars">${starsText(branch.avg_rating)} <b>${Number(branch.avg_rating || 0).toFixed(1)}</b> (${Number(branch.rating_count || 0)} ${t("reviews")})</div>
         ${actions}
       </div>
     `;
 
-    const roomCards = rooms.length
-      ? rooms.map((r) => {
+    const visibleRooms = rooms.filter((r) => Number(r.available_beds || 0) > 0);
+    const roomCards = visibleRooms.length
+      ? visibleRooms.map((r) => {
           const img = r.cover_image
             ? `<img src="${escapeHtml(r.cover_image)}" alt="${escapeHtml(r.room_name || "")}" loading="lazy" />`
             : `<img alt="no photo" />`;
@@ -425,6 +538,8 @@
                     Number(r.double_count || 0),
                     Number(r.child_count || 0)
                   )}</div>
+                  <div>${t("available_beds_label")}: ${Number(r.available_beds || 0)}</div>
+                  <div>${t("room_status")}: ${occupancyLabel(r.occupancy_status)}</div>
                   <div>${t("details_price")}: ${priceLine}</div>
                 </div>
               </div>
@@ -513,6 +628,22 @@
   refreshEl.addEventListener("click", () => loadBranches());
   findNearestBtnEl.addEventListener("click", findNearest);
   distanceFilterEl.addEventListener("change", render);
+  priceMinInputEl.addEventListener("input", () => {
+    syncInputToRange();
+    render();
+  });
+  priceMaxInputEl.addEventListener("input", () => {
+    syncInputToRange();
+    render();
+  });
+  priceMinRangeEl.addEventListener("input", () => {
+    syncRangeToInput();
+    render();
+  });
+  priceMaxRangeEl.addEventListener("input", () => {
+    syncRangeToInput();
+    render();
+  });
   searchEl.addEventListener("input", render);
   roomTypeEl.addEventListener("change", () => loadBranches());
   ratingEl.addEventListener("change", () => loadBranches());

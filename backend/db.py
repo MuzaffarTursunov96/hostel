@@ -543,6 +543,7 @@ def ensure_branch_contact_columns():
 
 def get_rooms_with_beds(branch_id):
     ensure_pricing_columns()
+    today = app_today().isoformat()
     with get_connection() as conn:
         result = conn.execute(text("""
             SELECT 
@@ -550,28 +551,56 @@ def get_rooms_with_beds(branch_id):
                 rooms.number AS room_number,
                 COALESCE(rooms.room_name, rooms.number) AS room_name,
                 COUNT(beds.id) AS bed_count,
+                COUNT(DISTINCT CASE WHEN bk_active.id IS NOT NULL THEN beds.id END) AS busy_beds,
                 rooms.fixed_price,
                 rooms.room_type
             FROM rooms
             LEFT JOIN beds 
                 ON beds.room_id = rooms.id
                AND beds.branch_id = rooms.branch_id
+            LEFT JOIN bookings bk_active
+                ON bk_active.bed_id = beds.id
+               AND bk_active.branch_id = rooms.branch_id
+               AND bk_active.status = 'active'
+               AND bk_active.checkin_date <= :today
+               AND bk_active.checkout_date > :today
             WHERE rooms.branch_id = :branch_id
             GROUP BY rooms.id, rooms.number, rooms.room_name, rooms.fixed_price, rooms.room_type
             ORDER BY rooms.id ASC
-        """), {"branch_id": branch_id})
+        """), {"branch_id": branch_id, "today": today})
 
         rows = result.mappings().all()
 
     return [
-        {
+        (lambda r: {
             "id": r["id"],
             "room_number": r["room_number"],
             "room_name": r["room_name"],
             "bed_count": r["bed_count"],
+            "busy_beds": int(r["busy_beds"] or 0),
+            "available_beds": (0 if (
+                ("oilav" in str((r["room_type"] or "")).strip().lower())
+                or ("family" in str((r["room_type"] or "")).strip().lower())
+                or ("сем" in str((r["room_type"] or "")).strip().lower())
+            ) and int(r["busy_beds"] or 0) > 0 else max(int(r["bed_count"] or 0) - int(r["busy_beds"] or 0), 0)),
+            "occupancy_status": (
+                "full" if (
+                    int(r["bed_count"] or 0) <= 0
+                    or (
+                        (
+                            ("oilav" in str((r["room_type"] or "")).strip().lower())
+                            or ("family" in str((r["room_type"] or "")).strip().lower())
+                            or ("сем" in str((r["room_type"] or "")).strip().lower())
+                        ) and int(r["busy_beds"] or 0) > 0
+                    )
+                    or max(int(r["bed_count"] or 0) - int(r["busy_beds"] or 0), 0) <= 0
+                ) else (
+                    "partial" if int(r["busy_beds"] or 0) > 0 else "free"
+                )
+            ),
             "fixed_price": float(r["fixed_price"]) if r["fixed_price"] is not None else None,
             "room_type": (r["room_type"] or "").strip() or None,
-        }
+        })(r)
         for r in rows
     ]
 
@@ -4313,6 +4342,7 @@ def list_public_branches_with_rating_db(
         lim = 500
 
     room_type_norm = (str(room_type or "").strip() or None)
+    today = app_today().isoformat()
     with get_connection() as conn:
         rows = conn.execute(text("""
             SELECT
@@ -4368,6 +4398,46 @@ def list_public_branches_with_rating_db(
                     FROM beds bb
                     JOIN rooms rr ON rr.id = bb.room_id
                     WHERE rr.branch_id = b.id
+                      AND NOT EXISTS (
+                          SELECT 1
+                          FROM bookings bk
+                          WHERE bk.bed_id = bb.id
+                            AND bk.branch_id = b.id
+                            AND bk.status = 'active'
+                            AND bk.checkin_date <= :today
+                            AND bk.checkout_date > :today
+                      )
+                      AND NOT (
+                          (
+                              lower(coalesce(rr.room_type, '')) LIKE '%oilav%'
+                              OR lower(coalesce(rr.room_type, '')) LIKE '%family%'
+                              OR lower(coalesce(rr.room_type, '')) LIKE '%сем%'
+                          )
+                          AND EXISTS (
+                              SELECT 1
+                              FROM bookings bk2
+                              JOIN beds bb2 ON bb2.id = bk2.bed_id
+                              WHERE bb2.room_id = rr.id
+                                AND bk2.branch_id = b.id
+                                AND bk2.status = 'active'
+                                AND bk2.checkin_date <= :today
+                                AND bk2.checkout_date > :today
+                          )
+                      )
+                ) AS available_beds,
+                (
+                    SELECT COUNT(DISTINCT bk.bed_id)
+                    FROM bookings bk
+                    WHERE bk.branch_id = b.id
+                      AND bk.status = 'active'
+                      AND bk.checkin_date <= :today
+                      AND bk.checkout_date > :today
+                ) AS busy_beds,
+                (
+                    SELECT COUNT(*)
+                    FROM beds bb
+                    JOIN rooms rr ON rr.id = bb.room_id
+                    WHERE rr.branch_id = b.id
                       AND lower(coalesce(bb.bed_type, '')) = 'single'
                 ) AS single_beds,
                 (
@@ -4408,6 +4478,38 @@ def list_public_branches_with_rating_db(
                       AND lower(coalesce(trim(rx.room_type), '')) = lower(:room_type)
                 )
             )
+              AND EXISTS (
+                  SELECT 1
+                  FROM beds bb
+                  JOIN rooms rr ON rr.id = bb.room_id
+                  WHERE rr.branch_id = b.id
+                    AND NOT EXISTS (
+                        SELECT 1
+                        FROM bookings bk
+                        WHERE bk.bed_id = bb.id
+                          AND bk.branch_id = b.id
+                          AND bk.status = 'active'
+                          AND bk.checkin_date <= :today
+                          AND bk.checkout_date > :today
+                    )
+                    AND NOT (
+                        (
+                            lower(coalesce(rr.room_type, '')) LIKE '%oilav%'
+                            OR lower(coalesce(rr.room_type, '')) LIKE '%family%'
+                            OR lower(coalesce(rr.room_type, '')) LIKE '%сем%'
+                        )
+                        AND EXISTS (
+                            SELECT 1
+                            FROM bookings bk2
+                            JOIN beds bb2 ON bb2.id = bk2.bed_id
+                            WHERE bb2.room_id = rr.id
+                              AND bk2.branch_id = b.id
+                              AND bk2.status = 'active'
+                              AND bk2.checkin_date <= :today
+                              AND bk2.checkout_date > :today
+                        )
+                    )
+              )
             GROUP BY b.id, b.name, b.address, b.latitude, b.longitude, b.contact_phone, b.contact_telegram
             HAVING (:min_rating IS NULL OR COALESCE(AVG(br.rating), 0) >= :min_rating)
             ORDER BY avg_rating DESC, rating_count DESC, b.id ASC
@@ -4415,6 +4517,7 @@ def list_public_branches_with_rating_db(
         """), {
             "min_rating": min_rating,
             "room_type": room_type_norm,
+            "today": today,
             "lim": lim,
         }).mappings().all()
 
@@ -4434,6 +4537,8 @@ def list_public_branches_with_rating_db(
             "min_price": float(r["min_price"]) if r["min_price"] is not None else None,
             "max_price": float(r["max_price"]) if r["max_price"] is not None else None,
             "total_beds": int(r["total_beds"] or 0),
+            "available_beds": int(r["available_beds"] or 0),
+            "busy_beds": int(r["busy_beds"] or 0),
             "single_beds": int(r["single_beds"] or 0),
             "double_beds": int(r["double_beds"] or 0),
             "child_beds": int(r["child_beds"] or 0),
@@ -4481,6 +4586,7 @@ def get_public_branch_details_db(branch_id: int):
     ensure_branch_contact_columns()
 
     bid = int(branch_id)
+    today = app_today().isoformat()
     with get_connection() as conn:
         branch = conn.execute(text("""
             SELECT
@@ -4514,6 +4620,7 @@ def get_public_branch_details_db(branch_id: int):
                 COALESCE(SUM(CASE WHEN b.bed_type = 'single' THEN 1 ELSE 0 END), 0) AS single_count,
                 COALESCE(SUM(CASE WHEN b.bed_type = 'double' THEN 1 ELSE 0 END), 0) AS double_count,
                 COALESCE(SUM(CASE WHEN b.bed_type = 'child' THEN 1 ELSE 0 END), 0) AS child_count,
+                COUNT(DISTINCT CASE WHEN bk_active.id IS NOT NULL THEN b.id END) AS busy_count,
                 MIN(COALESCE(b.fixed_price, r.fixed_price)) AS min_effective_price,
                 MAX(COALESCE(b.fixed_price, r.fixed_price)) AS max_effective_price,
                 (
@@ -4527,10 +4634,16 @@ def get_public_branch_details_db(branch_id: int):
             LEFT JOIN beds b
               ON b.room_id = r.id
              AND b.branch_id = r.branch_id
+            LEFT JOIN bookings bk_active
+              ON bk_active.bed_id = b.id
+             AND bk_active.branch_id = r.branch_id
+             AND bk_active.status = 'active'
+             AND bk_active.checkin_date <= :today
+             AND bk_active.checkout_date > :today
             WHERE r.branch_id = :bid
             GROUP BY r.id, r.number, r.room_name, r.room_type, r.fixed_price
             ORDER BY r.id ASC
-        """), {"bid": bid}).mappings().all()
+        """), {"bid": bid, "today": today}).mappings().all()
 
     return {
         "branch": {
@@ -4544,7 +4657,7 @@ def get_public_branch_details_db(branch_id: int):
             "avg_rating": float(branch["avg_rating"] or 0),
             "rating_count": int(branch["rating_count"] or 0),
         },
-        "rooms": [
+        "rooms": (lambda src: [
             {
                 "id": int(r["id"]),
                 "room_number": r["room_number"],
@@ -4555,12 +4668,33 @@ def get_public_branch_details_db(branch_id: int):
                 "single_count": int(r["single_count"] or 0),
                 "double_count": int(r["double_count"] or 0),
                 "child_count": int(r["child_count"] or 0),
+                "busy_count": int(r["busy_count"] or 0),
+                "available_beds": (0 if (
+                    ("oilav" in str((r["room_type"] or "")).strip().lower())
+                    or ("family" in str((r["room_type"] or "")).strip().lower())
+                    or ("сем" in str((r["room_type"] or "")).strip().lower())
+                ) and int(r["busy_count"] or 0) > 0 else max(int(r["bed_count"] or 0) - int(r["busy_count"] or 0), 0)),
+                "occupancy_status": (
+                    "full" if (
+                        int(r["bed_count"] or 0) <= 0
+                        or (
+                            (
+                                ("oilav" in str((r["room_type"] or "")).strip().lower())
+                                or ("family" in str((r["room_type"] or "")).strip().lower())
+                                or ("сем" in str((r["room_type"] or "")).strip().lower())
+                            ) and int(r["busy_count"] or 0) > 0
+                        )
+                        or max(int(r["bed_count"] or 0) - int(r["busy_count"] or 0), 0) <= 0
+                    ) else (
+                        "partial" if int(r["busy_count"] or 0) > 0 else "free"
+                    )
+                ),
                 "min_effective_price": float(r["min_effective_price"]) if r["min_effective_price"] is not None else None,
                 "max_effective_price": float(r["max_effective_price"]) if r["max_effective_price"] is not None else None,
                 "cover_image": r["cover_image"],
             }
-            for r in rooms
-        ]
+            for r in src
+        ])(rooms)
     }
 
 

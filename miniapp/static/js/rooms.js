@@ -10,6 +10,21 @@ function formatPrice(v) {
   return `${n.toLocaleString()} ${t("currency_short")}`;
 }
 
+function roomStatusText(status) {
+  const isRu = (document.documentElement.lang || "").toLowerCase().startsWith("ru");
+  const s = String(status || "").toLowerCase();
+  if (s === "full") return isRu ? "Полностью занято" : "To'liq band";
+  if (s === "partial") return isRu ? "Частично занято" : "Qisman band";
+  return isRu ? "Свободно" : "Bo'sh";
+}
+
+function roomStatusClass(status) {
+  const s = String(status || "").toLowerCase();
+  if (s === "full") return "bg-red-100 text-red-700";
+  if (s === "partial") return "bg-amber-100 text-amber-700";
+  return "bg-green-100 text-green-700";
+}
+
 $(document).ready(function () {
   CURRENT_BRANCH = localStorage.getItem("CURRENT_BRANCH");
   if (!CURRENT_BRANCH) {
@@ -40,9 +55,10 @@ function loadRooms() {
         : `${room.room_name || room.room_number}`;
       const btn = $(`
         <button
-          class="room-item px-4 py-2 rounded-full border text-sm whitespace-nowrap bg-gray-100 text-gray-700"
+          class="room-item px-4 py-2 rounded-full border text-sm whitespace-nowrap bg-gray-100 text-gray-700 flex items-center gap-2"
         >
-          ${roomLabel}
+          <span>${roomLabel}</span>
+          <span class="text-[11px] px-2 py-0.5 rounded-full ${roomStatusClass(room.occupancy_status)}">${roomStatusText(room.occupancy_status)}</span>
         </button>
       `);
 

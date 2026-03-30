@@ -36,6 +36,18 @@
         <option value="4">4.0+</option>
         <option value="4.5">4.5+</option>
       </select>
+      <div class="price-range">
+        <input id="priceMinInput" type="number" min="0" step="1000" data-ph="min_price_ph" placeholder="Min narx">
+        <input id="priceMaxInput" type="number" min="0" step="1000" data-ph="max_price_ph" placeholder="Max narx">
+      </div>
+      <div class="price-slider-wrap">
+        <input id="priceMinRange" type="range" min="0" max="10000000" step="1000" value="0">
+        <input id="priceMaxRange" type="range" min="0" max="10000000" step="1000" value="10000000">
+        <div class="price-slider-labels">
+          <span id="priceMinLabel">0</span>
+          <span id="priceMaxLabel">10 000 000</span>
+        </div>
+      </div>
       <div class="geo-tools">
         <button id="findNearestBtn" class="ghost-btn" data-i18n="nearest_by_gps">Yaqinlarni GPS bo'yicha topish</button>
         <select id="distanceFilter">
@@ -139,6 +151,6 @@
     </div>
   </div>
 
-  <script src="/static/js/catalog.js?v=20260330d"></script>
+  <script src="/static/js/catalog.js?v=20260330h"></script>
 </body>
 </html>
