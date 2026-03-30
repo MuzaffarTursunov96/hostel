@@ -70,58 +70,48 @@
       <!-- injected -->
     </div>
 
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-      <input id="roomTypeInput"
-             type="text"
-             class="sm:col-span-2 px-3 py-2 rounded-lg border"
-             placeholder="{{ t('room_type_optional') }}">
-      <button onclick="saveRoomType()"
-              class="py-2 rounded-xl border font-medium">
-        {{ t("save_room_type") }}
-      </button>
+    <div class="space-y-2">
+      <div class="grid grid-cols-2 gap-2">
+        <input id="roomTypeInput"
+               type="text"
+               class="w-full px-3 py-2 rounded-lg border"
+               placeholder="Xona turi">
+        <select id="roomBookingModeInput" class="w-full px-3 py-2 rounded-lg border">
+          <option value="bed">Qisman (kravat)</option>
+          <option value="full">To'liq xona</option>
+        </select>
+      </div>
+      <div class="grid grid-cols-3 gap-2">
+        <input id="roomFixedPriceInput"
+               type="number"
+               step="0.01"
+               min="0"
+               class="w-full px-3 py-2 rounded-lg border"
+               placeholder="Kunlik">
+        <input id="roomHourlyPriceInput"
+               type="number"
+               step="0.01"
+               min="0"
+               class="w-full px-3 py-2 rounded-lg border"
+               placeholder="Soatlik">
+        <input id="roomMonthlyPriceInput"
+               type="number"
+               step="0.01"
+               min="0"
+               class="w-full px-3 py-2 rounded-lg border"
+               placeholder="Oylik">
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <button onclick="saveRoomSettings()"
+                class="w-full py-2 rounded-xl bg-tgButton text-white font-medium">
+          Saqlash
+        </button>
+        <button onclick="clearRoomPrice()"
+                class="w-full py-2 rounded-xl border font-medium">
+          Kelishiladi
+        </button>
+      </div>
     </div>
-
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-      <select id="roomBookingModeInput" class="sm:col-span-2 px-3 py-2 rounded-lg border">
-        <option value="bed">Qisman (kravat bo'yicha) / Частично (по кроватям)</option>
-        <option value="full">To'liq xona / Полная комната</option>
-      </select>
-      <button onclick="saveRoomBookingMode()"
-              class="py-2 rounded-xl border font-medium">
-        Bron rejimini saqlash
-      </button>
-    </div>
-
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-      <input id="roomFixedPriceInput"
-             type="number"
-             step="0.01"
-             min="0"
-             class="sm:col-span-2 px-3 py-2 rounded-lg border"
-             placeholder="Kunlik / За день (ixtiyoriy)">
-      <button onclick="saveRoomPrice()"
-              class="py-2 rounded-xl bg-tgButton text-white font-medium">
-        {{ t("save_room_price") }}
-      </button>
-    </div>
-    <div class="grid grid-cols-2 gap-2">
-      <input id="roomHourlyPriceInput"
-             type="number"
-             step="0.01"
-             min="0"
-             class="px-3 py-2 rounded-lg border"
-             placeholder="Soatlik / За час (ixtiyoriy)">
-      <input id="roomMonthlyPriceInput"
-             type="number"
-             step="0.01"
-             min="0"
-             class="px-3 py-2 rounded-lg border"
-             placeholder="Oylik / За месяц (ixtiyoriy)">
-    </div>
-    <button onclick="clearRoomPrice()"
-            class="w-full py-2 rounded-xl border font-medium">
-      {{ t("clear_price_agreement") }}
-    </button>
 
     <button onclick="deleteRoom()"
             class="w-full mt-2 py-3 rounded-xl bg-red-500 text-white font-medium">

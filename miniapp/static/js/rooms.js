@@ -426,6 +426,39 @@ function saveRoomType() {
   });
 }
 
+function saveRoomSettings() {
+  if (!CURRENT_ROOM_ID) {
+    alert(t("select_a_room_first"));
+    return;
+  }
+
+  const roomType = String($("#roomTypeInput").val() || "").trim();
+  const mode = String($("#roomBookingModeInput").val() || "bed").trim().toLowerCase();
+  const daily = String($("#roomFixedPriceInput").val() || "").trim();
+  const hourly = String($("#roomHourlyPriceInput").val() || "").trim();
+  const monthly = String($("#roomMonthlyPriceInput").val() || "").trim();
+
+  const reqType = apiPut(`/rooms/${CURRENT_ROOM_ID}/type`, {
+    branch_id: CURRENT_BRANCH,
+    room_type: roomType
+  });
+  const reqMode = apiPut(`/rooms/${CURRENT_ROOM_ID}/booking-mode`, {
+    branch_id: CURRENT_BRANCH,
+    booking_mode: mode === "full" ? "full" : "bed"
+  });
+  const reqPrice = apiPut(`/rooms/${CURRENT_ROOM_ID}/price`, {
+    branch_id: CURRENT_BRANCH,
+    fixed_price: daily,
+    price_daily: daily,
+    price_hourly: hourly,
+    price_monthly: monthly
+  });
+
+  $.when(reqType, reqMode, reqPrice).done(function () {
+    loadRooms();
+  });
+}
+
 function saveRoomBookingMode() {
   if (!CURRENT_ROOM_ID) {
     alert(t("select_a_room_first"));
