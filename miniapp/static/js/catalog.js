@@ -13,6 +13,9 @@
       photos: "Rasmlar",
       details: "Batafsil",
       rate: "Baholash",
+      rate_after_stay: "Checkoutdan keyin baholash",
+      rate_phone_prompt: "Bron qilgan telefon raqamingizni kiriting",
+      rate_not_allowed: "Baholash faqat checkoutdan keyin ruxsat",
       report: "Xabar yuborish",
       booking: "Bron ariza",
       no_data: "Mos obyekt topilmadi",
@@ -80,6 +83,9 @@
       photos: "Фото",
       details: "Подробнее",
       rate: "Оценить",
+      rate_after_stay: "Оценить после выезда",
+      rate_phone_prompt: "Введите номер телефона, использованный в брони",
+      rate_not_allowed: "Оценка доступна только после выезда",
       report: "Отправить сообщение",
       booking: "Заявка на бронь",
       no_data: "Подходящие объекты не найдены",
@@ -489,7 +495,6 @@
             <button class="ghost-btn small-btn" data-open-photos="${r.id}">📷 ${t("photos")}</button>
             <button class="ghost-btn small-btn" data-open-details="${r.id}">ℹ ${t("details")}</button>
             <button class="solid-btn small-btn" data-book="${r.id}">🛏 ${t("booking")}</button>
-            <button class="solid-btn small-btn" data-rate="${r.id}">⭐ ${t("rate")}</button>
             <button class="ghost-btn small-btn" data-report="${r.id}">✉ ${t("report")}</button>
           </div>
         </div>
@@ -548,6 +553,7 @@
       <div class="branch-actions" style="margin-top:8px;">
         ${phone ? `<a class="solid-btn" href="tel:${escapeHtml(phone)}">${t("call")}</a>` : ""}
         ${tgLink ? `<a class="ghost-btn" target="_blank" rel="noopener" href="${tgLink}">${t("telegram")}</a>` : ""}
+        <button type="button" class="solid-btn small-btn" data-rate-details="${branchId}">⭐ ${t("rate_after_stay")}</button>
       </div>
     `;
 
@@ -592,9 +598,15 @@
       : `<div class="empty">${t("details_none")}</div>`;
 
     detailsBodyEl.innerHTML = top + roomCards;
+    const rateBtn = detailsBodyEl.querySelector(`[data-rate-details="${branchId}"]`);
+    if (rateBtn) {
+      rateBtn.addEventListener("click", () => submitRating(branchId));
+    }
   }
 
   async function submitRating(branchId) {
+    const contact = (window.prompt(t("rate_phone_prompt"), "") || "").trim();
+    if (!contact) return;
     const raw = window.prompt(t("rating_prompt"), "5");
     if (raw == null) return;
     const value = Math.max(1, Math.min(5, parseInt(raw, 10) || 0));
@@ -604,9 +616,17 @@
     const res = await fetch(`/public-api/branches/${branchId}/ratings`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rating: value, comment: comment })
+      body: JSON.stringify({ rating: value, comment: comment, contact: contact, source: "web_app" })
     });
-    if (!res.ok) return;
+    if (!res.ok) {
+      let msg = t("rate_not_allowed");
+      try {
+        const p = await res.json();
+        if (p && p.detail) msg = String(p.detail);
+      } catch (_) {}
+      alert(msg);
+      return;
+    }
     alert(t("saved"));
     await loadBranches();
   }
@@ -747,12 +767,6 @@
       openBooking(id, row.name || "Branch");
       return;
     }
-    const rateBtn = e.target.closest("[data-rate]");
-    if (rateBtn) {
-      const id = Number(rateBtn.getAttribute("data-rate"));
-      submitRating(id);
-      return;
-    }
     const reportBtn = e.target.closest("[data-report]");
     if (reportBtn) {
       const id = Number(reportBtn.getAttribute("data-report"));
@@ -772,6 +786,7 @@
     form.append("message", message);
     if (reportRoomLabelEl.value.trim()) form.append("room_label", reportRoomLabelEl.value.trim());
     if (reportContactEl.value.trim()) form.append("contact", reportContactEl.value.trim());
+    form.append("source", "web_app");
     if (reportPhotoEl.files && reportPhotoEl.files[0]) form.append("file", reportPhotoEl.files[0]);
 
     const res = await fetch("/public-api/feedback/room-report", {
@@ -797,6 +812,7 @@
       checkin: String(bookingCheckinEl.value || "").trim() || null,
       checkout: String(bookingCheckoutEl.value || "").trim() || null,
       message: String(bookingMessageEl.value || "").trim() || null,
+      source: "web_app",
     };
 
     const res = await fetch("/public-api/booking-request", {

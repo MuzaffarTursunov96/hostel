@@ -7,6 +7,8 @@ from db import (
     get_branch_rating_summary_db,
     list_public_branch_photos_db,
     get_public_branch_details_db,
+    has_completed_stay_for_contact_db,
+    list_public_user_history_db,
 )
 
 router = APIRouter(prefix="/public", tags=["Public Catalog"])
@@ -47,10 +49,18 @@ class RatingIn(BaseModel):
     comment: str | None = None
     telegram_id: int | None = None
     user_name: str | None = None
+    contact: str | None = None
+    source: str | None = None
 
 
 @router.post("/branches/{branch_id}/ratings")
 def public_add_rating(branch_id: int, data: RatingIn):
+    contact = (data.contact or "").strip()
+    if not contact:
+        raise HTTPException(400, "contact required")
+    if not has_completed_stay_for_contact_db(branch_id=branch_id, contact=contact):
+        raise HTTPException(403, "Rating allowed only after completed stay (checkout)")
+
     try:
         add_branch_rating_db(
             branch_id=branch_id,
@@ -58,6 +68,8 @@ def public_add_rating(branch_id: int, data: RatingIn):
             comment=data.comment,
             telegram_id=data.telegram_id,
             user_name=data.user_name,
+            contact=contact,
+            source=data.source,
         )
     except ValueError as exc:
         raise HTTPException(400, str(exc))
@@ -65,4 +77,13 @@ def public_add_rating(branch_id: int, data: RatingIn):
     return {
         "ok": True,
         "summary": get_branch_rating_summary_db(branch_id),
+    }
+
+
+@router.get("/user-history")
+def public_user_history(contact: str | None = None, telegram_id: int | None = None, limit: int = 100):
+    if not (contact or telegram_id):
+        raise HTTPException(400, "contact or telegram_id required")
+    return {
+        "items": list_public_user_history_db(contact=contact, telegram_id=telegram_id, limit=limit)
     }

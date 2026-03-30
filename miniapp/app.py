@@ -255,6 +255,16 @@ def public_api_add_rating(branch_id: int):
     return jsonify(resp.json()), resp.status_code
 
 
+@app.get("/public-api/user-history")
+def public_api_user_history():
+    resp = requests.get(
+        f"{API_URL}/public/user-history",
+        params=request.args,
+        timeout=(10, 20)
+    )
+    return jsonify(resp.json()), resp.status_code
+
+
 @app.post("/public-api/feedback/room-report")
 def public_api_room_report():
     files = {}

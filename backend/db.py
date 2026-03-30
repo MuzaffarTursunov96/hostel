@@ -4254,10 +4254,20 @@ def ensure_branch_ratings_table():
                 branch_id INTEGER NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
                 telegram_id BIGINT NULL,
                 user_name TEXT,
+                contact TEXT,
+                source TEXT DEFAULT 'web_app',
                 rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
                 comment TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
+        """))
+        conn.execute(text("""
+            ALTER TABLE branch_ratings
+            ADD COLUMN IF NOT EXISTS contact TEXT
+        """))
+        conn.execute(text("""
+            ALTER TABLE branch_ratings
+            ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'web_app'
         """))
 
 
@@ -4266,24 +4276,54 @@ def add_branch_rating_db(
     rating: int,
     comment: str | None = None,
     telegram_id: int | None = None,
-    user_name: str | None = None
+    user_name: str | None = None,
+    contact: str | None = None,
+    source: str | None = None,
 ):
     ensure_branch_ratings_table()
     r = int(rating)
     if r < 1 or r > 5:
         raise ValueError("rating must be 1..5")
 
+    src = (str(source or "").strip().lower() or "web_app")
+    if src not in {"web_app", "mobile_app", "desktop_app"}:
+        src = "web_app"
+
     with get_connection() as conn:
         conn.execute(text("""
-            INSERT INTO branch_ratings (branch_id, telegram_id, user_name, rating, comment)
-            VALUES (:branch_id, :telegram_id, :user_name, :rating, :comment)
+            INSERT INTO branch_ratings (branch_id, telegram_id, user_name, contact, source, rating, comment)
+            VALUES (:branch_id, :telegram_id, :user_name, :contact, :source, :rating, :comment)
         """), {
             "branch_id": int(branch_id),
             "telegram_id": telegram_id,
             "user_name": user_name,
+            "contact": (contact or "").strip() or None,
+            "source": src,
             "rating": r,
             "comment": (comment or "").strip() or None,
         })
+
+
+def has_completed_stay_for_contact_db(branch_id: int, contact: str) -> bool:
+    c = (contact or "").strip()
+    if not c:
+        return False
+    today = app_today().isoformat()
+    with get_connection() as conn:
+        row = conn.execute(text("""
+            SELECT 1
+            FROM bookings bk
+            WHERE bk.branch_id = :branch_id
+              AND coalesce(trim(bk.contact), '') = :contact
+              AND bk.status NOT IN ('canceled', 'cancelled')
+              AND bk.checkout_date < :today
+            LIMIT 1
+        """), {
+            "branch_id": int(branch_id),
+            "contact": c,
+            "today": today,
+        }).fetchone()
+    return bool(row)
 
 
 def get_branch_rating_summary_db(branch_id: int):
@@ -4313,7 +4353,7 @@ def list_branch_ratings_db(branch_id: int, limit: int = 50):
 
     with get_connection() as conn:
         rows = conn.execute(text("""
-            SELECT id, branch_id, telegram_id, user_name, rating, comment, created_at
+            SELECT id, branch_id, telegram_id, user_name, contact, source, rating, comment, created_at
             FROM branch_ratings
             WHERE branch_id = :branch_id
             ORDER BY created_at DESC
@@ -4324,6 +4364,86 @@ def list_branch_ratings_db(branch_id: int, limit: int = 50):
         }).mappings().all()
 
     return [dict(r) for r in rows]
+
+
+def list_public_user_history_db(contact: str | None = None, telegram_id: int | None = None, limit: int = 100):
+    ensure_branch_feedback_table()
+    ensure_branch_ratings_table()
+    lim = int(limit or 100)
+    if lim < 1:
+        lim = 1
+    if lim > 500:
+        lim = 500
+
+    c = (contact or "").strip() or None
+    tg = int(telegram_id) if telegram_id is not None else None
+
+    with get_connection() as conn:
+        ratings = conn.execute(text("""
+            SELECT
+                'rating'::text AS item_type,
+                br.id,
+                br.branch_id,
+                b.name AS branch_name,
+                br.rating,
+                br.comment AS message,
+                br.source,
+                br.created_at
+            FROM branch_ratings br
+            JOIN branches b ON b.id = br.branch_id
+            WHERE (
+                (:contact IS NOT NULL AND coalesce(trim(br.contact), '') = :contact)
+                OR (:tg IS NOT NULL AND br.telegram_id = :tg)
+            )
+            ORDER BY br.created_at DESC
+            LIMIT :lim
+        """), {"contact": c, "tg": tg, "lim": lim}).mappings().all()
+
+        feedback = conn.execute(text("""
+            SELECT
+                f.report_type::text AS item_type,
+                f.id,
+                f.branch_id,
+                b.name AS branch_name,
+                NULL::int AS rating,
+                f.message,
+                'web_app'::text AS source,
+                f.created_at
+            FROM branch_feedback f
+            JOIN branches b ON b.id = f.branch_id
+            WHERE (
+                (:contact IS NOT NULL AND coalesce(trim(f.contact), '') = :contact)
+                OR (:tg IS NOT NULL AND f.telegram_id = :tg)
+            )
+            ORDER BY f.created_at DESC
+            LIMIT :lim
+        """), {"contact": c, "tg": tg, "lim": lim}).mappings().all()
+
+        bookings = conn.execute(text("""
+            SELECT
+                'booking'::text AS item_type,
+                bk.id,
+                bk.branch_id,
+                b.name AS branch_name,
+                NULL::int AS rating,
+                (
+                    'Check-in: ' || bk.checkin_date::text ||
+                    ', Check-out: ' || bk.checkout_date::text ||
+                    ', Status: ' || coalesce(bk.status, '')
+                ) AS message,
+                'mobile_app'::text AS source,
+                bk.created_at
+            FROM bookings bk
+            JOIN branches b ON b.id = bk.branch_id
+            WHERE :contact IS NOT NULL
+              AND coalesce(trim(bk.contact), '') = :contact
+            ORDER BY bk.created_at DESC
+            LIMIT :lim
+        """), {"contact": c, "lim": lim}).mappings().all()
+
+    all_rows = [dict(r) for r in ratings] + [dict(r) for r in feedback] + [dict(r) for r in bookings]
+    all_rows.sort(key=lambda x: str(x.get("created_at") or ""), reverse=True)
+    return all_rows[:lim]
 
 
 def list_public_branches_with_rating_db(

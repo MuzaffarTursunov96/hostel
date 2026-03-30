@@ -23,6 +23,7 @@ class FeedbackIn(BaseModel):
     telegram_id: int | None = None
     user_name: str | None = None
     contact: str | None = None
+    source: str | None = None
 
 
 class BookingRequestIn(BaseModel):
@@ -33,14 +34,18 @@ class BookingRequestIn(BaseModel):
     checkin: str | None = None
     checkout: str | None = None
     message: str | None = None
+    source: str | None = None
 
 
 @router.post("/public")
 def submit_feedback(data: FeedbackIn):
+    src = (data.source or "web_app").strip().lower()
+    if src not in {"web_app", "mobile_app", "desktop_app"}:
+        src = "web_app"
     try:
         add_branch_feedback_db(
             branch_id=data.branch_id,
-            message=data.message,
+            message=f"[{src}] {data.message}",
             sentiment=data.sentiment,
             telegram_id=data.telegram_id,
             user_name=data.user_name,
@@ -58,11 +63,16 @@ def submit_booking_request(data: BookingRequestIn):
     if not phone:
         raise HTTPException(400, "phone required")
 
+    src = (data.source or "web_app").strip().lower()
+    if src not in {"web_app", "mobile_app", "desktop_app"}:
+        src = "web_app"
+
     parts = []
     full_name = (data.full_name or "").strip()
     if full_name:
         parts.append(f"Client: {full_name}")
     parts.append(f"Phone: {phone}")
+    parts.append(f"Source: {src}")
     room_or_bed = (data.room_or_bed or "").strip()
     if room_or_bed:
         parts.append(f"Room/Bed: {room_or_bed}")
@@ -102,6 +112,7 @@ def submit_room_report(
     telegram_id: int | None = Form(None),
     user_name: str | None = Form(None),
     contact: str | None = Form(None),
+    source: str | None = Form("web_app"),
     file: UploadFile | None = File(None),
 ):
     saved_image_path = None
@@ -115,10 +126,14 @@ def submit_room_report(
             fp.write(file.file.read())
         saved_image_path = f"/static/room_reports/{filename}"
 
+    src = (source or "web_app").strip().lower()
+    if src not in {"web_app", "mobile_app", "desktop_app"}:
+        src = "web_app"
+
     try:
         add_branch_feedback_db(
             branch_id=branch_id,
-            message=message,
+            message=f"[{src}] {message}",
             sentiment=None,
             telegram_id=telegram_id,
             user_name=user_name,
