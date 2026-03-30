@@ -4376,7 +4376,7 @@ def set_room_pricing_db(
 ):
     ensure_pricing_columns()
     with get_connection() as conn:
-        conn.execute(text("""
+        result = conn.execute(text("""
             UPDATE rooms
             SET
                 fixed_price = :price_daily,
@@ -4392,13 +4392,15 @@ def set_room_pricing_db(
             "price_daily": price_daily,
             "price_monthly": price_monthly,
         })
+        if (result.rowcount or 0) <= 0:
+            raise ValueError("Room not found or no access")
     return {"status": "success"}
 
 
 def set_room_type_db(room_id: int, branch_id: int, room_type: str | None = None):
     ensure_pricing_columns()
     with get_connection() as conn:
-        conn.execute(text("""
+        result = conn.execute(text("""
             UPDATE rooms
             SET room_type = :room_type
             WHERE id = :room_id
@@ -4408,6 +4410,8 @@ def set_room_type_db(room_id: int, branch_id: int, room_type: str | None = None)
             "branch_id": int(branch_id),
             "room_type": (room_type or "").strip() or None,
         })
+        if (result.rowcount or 0) <= 0:
+            raise ValueError("Room not found or no access")
     return {"status": "success"}
 
 
@@ -4416,7 +4420,7 @@ def set_room_booking_mode_db(room_id: int, branch_id: int, booking_mode: str | N
     mode = str(booking_mode or "").strip().lower()
     mode = "full" if mode in {"full", "room_full", "full_room"} else "bed"
     with get_connection() as conn:
-        conn.execute(text("""
+        result = conn.execute(text("""
             UPDATE rooms
             SET booking_mode = :booking_mode
             WHERE id = :room_id
@@ -4426,6 +4430,8 @@ def set_room_booking_mode_db(room_id: int, branch_id: int, booking_mode: str | N
             "branch_id": int(branch_id),
             "booking_mode": mode,
         })
+        if (result.rowcount or 0) <= 0:
+            raise ValueError("Room not found or no access")
     return {"status": "success", "booking_mode": mode}
 
 

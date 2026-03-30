@@ -30,6 +30,14 @@ ALLOWED_IMAGE_EXTENSIONS = {
 }
 
 
+def _can_manage_room_settings(user: dict) -> bool:
+    if not isinstance(user, dict):
+        return False
+    if bool(user.get("is_admin")):
+        return True
+    return bool(user.get("created_by"))
+
+
 def _is_image_upload(file: UploadFile) -> bool:
     ctype = (file.content_type or "").strip().lower()
     ext = (os.path.splitext(file.filename or "")[1] or "").strip().lower()
@@ -152,8 +160,8 @@ async def set_room_price(
     price_monthly: str | None = None,
     user=Depends(get_current_user),
 ):
-    if not user.get("is_admin"):
-        raise HTTPException(403, "Admin only")
+    if not _can_manage_room_settings(user):
+        raise HTTPException(403, "Admin or manager only")
 
     def _parse_num(raw: str | None, field_name: str):
         if raw is None:
@@ -176,16 +184,19 @@ async def set_room_price(
     if daily_val is None and fixed_val is not None:
         daily_val = fixed_val
 
-    if price_hourly is None and price_daily is None and price_monthly is None:
-        set_room_fixed_price_db(room_id=room_id, branch_id=branch_id, fixed_price=fixed_val)
-    else:
-        set_room_pricing_db(
-            room_id=room_id,
-            branch_id=branch_id,
-            price_hourly=hourly_val,
-            price_daily=daily_val,
-            price_monthly=monthly_val,
-        )
+    try:
+        if price_hourly is None and price_daily is None and price_monthly is None:
+            set_room_fixed_price_db(room_id=room_id, branch_id=branch_id, fixed_price=fixed_val)
+        else:
+            set_room_pricing_db(
+                room_id=room_id,
+                branch_id=branch_id,
+                price_hourly=hourly_val,
+                price_daily=daily_val,
+                price_monthly=monthly_val,
+            )
+    except ValueError as exc:
+        raise HTTPException(404, str(exc))
     await ws_manager.broadcast({
         "type": "rooms_changed",
         "branch_id": branch_id,
@@ -207,10 +218,13 @@ async def set_room_type(
     room_type: str | None = None,
     user=Depends(get_current_user),
 ):
-    if not user.get("is_admin"):
-        raise HTTPException(403, "Admin only")
+    if not _can_manage_room_settings(user):
+        raise HTTPException(403, "Admin or manager only")
 
-    set_room_type_db(room_id=room_id, branch_id=branch_id, room_type=room_type)
+    try:
+        set_room_type_db(room_id=room_id, branch_id=branch_id, room_type=room_type)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc))
     await ws_manager.broadcast({
         "type": "rooms_changed",
         "branch_id": branch_id,
@@ -226,11 +240,14 @@ async def set_room_booking_mode(
     booking_mode: str | None = None,
     user=Depends(get_current_user),
 ):
-    if not user.get("is_admin"):
-        raise HTTPException(403, "Admin only")
+    if not _can_manage_room_settings(user):
+        raise HTTPException(403, "Admin or manager only")
 
     mode = "full" if str(booking_mode or "").strip().lower() in {"full", "room_full", "full_room"} else "bed"
-    set_room_booking_mode_db(room_id=room_id, branch_id=branch_id, booking_mode=mode)
+    try:
+        set_room_booking_mode_db(room_id=room_id, branch_id=branch_id, booking_mode=mode)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc))
     await ws_manager.broadcast({
         "type": "rooms_changed",
         "branch_id": branch_id,

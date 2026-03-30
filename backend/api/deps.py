@@ -96,7 +96,12 @@ def get_current_user(token=Depends(security)):
         )
         raise HTTPException(status_code=403, detail=msg + _contact_block(lang))
 
-    return payload
+    enriched = dict(payload or {})
+    enriched["is_admin"] = bool(user_row.get("is_admin"))
+    enriched["created_by"] = user_row.get("created_by")
+    enriched["telegram_id"] = user_row.get("telegram_id")
+    enriched["language"] = user_row.get("language") or enriched.get("language") or "ru"
+    return enriched
 
 
 def admin_required(user=Depends(get_current_user)):
