@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/css/catalog.css?v=20260331c">
+  <link rel="stylesheet" href="/static/css/catalog.css?v=20260331d">
 </head>
 <body>
   <div class="bg-glow"></div>
@@ -37,20 +37,36 @@
 
     <section id="filtersPanel" class="filters collapsed" hidden>
       <input id="searchInput" type="text" placeholder="Qidirish..." data-ph="search_ph">
-      <select id="priceModeFilter">
-        <option value="day" data-i18n="price_mode_day">Kunlik narx</option>
-        <option value="hour" data-i18n="price_mode_hour">Soatlik narx</option>
-        <option value="month" data-i18n="price_mode_month">Oylik narx</option>
-      </select>
-      <select id="roomTypeFilter">
-        <option value="" data-i18n="all_room_types">Barcha xona turlari</option>
-      </select>
-      <select id="ratingFilter">
-        <option value="0" data-i18n="all_ratings">Barcha reytinglar</option>
-        <option value="3">3.0+</option>
-        <option value="4">4.0+</option>
-        <option value="4.5">4.5+</option>
-      </select>
+      <div class="filters-row">
+        <input id="cityInput" type="text" data-ph="city_ph" placeholder="Shahar">
+        <input id="regionInput" type="text" data-ph="region_ph" placeholder="Hudud">
+      </div>
+      <div class="filters-row">
+        <select id="priceModeFilter">
+          <option value="day" data-i18n="price_mode_day">Kunlik narx</option>
+          <option value="hour" data-i18n="price_mode_hour">Soatlik narx</option>
+          <option value="month" data-i18n="price_mode_month">Oylik narx</option>
+        </select>
+        <select id="roomTypeFilter">
+          <option value="" data-i18n="all_room_types">Barcha xona turlari</option>
+        </select>
+      </div>
+      <div class="filters-row">
+        <select id="ratingFilter">
+          <option value="0" data-i18n="all_ratings">Barcha reytinglar</option>
+          <option value="3">3.0+</option>
+          <option value="4">4.0+</option>
+          <option value="4.5">4.5+</option>
+        </select>
+        <select id="distanceFilter">
+          <option value="" data-i18n="any_distance">Masofa: hammasi</option>
+          <option value="3">3 km</option>
+          <option value="5">5 km</option>
+          <option value="10">10 km</option>
+          <option value="20">20 km</option>
+          <option value="50">50 km</option>
+        </select>
+      </div>
       <div class="price-range">
         <input id="priceMinInput" type="number" min="0" step="1000" data-ph="min_price_ph" placeholder="Min narx">
         <input id="priceMaxInput" type="number" min="0" step="1000" data-ph="max_price_ph" placeholder="Max narx">
@@ -65,14 +81,6 @@
       </div>
       <div class="geo-tools">
         <button id="findNearestBtn" class="ghost-btn" data-i18n="nearest_by_gps">Yaqinlarni GPS bo'yicha topish</button>
-        <select id="distanceFilter">
-          <option value="" data-i18n="any_distance">Masofa: hammasi</option>
-          <option value="3">3 km</option>
-          <option value="5">5 km</option>
-          <option value="10">10 km</option>
-          <option value="20">20 km</option>
-          <option value="50">50 km</option>
-        </select>
       </div>
       <div class="filter-actions">
         <button id="refreshBtn" class="solid-btn" data-i18n="refresh">Yangilash</button>
@@ -189,7 +197,7 @@
     </div>
   </div>
 
-  <script src="/static/js/catalog.js?v=20260331c"></script>
+  <script src="/static/js/catalog.js?v={{version}}"></script>
 </body>
 </html>
 

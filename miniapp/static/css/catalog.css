@@ -116,6 +116,12 @@ body {
   gap: 10px;
 }
 
+.filters-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
 .filters.collapsed {
   display: none;
 }
@@ -139,6 +145,10 @@ body {
 
 .price-slider-wrap input[type="range"] {
   width: 100%;
+}
+
+#priceMinRange {
+  display: none;
 }
 
 .price-slider-labels {
@@ -617,12 +627,16 @@ body {
     grid-template-columns: 1fr;
   }
 
+  .filters-row {
+    grid-template-columns: 1fr 1fr;
+  }
+
   .geo-tools {
     grid-template-columns: 1fr;
   }
 
   .price-range {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
   }
 
   .filter-actions {

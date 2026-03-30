@@ -4,6 +4,8 @@
       title: "Hotel va Hostel katalogi",
       subtitle: "Rasm, reyting va joylashuv bo'yicha mos variantni tanlang.",
       search_ph: "Nom yoki manzil bo'yicha qidirish...",
+      city_ph: "Shahar bo'yicha",
+      region_ph: "Hudud bo'yicha",
       all_room_types: "Barcha xona turlari",
       all_ratings: "Barcha reytinglar",
       refresh: "Yangilash",
@@ -101,6 +103,8 @@
       title: "Каталог Hotel и Hostel",
       subtitle: "Выберите вариант по фото, рейтингу и локации.",
       search_ph: "Поиск по названию или адресу...",
+      city_ph: "По городу",
+      region_ph: "По региону",
       all_room_types: "Все типы комнат",
       all_ratings: "Все рейтинги",
       refresh: "Обновить",
@@ -209,6 +213,8 @@
   const toggleFiltersTextEl = document.getElementById("toggleFiltersText");
   const toggleFiltersIconEl = toggleFiltersBtnEl ? toggleFiltersBtnEl.querySelector(".filter-toggle-icon") : null;
   const searchEl = document.getElementById("searchInput");
+  const cityEl = document.getElementById("cityInput");
+  const regionEl = document.getElementById("regionInput");
   const priceModeEl = document.getElementById("priceModeFilter");
   const roomTypeEl = document.getElementById("roomTypeFilter");
   const ratingEl = document.getElementById("ratingFilter");
@@ -572,6 +578,8 @@
 
   function filteredRows() {
     const needle = String(searchEl.value || "").trim().toLowerCase();
+    const cityNeedle = String((cityEl && cityEl.value) || "").trim().toLowerCase();
+    const regionNeedle = String((regionEl && regionEl.value) || "").trim().toLowerCase();
     const maxDistance = toNum(distanceFilterEl.value || "");
     const typedMin = String(priceMinInputEl.value || "").trim();
     const typedMax = String(priceMaxInputEl.value || "").trim();
@@ -591,6 +599,8 @@
       const address = String(r.address || "").toLowerCase();
       const textOk = !needle || name.includes(needle) || address.includes(needle);
       if (!textOk) return false;
+      if (cityNeedle && !name.includes(cityNeedle) && !address.includes(cityNeedle)) return false;
+      if (regionNeedle && !address.includes(regionNeedle)) return false;
 
       const rowMin = toNum(r.min_price);
       const rowMax = toNum(r.max_price);
@@ -972,6 +982,8 @@
   myHistoryBtnEl.addEventListener("click", loadMyHistory);
   clearFiltersBtnEl.addEventListener("click", () => {
     searchEl.value = "";
+    if (cityEl) cityEl.value = "";
+    if (regionEl) regionEl.value = "";
     priceModeEl.value = "day";
     roomTypeEl.value = "";
     ratingEl.value = "0";
@@ -1003,6 +1015,8 @@
     render();
   });
   searchEl.addEventListener("input", render);
+  if (cityEl) cityEl.addEventListener("input", render);
+  if (regionEl) regionEl.addEventListener("input", render);
   priceModeEl.addEventListener("change", () => loadBranches());
   roomTypeEl.addEventListener("change", () => loadBranches());
   ratingEl.addEventListener("change", () => loadBranches());
