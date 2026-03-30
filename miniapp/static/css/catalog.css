@@ -392,7 +392,7 @@ body {
   padding: 10px;
 }
 
-.details-room-top img {
+.details-room-top .details-room-photo {
   width: 120px;
   height: 90px;
   object-fit: cover;
@@ -410,6 +410,12 @@ body {
 .details-room-meta .small-btn {
   margin-top: 6px;
   width: fit-content;
+}
+
+.details-room-meta [data-book-room] {
+  padding: 6px 10px;
+  font-size: 12px;
+  border-radius: 10px;
 }
 
 .details-room-title {

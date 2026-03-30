@@ -681,8 +681,8 @@
     const roomCards = visibleRooms.length
       ? visibleRooms.map((r) => {
           const img = r.cover_image
-            ? `<img src="${escapeHtml(r.cover_image)}" alt="${escapeHtml(r.room_name || "")}" loading="lazy" onerror="this.onerror=null;this.src='${NO_PHOTO_SRC}'" />`
-            : `<img src="${NO_PHOTO_SRC}" alt="${t("no_photo")}" loading="lazy" />`;
+            ? `<img class="details-room-photo" src="${escapeHtml(r.cover_image)}" alt="${escapeHtml(r.room_name || "")}" loading="lazy" onerror="this.onerror=null;this.src='${NO_PHOTO_SRC}'" />`
+            : `<img class="details-room-photo" src="${NO_PHOTO_SRC}" alt="${t("no_photo")}" loading="lazy" />`;
           const priceLine = fmtMinMaxPrice(r.min_effective_price, r.max_effective_price);
 
           return `
