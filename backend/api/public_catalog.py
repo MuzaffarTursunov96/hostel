@@ -15,10 +15,20 @@ router = APIRouter(prefix="/public", tags=["Public Catalog"])
 
 
 @router.get("/branches")
-def public_branches(min_rating: float | None = None, room_type: str | None = None, limit: int = 100):
+def public_branches(
+    min_rating: float | None = None,
+    room_type: str | None = None,
+    price_mode: str | None = None,
+    limit: int = 100
+):
     if min_rating is not None and (min_rating < 0 or min_rating > 5):
         raise HTTPException(400, "min_rating must be between 0 and 5")
-    return list_public_branches_with_rating_db(min_rating=min_rating, room_type=room_type, limit=limit)
+    return list_public_branches_with_rating_db(
+        min_rating=min_rating,
+        room_type=room_type,
+        price_mode=price_mode,
+        limit=limit
+    )
 
 
 @router.get("/branches/{branch_id}/ratings")

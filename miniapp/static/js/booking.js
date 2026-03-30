@@ -1,6 +1,7 @@
-let CURRENT_ROOM_ID = null;
+﻿let CURRENT_ROOM_ID = null;
 let SELECTED_BED = null;
 let CURRENT_BRANCH = null;
+let CURRENT_ROOM_MODE = "bed";
 let notifyDateManuallyChanged = false;
 let BRANCH_CUSTOMERS = [];
 let BOOKING_HISTORY_ROOMS = [];
@@ -123,6 +124,26 @@ function getBedIcon(bedType) {
   }
 }
 
+function bookingModeTitle(mode) {
+  const isRu = (document.documentElement.lang || "").toLowerCase().startsWith("ru");
+  const m = String(mode || "bed").toLowerCase();
+  if (m === "full") return isRu ? "Полная комната" : "To'liq xona";
+  return isRu ? "По кроватям" : "Kravat bo'yicha";
+}
+
+function updateRoomModeBadge(mode) {
+  const $badge = $("#roomModeBadge");
+  if (!$badge.length) return;
+  const m = String(mode || "bed").toLowerCase();
+  const titleRu = (document.documentElement.lang || "").toLowerCase().startsWith("ru");
+  const label = titleRu ? "Режим брони" : "Bron rejimi";
+  const text = `${label}: ${bookingModeTitle(m)}`;
+  $badge
+    .removeClass("hidden bg-blue-100 text-blue-700 bg-amber-100 text-amber-700")
+    .addClass(m === "full" ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700")
+    .text(text);
+}
+
 
 
 
@@ -142,14 +163,18 @@ function loadRooms() {
       $room.empty();
       rooms.forEach(r => {
         const label = r.room_name || r.room_number;
-        $room.append(`<option value="${r.id}">${label}</option>`);
+        $room.append(`<option value="${r.id}">${label} (${bookingModeTitle(r.booking_mode)})</option>`);
 
         // $room.append(`<option value="${r.id}">${t("room")} ${r.room_number}</option>`);
       });
 
       if (rooms.length) {
         CURRENT_ROOM_ID = rooms[0].id;
+        CURRENT_ROOM_MODE = String(rooms[0].booking_mode || "bed").toLowerCase();
+        updateRoomModeBadge(CURRENT_ROOM_MODE);
         loadAvailableBeds();
+      } else {
+        $("#roomModeBadge").addClass("hidden").text("");
       }
 
       renderBookingHistoryRoomFilter();
@@ -158,6 +183,9 @@ function loadRooms() {
   $("#roomSelect").on("change", function () {
 
     CURRENT_ROOM_ID = $(this).val();
+    const row = (BOOKING_HISTORY_ROOMS || []).find((x) => String(x.id) === String(CURRENT_ROOM_ID));
+    CURRENT_ROOM_MODE = String((row && row.booking_mode) || "bed").toLowerCase();
+    updateRoomModeBadge(CURRENT_ROOM_MODE);
     loadAvailableBeds();
   });
 }
@@ -206,7 +234,12 @@ function loadAvailableBeds() {
   }).done(function (beds) {
 
     if (!beds.length) {
-      $("#bedsList").html(`<div class="text-muted">${t("no_free_beds_available")}</div>`);
+      const msg = CURRENT_ROOM_MODE === "full"
+        ? ((document.documentElement.lang || "").toLowerCase().startsWith("ru")
+            ? "Комната (полная бронь) уже занята на выбранный период"
+            : "Xona (to'liq bron) tanlangan davrda band")
+        : t("no_free_beds_available");
+      $("#bedsList").html(`<div class="text-muted">${msg}</div>`);
       return;
     }
 

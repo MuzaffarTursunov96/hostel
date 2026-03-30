@@ -10,6 +10,13 @@ function formatPrice(v) {
   return `${n.toLocaleString()} ${t("currency_short")}`;
 }
 
+function formatPriceLine(hourly, daily, monthly) {
+  const h = formatPrice(hourly);
+  const d = formatPrice(daily);
+  const m = formatPrice(monthly);
+  return `⏱ ${h} | 🗓 ${d} | 📅 ${m}`;
+}
+
 function roomStatusText(status) {
   const isRu = (document.documentElement.lang || "").toLowerCase().startsWith("ru");
   const s = String(status || "").toLowerCase();
@@ -23,6 +30,13 @@ function roomStatusClass(status) {
   if (s === "full") return "bg-red-100 text-red-700";
   if (s === "partial") return "bg-amber-100 text-amber-700";
   return "bg-green-100 text-green-700";
+}
+
+function bookingModeLabel(mode) {
+  const isRu = (document.documentElement.lang || "").toLowerCase().startsWith("ru");
+  const m = String(mode || "bed").toLowerCase();
+  if (m === "full") return isRu ? "Полная комната" : "To'liq xona";
+  return isRu ? "По кроватям" : "Kravat bo'yicha";
 }
 
 $(document).ready(function () {
@@ -53,11 +67,13 @@ function loadRooms() {
       const roomLabel = room.room_type
         ? `${room.room_name || room.room_number} (${room.room_type})`
         : `${room.room_name || room.room_number}`;
+      const mode = bookingModeLabel(room.booking_mode);
       const btn = $(`
         <button
           class="room-item px-4 py-2 rounded-full border text-sm whitespace-nowrap bg-gray-100 text-gray-700 flex items-center gap-2"
         >
           <span>${roomLabel}</span>
+          <span class="text-[11px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">${mode}</span>
           <span class="text-[11px] px-2 py-0.5 rounded-full ${roomStatusClass(room.occupancy_status)}">${roomStatusText(room.occupancy_status)}</span>
         </button>
       `);
@@ -79,8 +95,11 @@ function selectRoom(room) {
   CURRENT_ROOM = room;
   CURRENT_ROOM_ID = room.id;
   $("#bedsTitle").text(`${room.room_name || room.room_number} - ${t("beds")}`);
-  $("#roomFixedPriceInput").val(room.fixed_price ?? "");
+  $("#roomFixedPriceInput").val(room.price_daily ?? room.fixed_price ?? "");
+  $("#roomHourlyPriceInput").val(room.price_hourly ?? "");
+  $("#roomMonthlyPriceInput").val(room.price_monthly ?? "");
   $("#roomTypeInput").val(room.room_type ?? "");
+  $("#roomBookingModeInput").val((room.booking_mode || "bed").toLowerCase() === "full" ? "full" : "bed");
   loadBeds(room.id);
   loadRoomImages(room.id);
 }
@@ -135,7 +154,7 @@ function loadBeds(roomId) {
             <span class="text-3xl mt-2">${ui.icon}</span>
             <div class="font-semibold text-base leading-tight">${ui.title}</div>
             <div class="text-sm text-gray-600">${t("bed")} <span class="font-semibold">${bed.bed_number}</span></div>
-            <div class="text-xs text-gray-600">${formatPrice(bed.fixed_price)}</div>
+            <div class="text-[11px] text-gray-600">${formatPriceLine(bed.price_hourly, bed.price_daily ?? bed.fixed_price, bed.price_monthly)}</div>
           </button>
         `);
 
@@ -238,7 +257,10 @@ function uploadRoomPhotos() {
 function addRoom() {
   $("#roomNameInput").val("");
   $("#roomTypeCreateInput").val("");
+  $("#roomBookingModeCreateInput").val("bed");
   $("#roomPriceInput").val("");
+  $("#roomPriceHourlyInput").val("");
+  $("#roomPriceMonthlyInput").val("");
   $("#roomModal").removeClass("hidden").addClass("flex");
 }
 
@@ -249,7 +271,10 @@ function closeRoomModal() {
 function submitRoom() {
   const roomName = $("#roomNameInput").val().trim();
   const roomType = String($("#roomTypeCreateInput").val() || "").trim();
+  const roomBookingMode = String($("#roomBookingModeCreateInput").val() || "bed").trim().toLowerCase();
   const roomPriceRaw = String($("#roomPriceInput").val() || "").trim();
+  const roomPriceHourlyRaw = String($("#roomPriceHourlyInput").val() || "").trim();
+  const roomPriceMonthlyRaw = String($("#roomPriceMonthlyInput").val() || "").trim();
 
   if (!roomName) {
     alert(t("room_name_required"));
@@ -267,6 +292,10 @@ function submitRoom() {
       number: nextNumber,
       room_name: roomName,
       fixed_price: roomPriceRaw ? Number(roomPriceRaw) : null,
+      price_daily: roomPriceRaw ? Number(roomPriceRaw) : null,
+      price_hourly: roomPriceHourlyRaw ? Number(roomPriceHourlyRaw) : null,
+      price_monthly: roomPriceMonthlyRaw ? Number(roomPriceMonthlyRaw) : null,
+      booking_mode: roomBookingMode === "full" ? "full" : "bed",
       room_type: roomType || null
     })
       .done(function () {
@@ -363,9 +392,14 @@ function saveRoomPrice() {
     return;
   }
   const raw = String($("#roomFixedPriceInput").val() || "").trim();
+  const hourlyRaw = String($("#roomHourlyPriceInput").val() || "").trim();
+  const monthlyRaw = String($("#roomMonthlyPriceInput").val() || "").trim();
   apiPut(`/rooms/${CURRENT_ROOM_ID}/price`, {
     branch_id: CURRENT_BRANCH,
-    fixed_price: raw
+    fixed_price: raw,
+    price_daily: raw,
+    price_hourly: hourlyRaw,
+    price_monthly: monthlyRaw
   }).done(function () {
     loadRooms();
   });
@@ -373,6 +407,8 @@ function saveRoomPrice() {
 
 function clearRoomPrice() {
   $("#roomFixedPriceInput").val("");
+  $("#roomHourlyPriceInput").val("");
+  $("#roomMonthlyPriceInput").val("");
   saveRoomPrice();
 }
 
@@ -390,6 +426,20 @@ function saveRoomType() {
   });
 }
 
+function saveRoomBookingMode() {
+  if (!CURRENT_ROOM_ID) {
+    alert(t("select_a_room_first"));
+    return;
+  }
+  const mode = String($("#roomBookingModeInput").val() || "bed").trim().toLowerCase();
+  apiPut(`/rooms/${CURRENT_ROOM_ID}/booking-mode`, {
+    branch_id: CURRENT_BRANCH,
+    booking_mode: mode === "full" ? "full" : "bed"
+  }).done(function () {
+    loadRooms();
+  });
+}
+
 function openEditBed() {
   if (!SELECTED_BED) {
     alert(t("select_a_bed_first"));
@@ -397,7 +447,9 @@ function openEditBed() {
   }
 
   $("#editBedType").val(SELECTED_BED.bed_type);
-  $("#editBedPrice").val(SELECTED_BED.fixed_price ?? "");
+  $("#editBedPrice").val(SELECTED_BED.price_daily ?? SELECTED_BED.fixed_price ?? "");
+  $("#editBedPriceHourly").val(SELECTED_BED.price_hourly ?? "");
+  $("#editBedPriceMonthly").val(SELECTED_BED.price_monthly ?? "");
   $("#editBedModal").removeClass("hidden").addClass("flex");
 }
 
@@ -408,11 +460,16 @@ function closeEditBedModal() {
 function saveBedType() {
   const bedType = $("#editBedType").val();
   const bedPrice = String($("#editBedPrice").val() || "").trim();
+  const bedPriceHourly = String($("#editBedPriceHourly").val() || "").trim();
+  const bedPriceMonthly = String($("#editBedPriceMonthly").val() || "").trim();
 
   apiPut(`/beds/${SELECTED_BED.id}`, {
     bed_number: SELECTED_BED.bed_number,
     bed_type: bedType,
-    fixed_price: bedPrice
+    fixed_price: bedPrice,
+    price_daily: bedPrice,
+    price_hourly: bedPriceHourly,
+    price_monthly: bedPriceMonthly
   }).done(function () {
     closeEditBedModal();
     loadBeds(CURRENT_ROOM_ID);

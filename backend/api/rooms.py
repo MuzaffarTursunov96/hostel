@@ -14,6 +14,8 @@ from db import (
     delete_room_image_db,
     set_room_cover_image_db,
     set_room_fixed_price_db,
+    set_room_pricing_db,
+    set_room_booking_mode_db,
     set_room_type_db,
 )
 from api.ws_manager import ws_manager
@@ -62,6 +64,10 @@ class RoomCreate(BaseModel):
     number: str
     branch_id: int
     fixed_price: float | None = None
+    price_hourly: float | None = None
+    price_daily: float | None = None
+    price_monthly: float | None = None
+    booking_mode: str | None = None
     room_type: str | None = None
 
 
@@ -81,7 +87,11 @@ async def create_room(data: RoomCreate, user=Depends(get_current_user)):
         data.room_name,
         data.branch_id,
         data.fixed_price,
-        data.room_type
+        data.room_type,
+        data.price_hourly,
+        data.price_daily,
+        data.price_monthly,
+        data.booking_mode,
     )
     
     if create_stat['status'] =='success':
@@ -137,29 +147,57 @@ async def set_room_price(
     room_id: int,
     branch_id: int,
     fixed_price: str | None = None,
+    price_hourly: str | None = None,
+    price_daily: str | None = None,
+    price_monthly: str | None = None,
     user=Depends(get_current_user),
 ):
     if not user.get("is_admin"):
         raise HTTPException(403, "Admin only")
 
-    val = None
-    if fixed_price is not None:
-        s = str(fixed_price).strip().lower()
-        if s not in {"", "null", "none"}:
-            try:
-                val = float(s)
-            except Exception:
-                raise HTTPException(400, "Invalid fixed_price")
-            if val < 0:
-                raise HTTPException(400, "fixed_price must be >= 0")
+    def _parse_num(raw: str | None, field_name: str):
+        if raw is None:
+            return None
+        s = str(raw).strip().lower()
+        if s in {"", "null", "none"}:
+            return None
+        try:
+            v = float(s)
+        except Exception:
+            raise HTTPException(400, f"Invalid {field_name}")
+        if v < 0:
+            raise HTTPException(400, f"{field_name} must be >= 0")
+        return v
 
-    set_room_fixed_price_db(room_id=room_id, branch_id=branch_id, fixed_price=val)
+    fixed_val = _parse_num(fixed_price, "fixed_price")
+    daily_val = _parse_num(price_daily, "price_daily")
+    hourly_val = _parse_num(price_hourly, "price_hourly")
+    monthly_val = _parse_num(price_monthly, "price_monthly")
+    if daily_val is None and fixed_val is not None:
+        daily_val = fixed_val
+
+    if price_hourly is None and price_daily is None and price_monthly is None:
+        set_room_fixed_price_db(room_id=room_id, branch_id=branch_id, fixed_price=fixed_val)
+    else:
+        set_room_pricing_db(
+            room_id=room_id,
+            branch_id=branch_id,
+            price_hourly=hourly_val,
+            price_daily=daily_val,
+            price_monthly=monthly_val,
+        )
     await ws_manager.broadcast({
         "type": "rooms_changed",
         "branch_id": branch_id,
         "room_id": room_id,
     })
-    return {"ok": True, "fixed_price": val}
+    return {
+        "ok": True,
+        "fixed_price": daily_val,
+        "price_hourly": hourly_val,
+        "price_daily": daily_val,
+        "price_monthly": monthly_val,
+    }
 
 
 @router.put("/{room_id}/type")
@@ -179,6 +217,26 @@ async def set_room_type(
         "room_id": room_id,
     })
     return {"ok": True, "room_type": (room_type or "").strip() or None}
+
+
+@router.put("/{room_id}/booking-mode")
+async def set_room_booking_mode(
+    room_id: int,
+    branch_id: int,
+    booking_mode: str | None = None,
+    user=Depends(get_current_user),
+):
+    if not user.get("is_admin"):
+        raise HTTPException(403, "Admin only")
+
+    mode = "full" if str(booking_mode or "").strip().lower() in {"full", "room_full", "full_room"} else "bed"
+    set_room_booking_mode_db(room_id=room_id, branch_id=branch_id, booking_mode=mode)
+    await ws_manager.broadcast({
+        "type": "rooms_changed",
+        "branch_id": branch_id,
+        "room_id": room_id,
+    })
+    return {"ok": True, "booking_mode": mode}
 
 
 @router.get("/{room_id}/images")

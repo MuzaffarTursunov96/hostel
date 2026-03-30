@@ -112,7 +112,7 @@ body {
 .filters {
   margin-top: 18px;
   display: grid;
-  grid-template-columns: 1fr 180px 160px 320px auto;
+  grid-template-columns: 1fr 160px 180px 160px 320px auto;
   gap: 10px;
 }
 
@@ -416,6 +416,42 @@ body {
   padding: 6px 10px;
   font-size: 12px;
   border-radius: 10px;
+}
+
+.price-tabs {
+  margin-top: 6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #f8fbff;
+  padding: 6px;
+}
+
+.price-tab-head {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.price-tab-head .small-btn {
+  padding: 5px 8px;
+  font-size: 11px;
+}
+
+.price-tab-head .small-btn.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.price-tab-panel {
+  display: none;
+  gap: 4px;
+  font-size: 12px;
+  color: #1e3a8a;
+}
+
+.price-tab-panel.active {
+  display: grid;
 }
 
 .details-room-title {

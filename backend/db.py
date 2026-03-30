@@ -523,7 +523,70 @@ def ensure_pricing_columns():
             ALTER TABLE rooms
             ADD COLUMN IF NOT EXISTS room_type TEXT NULL
         """))
+        conn.execute(text("""
+            ALTER TABLE rooms
+            ADD COLUMN IF NOT EXISTS booking_mode TEXT NOT NULL DEFAULT 'bed'
+        """))
+        conn.execute(text("""
+            UPDATE rooms
+            SET booking_mode = 'bed'
+            WHERE booking_mode IS NULL
+               OR trim(booking_mode) = ''
+        """))
+        conn.execute(text("""
+            UPDATE rooms
+            SET booking_mode = 'full'
+            WHERE lower(coalesce(room_type, '')) LIKE '%oilav%'
+               OR lower(coalesce(room_type, '')) LIKE '%family%'
+               OR lower(coalesce(room_type, '')) LIKE '%сем%'
+        """))
+        conn.execute(text("""
+            ALTER TABLE rooms
+            ADD COLUMN IF NOT EXISTS price_hourly NUMERIC NULL
+        """))
+        conn.execute(text("""
+            ALTER TABLE rooms
+            ADD COLUMN IF NOT EXISTS price_daily NUMERIC NULL
+        """))
+        conn.execute(text("""
+            ALTER TABLE rooms
+            ADD COLUMN IF NOT EXISTS price_monthly NUMERIC NULL
+        """))
+        conn.execute(text("""
+            ALTER TABLE beds
+            ADD COLUMN IF NOT EXISTS price_hourly NUMERIC NULL
+        """))
+        conn.execute(text("""
+            ALTER TABLE beds
+            ADD COLUMN IF NOT EXISTS price_daily NUMERIC NULL
+        """))
+        conn.execute(text("""
+            ALTER TABLE beds
+            ADD COLUMN IF NOT EXISTS price_monthly NUMERIC NULL
+        """))
+        conn.execute(text("""
+            UPDATE rooms
+            SET price_daily = fixed_price
+            WHERE price_daily IS NULL
+              AND fixed_price IS NOT NULL
+        """))
+        conn.execute(text("""
+            UPDATE beds
+            SET price_daily = fixed_price
+            WHERE price_daily IS NULL
+              AND fixed_price IS NOT NULL
+        """))
     _pricing_columns_checked = True
+
+
+def _room_requires_full_booking(row) -> bool:
+    mode = str((row.get("booking_mode") if isinstance(row, dict) else None) or "").strip().lower()
+    if mode in {"full", "room_full", "full_room"}:
+        return True
+    if mode in {"bed", "partial", "by_bed"}:
+        return False
+    rt = str((row.get("room_type") if isinstance(row, dict) else None) or "").strip().lower()
+    return ("oilav" in rt) or ("family" in rt) or ("сем" in rt)
 
 
 def ensure_branch_contact_columns():
@@ -553,6 +616,10 @@ def get_rooms_with_beds(branch_id):
                 COUNT(beds.id) AS bed_count,
                 COUNT(DISTINCT CASE WHEN bk_active.id IS NOT NULL THEN beds.id END) AS busy_beds,
                 rooms.fixed_price,
+                rooms.price_hourly,
+                rooms.price_daily,
+                rooms.price_monthly,
+                rooms.booking_mode,
                 rooms.room_type
             FROM rooms
             LEFT JOIN beds 
@@ -565,45 +632,50 @@ def get_rooms_with_beds(branch_id):
                AND bk_active.checkin_date <= :today
                AND bk_active.checkout_date > :today
             WHERE rooms.branch_id = :branch_id
-            GROUP BY rooms.id, rooms.number, rooms.room_name, rooms.fixed_price, rooms.room_type
+            GROUP BY
+                rooms.id,
+                rooms.number,
+                rooms.room_name,
+                rooms.fixed_price,
+                rooms.price_hourly,
+                rooms.price_daily,
+                rooms.price_monthly,
+                rooms.booking_mode,
+                rooms.room_type
             ORDER BY rooms.id ASC
         """), {"branch_id": branch_id, "today": today})
-
         rows = result.mappings().all()
 
-    return [
-        (lambda r: {
-            "id": r["id"],
-            "room_number": r["room_number"],
-            "room_name": r["room_name"],
-            "bed_count": r["bed_count"],
-            "busy_beds": int(r["busy_beds"] or 0),
-            "available_beds": (0 if (
-                ("oilav" in str((r["room_type"] or "")).strip().lower())
-                or ("family" in str((r["room_type"] or "")).strip().lower())
-                or ("сем" in str((r["room_type"] or "")).strip().lower())
-            ) and int(r["busy_beds"] or 0) > 0 else max(int(r["bed_count"] or 0) - int(r["busy_beds"] or 0), 0)),
-            "occupancy_status": (
-                "full" if (
-                    int(r["bed_count"] or 0) <= 0
-                    or (
-                        (
-                            ("oilav" in str((r["room_type"] or "")).strip().lower())
-                            or ("family" in str((r["room_type"] or "")).strip().lower())
-                            or ("сем" in str((r["room_type"] or "")).strip().lower())
-                        ) and int(r["busy_beds"] or 0) > 0
-                    )
-                    or max(int(r["bed_count"] or 0) - int(r["busy_beds"] or 0), 0) <= 0
-                ) else (
-                    "partial" if int(r["busy_beds"] or 0) > 0 else "free"
-                )
-            ),
-            "fixed_price": float(r["fixed_price"]) if r["fixed_price"] is not None else None,
-            "room_type": (r["room_type"] or "").strip() or None,
-        })(r)
-        for r in rows
-    ]
+    out = []
+    for r in rows:
+        d = dict(r)
+        bed_count = int(d.get("bed_count") or 0)
+        busy_beds = int(d.get("busy_beds") or 0)
+        full_mode = _room_requires_full_booking(d)
+        available_beds = 0 if (full_mode and busy_beds > 0) else max(bed_count - busy_beds, 0)
+        if bed_count <= 0 or available_beds <= 0:
+            occupancy = "full"
+        elif busy_beds > 0:
+            occupancy = "partial"
+        else:
+            occupancy = "free"
 
+        out.append({
+            "id": d["id"],
+            "room_number": d["room_number"],
+            "room_name": d["room_name"],
+            "bed_count": bed_count,
+            "busy_beds": busy_beds,
+            "available_beds": available_beds,
+            "occupancy_status": occupancy,
+            "fixed_price": float(d["fixed_price"]) if d.get("fixed_price") is not None else None,
+            "price_hourly": float(d["price_hourly"]) if d.get("price_hourly") is not None else None,
+            "price_daily": float(d["price_daily"]) if d.get("price_daily") is not None else (float(d["fixed_price"]) if d.get("fixed_price") is not None else None),
+            "price_monthly": float(d["price_monthly"]) if d.get("price_monthly") is not None else None,
+            "room_type": (d.get("room_type") or "").strip() or None,
+            "booking_mode": "full" if full_mode else "bed",
+        })
+    return out
 
 def get_available_beds(branch_id, room_id, checkin_date, checkout_date):
     ensure_pricing_columns()
@@ -615,7 +687,14 @@ def get_available_beds(branch_id, room_id, checkin_date, checkout_date):
                 b.room_id,
                 b.bed_type,
                 b.fixed_price,
+                b.price_hourly,
+                b.price_daily,
+                b.price_monthly,
                 r.fixed_price AS room_fixed_price,
+                r.price_hourly AS room_price_hourly,
+                r.price_daily AS room_price_daily,
+                r.price_monthly AS room_price_monthly,
+                r.booking_mode,
                 COALESCE(b.fixed_price, r.fixed_price) AS effective_price
             FROM beds b
             JOIN rooms r ON r.id = b.room_id
@@ -629,6 +708,19 @@ def get_available_beds(branch_id, room_id, checkin_date, checkout_date):
                     AND bk.status = 'active'
                     AND bk.checkin_date < :checkout_date
                     AND bk.checkout_date > :checkin_date
+              )
+              AND (
+                    lower(coalesce(r.booking_mode, 'bed')) <> 'full'
+                    OR NOT EXISTS (
+                        SELECT 1
+                        FROM bookings bk_room
+                        JOIN beds b_room ON b_room.id = bk_room.bed_id
+                        WHERE bk_room.branch_id = b.branch_id
+                          AND b_room.room_id = b.room_id
+                          AND bk_room.status = 'active'
+                          AND bk_room.checkin_date < :checkout_date
+                          AND bk_room.checkout_date > :checkin_date
+                    )
               )
             ORDER BY b.id
         """), {
@@ -679,6 +771,40 @@ def add_booking(
         checkout_date = checkin_date + timedelta(days=1)
 
     with get_connection() as conn:
+        room_info = conn.execute(text("""
+            SELECT id, room_type, booking_mode
+            FROM rooms
+            WHERE id = :room_id
+              AND branch_id = :branch_id
+            LIMIT 1
+        """), {
+            "room_id": room_id,
+            "branch_id": branch_id,
+        }).mappings().fetchone()
+        if not room_info:
+            raise Exception("❌ Room not found")
+
+        room_full_mode = _room_requires_full_booking(dict(room_info))
+        if room_full_mode:
+            room_overlap = conn.execute(text("""
+                SELECT COUNT(*) AS cnt
+                FROM bookings bk
+                JOIN beds bx ON bx.id = bk.bed_id
+                WHERE bk.branch_id = :branch_id
+                  AND bx.room_id = :room_id
+                  AND bk.status = 'active'
+                  AND NOT (
+                      bk.checkout_date <= :checkin_date
+                      OR bk.checkin_date >= :checkout_date
+                  )
+            """), {
+                "branch_id": branch_id,
+                "room_id": room_id,
+                "checkin_date": checkin_date,
+                "checkout_date": checkout_date,
+            }).mappings().fetchone()
+            if int(room_overlap["cnt"] or 0) > 0:
+                raise Exception("❌ Room is already booked for this period")
 
         # -----------------------------
         # 1️⃣ Check bed availability
@@ -1951,8 +2077,16 @@ def add_bed(branch_id, room_id):
         }).scalar()
 
         conn.execute(text("""
-            INSERT INTO beds (branch_id, room_id, bed_number, fixed_price)
-            VALUES (:branch_id, :room_id, :bed_number, NULL)
+            INSERT INTO beds (
+                branch_id,
+                room_id,
+                bed_number,
+                fixed_price,
+                price_hourly,
+                price_daily,
+                price_monthly
+            )
+            VALUES (:branch_id, :room_id, :bed_number, NULL, NULL, NULL, NULL)
         """), {
             "branch_id": branch_id,
             "room_id": room_id,
@@ -1977,7 +2111,14 @@ def get_beds(branch_id, room_id):
     ensure_pricing_columns()
     with get_connection() as conn:
         result = conn.execute(text("""
-            SELECT id, bed_number, bed_type, fixed_price
+            SELECT
+                id,
+                bed_number,
+                bed_type,
+                fixed_price,
+                price_hourly,
+                price_daily,
+                price_monthly
             FROM beds
             WHERE branch_id = :branch_id
               AND room_id = :room_id
@@ -2737,20 +2878,48 @@ def create_room_db(
     room_name: str,
     branch_id: int,
     fixed_price: float | None = None,
-    room_type: str | None = None
+    room_type: str | None = None,
+    price_hourly: float | None = None,
+    price_daily: float | None = None,
+    price_monthly: float | None = None,
+    booking_mode: str | None = None,
 ):
     ensure_pricing_columns()
     with get_connection() as conn:
         try:
             conn.execute(text("""
-                INSERT INTO rooms (number, room_name, branch_id, fixed_price, room_type)
-                VALUES (:number, :room_name, :branch_id, :fixed_price, :room_type)
+                INSERT INTO rooms (
+                    number,
+                    room_name,
+                    branch_id,
+                    fixed_price,
+                    room_type,
+                    price_hourly,
+                    price_daily,
+                    price_monthly,
+                    booking_mode
+                )
+                VALUES (
+                    :number,
+                    :room_name,
+                    :branch_id,
+                    :fixed_price,
+                    :room_type,
+                    :price_hourly,
+                    :price_daily,
+                    :price_monthly,
+                    :booking_mode
+                )
             """), {
                 "number": number,
                 "room_name": room_name,
                 "branch_id": branch_id,
-                "fixed_price": fixed_price,
+                "fixed_price": (price_daily if price_daily is not None else fixed_price),
                 "room_type": (room_type or "").strip() or None,
+                "price_hourly": price_hourly,
+                "price_daily": (price_daily if price_daily is not None else fixed_price),
+                "price_monthly": price_monthly,
+                "booking_mode": "full" if str(booking_mode or "").strip().lower() in {"full", "room_full", "full_room"} else "bed",
             })
             return {"status": "success"}
         except IntegrityError:
@@ -4146,7 +4315,16 @@ def delete_customer_db(customer_id, branch_id):
         })
     return {"status": "success"}
 
-def update_bed_db(bed_id, bed_number, bed_type, branch_id, fixed_price=None):
+def update_bed_db(
+    bed_id,
+    bed_number,
+    bed_type,
+    branch_id,
+    fixed_price=None,
+    price_hourly=None,
+    price_daily=None,
+    price_monthly=None,
+):
     ensure_pricing_columns()
     with get_connection() as conn:
         conn.execute(text("""
@@ -4154,7 +4332,10 @@ def update_bed_db(bed_id, bed_number, bed_type, branch_id, fixed_price=None):
             SET
                 bed_number = :bed_number,
                 bed_type = :bed_type,
-                fixed_price = :fixed_price
+                fixed_price = :fixed_price,
+                price_hourly = :price_hourly,
+                price_daily = :price_daily,
+                price_monthly = :price_monthly
             WHERE id = :bed_id
               AND branch_id = :branch_id
         """), {
@@ -4162,7 +4343,10 @@ def update_bed_db(bed_id, bed_number, bed_type, branch_id, fixed_price=None):
             "branch_id": branch_id,
             "bed_number": bed_number,
             "bed_type": bed_type,
-            "fixed_price": fixed_price,
+            "fixed_price": (price_daily if price_daily is not None else fixed_price),
+            "price_hourly": price_hourly,
+            "price_daily": (price_daily if price_daily is not None else fixed_price),
+            "price_monthly": price_monthly,
         })
     return {"status": "success"}
 
@@ -4172,13 +4356,43 @@ def set_room_fixed_price_db(room_id: int, branch_id: int, fixed_price=None):
     with get_connection() as conn:
         conn.execute(text("""
             UPDATE rooms
-            SET fixed_price = :fixed_price
+            SET
+                fixed_price = :fixed_price,
+                price_daily = :fixed_price
             WHERE id = :room_id
               AND branch_id = :branch_id
         """), {
             "room_id": int(room_id),
             "branch_id": int(branch_id),
             "fixed_price": fixed_price,
+        })
+    return {"status": "success"}
+
+
+def set_room_pricing_db(
+    room_id: int,
+    branch_id: int,
+    price_hourly=None,
+    price_daily=None,
+    price_monthly=None,
+):
+    ensure_pricing_columns()
+    with get_connection() as conn:
+        conn.execute(text("""
+            UPDATE rooms
+            SET
+                fixed_price = :price_daily,
+                price_hourly = :price_hourly,
+                price_daily = :price_daily,
+                price_monthly = :price_monthly
+            WHERE id = :room_id
+              AND branch_id = :branch_id
+        """), {
+            "room_id": int(room_id),
+            "branch_id": int(branch_id),
+            "price_hourly": price_hourly,
+            "price_daily": price_daily,
+            "price_monthly": price_monthly,
         })
     return {"status": "success"}
 
@@ -4197,6 +4411,24 @@ def set_room_type_db(room_id: int, branch_id: int, room_type: str | None = None)
             "room_type": (room_type or "").strip() or None,
         })
     return {"status": "success"}
+
+
+def set_room_booking_mode_db(room_id: int, branch_id: int, booking_mode: str | None = None):
+    ensure_pricing_columns()
+    mode = str(booking_mode or "").strip().lower()
+    mode = "full" if mode in {"full", "room_full", "full_room"} else "bed"
+    with get_connection() as conn:
+        conn.execute(text("""
+            UPDATE rooms
+            SET booking_mode = :booking_mode
+            WHERE id = :room_id
+              AND branch_id = :branch_id
+        """), {
+            "room_id": int(room_id),
+            "branch_id": int(branch_id),
+            "booking_mode": mode,
+        })
+    return {"status": "success", "booking_mode": mode}
 
 
 def set_admin_expiry_db(user_id: int, expires_at):
@@ -4446,9 +4678,19 @@ def list_public_user_history_db(contact: str | None = None, telegram_id: int | N
     return all_rows[:lim]
 
 
+def _public_price_expr(price_mode: str, bed_alias: str, room_alias: str) -> str:
+    mode = (price_mode or "day").strip().lower()
+    if mode == "hour":
+        return f"COALESCE({bed_alias}.price_hourly, {room_alias}.price_hourly)"
+    if mode == "month":
+        return f"COALESCE({bed_alias}.price_monthly, {room_alias}.price_monthly)"
+    return f"COALESCE({bed_alias}.price_daily, {bed_alias}.fixed_price, {room_alias}.price_daily, {room_alias}.fixed_price)"
+
+
 def list_public_branches_with_rating_db(
     min_rating: float | None = None,
     room_type: str | None = None,
+    price_mode: str | None = None,
     limit: int = 100
 ):
     ensure_branch_ratings_table()
@@ -4462,9 +4704,13 @@ def list_public_branches_with_rating_db(
         lim = 500
 
     room_type_norm = (str(room_type or "").strip() or None)
+    mode = (price_mode or "day").strip().lower()
+    if mode not in {"hour", "day", "month"}:
+        mode = "day"
     today = app_today().isoformat()
+    price_expr = _public_price_expr(mode, "bb", "rr")
     with get_connection() as conn:
-        rows = conn.execute(text("""
+        rows = conn.execute(text(f"""
             SELECT
                 b.id,
                 b.name,
@@ -4490,22 +4736,22 @@ def list_public_branches_with_rating_db(
                     WHERE rr.branch_id = b.id
                 ) AS photo_count,
                 (
-                    SELECT MIN(COALESCE(bb.fixed_price, rr.fixed_price))
+                    SELECT MIN({price_expr})
                     FROM rooms rr
                     LEFT JOIN beds bb
                       ON bb.room_id = rr.id
                      AND bb.branch_id = rr.branch_id
                     WHERE rr.branch_id = b.id
-                      AND COALESCE(bb.fixed_price, rr.fixed_price) IS NOT NULL
+                      AND {price_expr} IS NOT NULL
                 ) AS min_price,
                 (
-                    SELECT MAX(COALESCE(bb.fixed_price, rr.fixed_price))
+                    SELECT MAX({price_expr})
                     FROM rooms rr
                     LEFT JOIN beds bb
                       ON bb.room_id = rr.id
                      AND bb.branch_id = rr.branch_id
                     WHERE rr.branch_id = b.id
-                      AND COALESCE(bb.fixed_price, rr.fixed_price) IS NOT NULL
+                      AND {price_expr} IS NOT NULL
                 ) AS max_price,
                 (
                     SELECT COUNT(*)
@@ -4529,6 +4775,8 @@ def list_public_branches_with_rating_db(
                       )
                       AND NOT (
                           (
+                              lower(coalesce(rr.booking_mode, 'bed')) = 'full'
+                              OR
                               lower(coalesce(rr.room_type, '')) LIKE '%oilav%'
                               OR lower(coalesce(rr.room_type, '')) LIKE '%family%'
                               OR lower(coalesce(rr.room_type, '')) LIKE '%сем%'
@@ -4614,6 +4862,8 @@ def list_public_branches_with_rating_db(
                     )
                     AND NOT (
                         (
+                            lower(coalesce(rr.booking_mode, 'bed')) = 'full'
+                            OR
                             lower(coalesce(rr.room_type, '')) LIKE '%oilav%'
                             OR lower(coalesce(rr.room_type, '')) LIKE '%family%'
                             OR lower(coalesce(rr.room_type, '')) LIKE '%сем%'
@@ -4656,6 +4906,7 @@ def list_public_branches_with_rating_db(
             "photo_count": int(r["photo_count"] or 0),
             "min_price": float(r["min_price"]) if r["min_price"] is not None else None,
             "max_price": float(r["max_price"]) if r["max_price"] is not None else None,
+            "price_mode": mode,
             "total_beds": int(r["total_beds"] or 0),
             "available_beds": int(r["available_beds"] or 0),
             "busy_beds": int(r["busy_beds"] or 0),
@@ -4735,14 +4986,22 @@ def get_public_branch_details_db(branch_id: int):
                 r.number AS room_number,
                 COALESCE(r.room_name, r.number) AS room_name,
                 r.room_type,
+                r.booking_mode,
                 r.fixed_price AS room_fixed_price,
+                r.price_hourly AS room_price_hourly,
+                COALESCE(r.price_daily, r.fixed_price) AS room_price_daily,
+                r.price_monthly AS room_price_monthly,
                 COUNT(b.id) AS bed_count,
                 COALESCE(SUM(CASE WHEN b.bed_type = 'single' THEN 1 ELSE 0 END), 0) AS single_count,
                 COALESCE(SUM(CASE WHEN b.bed_type = 'double' THEN 1 ELSE 0 END), 0) AS double_count,
                 COALESCE(SUM(CASE WHEN b.bed_type = 'child' THEN 1 ELSE 0 END), 0) AS child_count,
                 COUNT(DISTINCT CASE WHEN bk_active.id IS NOT NULL THEN b.id END) AS busy_count,
-                MIN(COALESCE(b.fixed_price, r.fixed_price)) AS min_effective_price,
-                MAX(COALESCE(b.fixed_price, r.fixed_price)) AS max_effective_price,
+                MIN(COALESCE(b.price_daily, b.fixed_price, r.price_daily, r.fixed_price)) AS min_effective_price,
+                MAX(COALESCE(b.price_daily, b.fixed_price, r.price_daily, r.fixed_price)) AS max_effective_price,
+                MIN(COALESCE(b.price_hourly, r.price_hourly)) AS min_hourly_price,
+                MAX(COALESCE(b.price_hourly, r.price_hourly)) AS max_hourly_price,
+                MIN(COALESCE(b.price_monthly, r.price_monthly)) AS min_monthly_price,
+                MAX(COALESCE(b.price_monthly, r.price_monthly)) AS max_monthly_price,
                 (
                     SELECT ri.image_path
                     FROM room_images ri
@@ -4761,7 +5020,16 @@ def get_public_branch_details_db(branch_id: int):
              AND bk_active.checkin_date <= :today
              AND bk_active.checkout_date > :today
             WHERE r.branch_id = :bid
-            GROUP BY r.id, r.number, r.room_name, r.room_type, r.fixed_price
+            GROUP BY
+                r.id,
+                r.number,
+                r.room_name,
+                r.room_type,
+                r.booking_mode,
+                r.fixed_price,
+                r.price_hourly,
+                r.price_daily,
+                r.price_monthly
             ORDER BY r.id ASC
         """), {"bid": bid, "today": today}).mappings().all()
 
@@ -4784,33 +5052,30 @@ def get_public_branch_details_db(branch_id: int):
                 "room_name": r["room_name"],
                 "room_type": (r["room_type"] or "").strip() or None,
                 "room_fixed_price": float(r["room_fixed_price"]) if r["room_fixed_price"] is not None else None,
+                "room_price_hourly": float(r["room_price_hourly"]) if r["room_price_hourly"] is not None else None,
+                "room_price_daily": float(r["room_price_daily"]) if r["room_price_daily"] is not None else None,
+                "room_price_monthly": float(r["room_price_monthly"]) if r["room_price_monthly"] is not None else None,
                 "bed_count": int(r["bed_count"] or 0),
                 "single_count": int(r["single_count"] or 0),
                 "double_count": int(r["double_count"] or 0),
                 "child_count": int(r["child_count"] or 0),
                 "busy_count": int(r["busy_count"] or 0),
-                "available_beds": (0 if (
-                    ("oilav" in str((r["room_type"] or "")).strip().lower())
-                    or ("family" in str((r["room_type"] or "")).strip().lower())
-                    or ("сем" in str((r["room_type"] or "")).strip().lower())
-                ) and int(r["busy_count"] or 0) > 0 else max(int(r["bed_count"] or 0) - int(r["busy_count"] or 0), 0)),
+                "booking_mode": ("full" if _room_requires_full_booking(r) else "bed"),
+                "available_beds": (0 if _room_requires_full_booking(r) and int(r["busy_count"] or 0) > 0 else max(int(r["bed_count"] or 0) - int(r["busy_count"] or 0), 0)),
                 "occupancy_status": (
                     "full" if (
                         int(r["bed_count"] or 0) <= 0
-                        or (
-                            (
-                                ("oilav" in str((r["room_type"] or "")).strip().lower())
-                                or ("family" in str((r["room_type"] or "")).strip().lower())
-                                or ("сем" in str((r["room_type"] or "")).strip().lower())
-                            ) and int(r["busy_count"] or 0) > 0
-                        )
-                        or max(int(r["bed_count"] or 0) - int(r["busy_count"] or 0), 0) <= 0
+                        or (0 if _room_requires_full_booking(r) and int(r["busy_count"] or 0) > 0 else max(int(r["bed_count"] or 0) - int(r["busy_count"] or 0), 0)) <= 0
                     ) else (
                         "partial" if int(r["busy_count"] or 0) > 0 else "free"
                     )
                 ),
                 "min_effective_price": float(r["min_effective_price"]) if r["min_effective_price"] is not None else None,
                 "max_effective_price": float(r["max_effective_price"]) if r["max_effective_price"] is not None else None,
+                "min_hourly_price": float(r["min_hourly_price"]) if r["min_hourly_price"] is not None else None,
+                "max_hourly_price": float(r["max_hourly_price"]) if r["max_hourly_price"] is not None else None,
+                "min_monthly_price": float(r["min_monthly_price"]) if r["min_monthly_price"] is not None else None,
+                "max_monthly_price": float(r["max_monthly_price"]) if r["max_monthly_price"] is not None else None,
                 "cover_image": r["cover_image"],
             }
             for r in src
@@ -5067,3 +5332,6 @@ def update_feedback_status_db(
             "fid": int(feedback_id),
         })
         return True
+
+
+

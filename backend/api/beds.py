@@ -35,6 +35,9 @@ def list_beds(branch_id: int, room_id: int, user=Depends(get_current_user)):
                     "bed_number": r["bed_number"],
                     "bed_type": r["bed_type"],
                     "fixed_price": float(r["fixed_price"]) if r.get("fixed_price") is not None else None,
+                    "price_hourly": float(r["price_hourly"]) if r.get("price_hourly") is not None else None,
+                    "price_daily": float(r["price_daily"]) if r.get("price_daily") is not None else (float(r["fixed_price"]) if r.get("fixed_price") is not None else None),
+                    "price_monthly": float(r["price_monthly"]) if r.get("price_monthly") is not None else None,
                 }
                 for r in rows
             ]
@@ -143,22 +146,44 @@ def update_bed(
         bed_number: int,
         bed_type: str,
         fixed_price: str | None = None,
+        price_hourly: str | None = None,
+        price_daily: str | None = None,
+        price_monthly: str | None = None,
         user=Depends(get_current_user)
     ):
     if bed_type not in ("single", "double", "child"):
         raise HTTPException(400, "Invalid bed type")
 
-    price_val = None
-    if fixed_price is not None:
-        s = str(fixed_price).strip().lower()
-        if s not in {"", "null", "none"}:
-            try:
-                price_val = float(s)
-            except Exception:
-                raise HTTPException(400, "Invalid fixed_price")
-            if price_val < 0:
-                raise HTTPException(400, "fixed_price must be >= 0")
+    def _parse_num(raw: str | None, field_name: str):
+        if raw is None:
+            return None
+        s = str(raw).strip().lower()
+        if s in {"", "null", "none"}:
+            return None
+        try:
+            v = float(s)
+        except Exception:
+            raise HTTPException(400, f"Invalid {field_name}")
+        if v < 0:
+            raise HTTPException(400, f"{field_name} must be >= 0")
+        return v
 
-    update_bed_db(bed_id, bed_number, bed_type, user["branch_id"], fixed_price=price_val)
+    fixed_val = _parse_num(fixed_price, "fixed_price")
+    daily_val = _parse_num(price_daily, "price_daily")
+    hourly_val = _parse_num(price_hourly, "price_hourly")
+    monthly_val = _parse_num(price_monthly, "price_monthly")
+    if daily_val is None and fixed_val is not None:
+        daily_val = fixed_val
+
+    update_bed_db(
+        bed_id,
+        bed_number,
+        bed_type,
+        user["branch_id"],
+        fixed_price=fixed_val,
+        price_hourly=hourly_val,
+        price_daily=daily_val,
+        price_monthly=monthly_val,
+    )
 
     return {"ok": True}

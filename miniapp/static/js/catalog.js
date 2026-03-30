@@ -36,6 +36,12 @@
       by_agreement: "Kelishiladi",
       min_price: "Min narx",
       max_price: "Max narx",
+      price_mode_day: "Kunlik narx",
+      price_mode_hour: "Soatlik narx",
+      price_mode_month: "Oylik narx",
+      price_mode_label_day: "Kunlik",
+      price_mode_label_hour: "Soatlik",
+      price_mode_label_month: "Oylik",
       min_price_ph: "Min narx",
       max_price_ph: "Max narx",
       room_types: "Xona turlari",
@@ -66,8 +72,13 @@
       details_rooms: "Xonalar",
       details_beds: "Kravatlar",
       details_price: "Narx",
+      room_price_tab: "Xona narxi",
+      bed_price_tab: "Kravat narxi",
       available_beds_label: "Bo'sh o'rin",
       room_status: "Holat",
+      booking_mode: "Bron rejimi",
+      booking_mode_full: "To'liq xona",
+      booking_mode_bed: "Kravat bo'yicha",
       status_free: "Bo'sh",
       status_partial: "Qisman band",
       status_full: "To'liq band",
@@ -116,6 +127,12 @@
       by_agreement: "Договорная",
       min_price: "Мин цена",
       max_price: "Макс цена",
+      price_mode_day: "Цена за день",
+      price_mode_hour: "Цена за час",
+      price_mode_month: "Цена за месяц",
+      price_mode_label_day: "За день",
+      price_mode_label_hour: "За час",
+      price_mode_label_month: "За месяц",
       min_price_ph: "Мин цена",
       max_price_ph: "Макс цена",
       room_types: "Типы комнат",
@@ -146,8 +163,13 @@
       details_rooms: "Комнаты",
       details_beds: "Кровати",
       details_price: "Цена",
+      room_price_tab: "Цена комнаты",
+      bed_price_tab: "Цена кровати",
       available_beds_label: "Свободно мест",
       room_status: "Статус",
+      booking_mode: "Режим брони",
+      booking_mode_full: "Полная комната",
+      booking_mode_bed: "По кроватям",
       status_free: "Свободно",
       status_partial: "Частично занято",
       status_full: "Полностью занято",
@@ -175,6 +197,7 @@
   const toggleFiltersTextEl = document.getElementById("toggleFiltersText");
   const toggleFiltersIconEl = toggleFiltersBtnEl ? toggleFiltersBtnEl.querySelector(".filter-toggle-icon") : null;
   const searchEl = document.getElementById("searchInput");
+  const priceModeEl = document.getElementById("priceModeFilter");
   const roomTypeEl = document.getElementById("roomTypeFilter");
   const ratingEl = document.getElementById("ratingFilter");
   const refreshEl = document.getElementById("refreshBtn");
@@ -243,19 +266,28 @@
     return `${Number(v).toLocaleString()} ${lang === "ru" ? "сум" : "so'm"}`;
   }
 
+  function currentPriceMode() {
+    const v = String((priceModeEl && priceModeEl.value) || "day").toLowerCase();
+    if (v === "hour" || v === "month") return v;
+    return "day";
+  }
+
+  function priceModeLabel(mode) {
+    if (mode === "hour") return t("price_mode_label_hour");
+    if (mode === "month") return t("price_mode_label_month");
+    return t("price_mode_label_day");
+  }
+
   function starsText(avg) {
     const v = Math.max(0, Math.min(5, Number(avg) || 0));
     const full = Math.round(v);
     return "★".repeat(full) + "☆".repeat(5 - full);
   }
 
-  function fmtMinMaxPrice(minPrice, maxPrice) {
+  function fmtMinMaxPrice(minPrice, maxPrice, mode = "day") {
     if (minPrice === null || minPrice === undefined) return t("by_agreement");
     if (maxPrice === null || maxPrice === undefined) {
-      return `${t("min_price")}: ${fmtPrice(minPrice)}`;
-    }
-    if (Number(minPrice) === Number(maxPrice)) {
-      return `${t("min_price")}: ${fmtPrice(minPrice)} | ${t("max_price")}: ${fmtPrice(maxPrice)}`;
+      return `${priceModeLabel(mode)}: ${fmtPrice(minPrice)}`;
     }
     return `${t("min_price")}: ${fmtPrice(minPrice)} | ${t("max_price")}: ${fmtPrice(maxPrice)}`;
   }
@@ -269,6 +301,11 @@
     if (s === "full") return t("status_full");
     if (s === "partial") return t("status_partial");
     return t("status_free");
+  }
+
+  function bookingModeLabel(mode) {
+    const m = String(mode || "bed").toLowerCase();
+    return m === "full" ? t("booking_mode_full") : t("booking_mode_bed");
   }
 
   function toNum(v) {
@@ -477,9 +514,11 @@
   async function loadBranches() {
     const minRating = Number(ratingEl.value || 0);
     const roomType = String(roomTypeEl.value || "").trim();
+    const priceMode = currentPriceMode();
     const q = new URLSearchParams();
     if (minRating > 0) q.set("min_rating", String(minRating));
     if (roomType) q.set("room_type", roomType);
+    q.set("price_mode", priceMode);
     q.set("limit", "200");
     const res = await fetch(`/public-api/branches?${q.toString()}`, { cache: "no-store" });
     rows = await res.json();
@@ -559,6 +598,7 @@
     const photo = r.cover_image || "";
     const minPrice = r.min_price;
     const maxPrice = r.max_price;
+    const mode = String(r.price_mode || currentPriceMode());
     const roomTypes = String(r.room_types || "").trim() || "-";
     const totalBeds = Number(r.total_beds || 0);
     const singleBeds = Number(r.single_beds || 0);
@@ -590,7 +630,7 @@
             <span>${photoCount} ${t("photo_count")}</span>
           </div>
           <div class="branch-meta">
-            <span>${fmtMinMaxPrice(minPrice, maxPrice)}</span>
+            <span>${fmtMinMaxPrice(minPrice, maxPrice, mode)}</span>
             ${distanceHtml}
           </div>
           <div class="branch-meta">
@@ -641,12 +681,42 @@
       .join("");
   }
 
+  function roomPriceTabsHtml(r) {
+    const roomDaily = fmtMinMaxPrice(r.room_price_daily, r.room_price_daily, "day");
+    const roomHourly = fmtMinMaxPrice(r.room_price_hourly, r.room_price_hourly, "hour");
+    const roomMonthly = fmtMinMaxPrice(r.room_price_monthly, r.room_price_monthly, "month");
+    const bedDaily = fmtMinMaxPrice(r.min_effective_price, r.max_effective_price, "day");
+    const bedHourly = fmtMinMaxPrice(r.min_hourly_price, r.max_hourly_price, "hour");
+    const bedMonthly = fmtMinMaxPrice(r.min_monthly_price, r.max_monthly_price, "month");
+    const rid = Number(r.id || 0);
+
+    return `
+      <div class="price-tabs" data-price-tabs="${rid}">
+        <div class="price-tab-head">
+          <button type="button" class="ghost-btn small-btn active" data-price-tab="${rid}" data-target="room">${t("room_price_tab")}</button>
+          <button type="button" class="ghost-btn small-btn" data-price-tab="${rid}" data-target="bed">${t("bed_price_tab")}</button>
+        </div>
+        <div class="price-tab-panel active" data-price-panel="${rid}" data-panel="room">
+          <div>${priceModeLabel("day")}: ${roomDaily}</div>
+          <div>${priceModeLabel("hour")}: ${roomHourly}</div>
+          <div>${priceModeLabel("month")}: ${roomMonthly}</div>
+        </div>
+        <div class="price-tab-panel" data-price-panel="${rid}" data-panel="bed">
+          <div>${priceModeLabel("day")}: ${bedDaily}</div>
+          <div>${priceModeLabel("hour")}: ${bedHourly}</div>
+          <div>${priceModeLabel("month")}: ${bedMonthly}</div>
+        </div>
+      </div>
+    `;
+  }
+
   async function openDetails(branchId, branchName) {
     detailsModalEl.classList.remove("hidden");
     detailsTitleEl.textContent = `${branchName} - ${t("details")}`;
     detailsBodyEl.innerHTML = `<div class="empty">${t("refresh")}...</div>`;
 
-    const res = await fetch(`/public-api/branches/${branchId}/details`, { cache: "no-store" });
+    const detailsMode = currentPriceMode();
+    const res = await fetch(`/public-api/branches/${branchId}/details?price_mode=${encodeURIComponent(detailsMode)}`, { cache: "no-store" });
     const payload = await res.json();
     const branch = payload && payload.branch;
     const rooms = (payload && payload.rooms) || [];
@@ -683,7 +753,7 @@
           const img = r.cover_image
             ? `<img class="details-room-photo" src="${escapeHtml(r.cover_image)}" alt="${escapeHtml(r.room_name || "")}" loading="lazy" onerror="this.onerror=null;this.src='${NO_PHOTO_SRC}'" />`
             : `<img class="details-room-photo" src="${NO_PHOTO_SRC}" alt="${t("no_photo")}" loading="lazy" />`;
-          const priceLine = fmtMinMaxPrice(r.min_effective_price, r.max_effective_price);
+          const priceLine = fmtMinMaxPrice(r.min_effective_price, r.max_effective_price, "day");
 
           return `
             <div class="details-room">
@@ -700,13 +770,15 @@
                   )}</div>
                   <div>${t("available_beds_label")}: ${Number(r.available_beds || 0)}</div>
                   <div>${t("room_status")}: ${occupancyLabel(r.occupancy_status)}</div>
+                  <div>${t("booking_mode")}: ${bookingModeLabel(r.booking_mode)}</div>
                   <div>${t("details_price")}: ${priceLine}</div>
+                  ${roomPriceTabsHtml(r)}
                   <button
                     type="button"
                     class="solid-btn small-btn"
                     data-book-room="${branchId}"
                     data-book-room-name="${escapeHtml(branch.name || "")}"
-                    data-book-room-label="${escapeHtml(r.room_name || r.room_number || "")}"
+                    data-book-room-label="${escapeHtml(r.room_name || r.room_number || "")} (${escapeHtml(bookingModeLabel(r.booking_mode))})"
                   >
                     <img class="btn-ico" src="/static/icons/booking_client.png" alt=""> ${t("booking")}
                   </button>
@@ -728,6 +800,17 @@
         const bName = btn.getAttribute("data-book-room-name") || "Branch";
         const roomLabel = btn.getAttribute("data-book-room-label") || "";
         openBooking(bId, bName, roomLabel);
+      });
+    });
+    detailsBodyEl.querySelectorAll("[data-price-tab]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const rid = btn.getAttribute("data-price-tab");
+        const target = btn.getAttribute("data-target");
+        detailsBodyEl.querySelectorAll(`[data-price-tab="${rid}"]`).forEach((x) => x.classList.remove("active"));
+        btn.classList.add("active");
+        detailsBodyEl.querySelectorAll(`[data-price-panel="${rid}"]`).forEach((panel) => {
+          panel.classList.toggle("active", panel.getAttribute("data-panel") === target);
+        });
       });
     });
   }
@@ -836,6 +919,7 @@
   myHistoryBtnEl.addEventListener("click", loadMyHistory);
   clearFiltersBtnEl.addEventListener("click", () => {
     searchEl.value = "";
+    priceModeEl.value = "day";
     roomTypeEl.value = "";
     ratingEl.value = "0";
     distanceFilterEl.value = "";
@@ -866,6 +950,7 @@
     render();
   });
   searchEl.addEventListener("input", render);
+  priceModeEl.addEventListener("change", () => loadBranches());
   roomTypeEl.addEventListener("change", () => loadBranches());
   ratingEl.addEventListener("change", () => loadBranches());
   closeGalleryEl.addEventListener("click", () => modalEl.classList.add("hidden"));
