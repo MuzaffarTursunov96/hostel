@@ -7,6 +7,9 @@
       all_room_types: "Barcha xona turlari",
       all_ratings: "Barcha reytinglar",
       refresh: "Yangilash",
+      clear_filters: "Filterni bekor qilish",
+      show_filters: "Filterni ko'rsatish",
+      hide_filters: "Filterni yopish",
       photos: "Rasmlar",
       details: "Batafsil",
       rate: "Baholash",
@@ -71,6 +74,9 @@
       all_room_types: "Все типы комнат",
       all_ratings: "Все рейтинги",
       refresh: "Обновить",
+      clear_filters: "Сбросить фильтры",
+      show_filters: "Показать фильтры",
+      hide_filters: "Скрыть фильтры",
       photos: "Фото",
       details: "Подробнее",
       rate: "Оценить",
@@ -135,10 +141,15 @@
   let userGeo = null;
 
   const cardsEl = document.getElementById("cards");
+  const filtersPanelEl = document.getElementById("filtersPanel");
+  const toggleFiltersBtnEl = document.getElementById("toggleFiltersBtn");
+  const toggleFiltersTextEl = document.getElementById("toggleFiltersText");
+  const toggleFiltersIconEl = toggleFiltersBtnEl ? toggleFiltersBtnEl.querySelector(".filter-toggle-icon") : null;
   const searchEl = document.getElementById("searchInput");
   const roomTypeEl = document.getElementById("roomTypeFilter");
   const ratingEl = document.getElementById("ratingFilter");
   const refreshEl = document.getElementById("refreshBtn");
+  const clearFiltersBtnEl = document.getElementById("clearFiltersBtn");
   const findNearestBtnEl = document.getElementById("findNearestBtn");
   const distanceFilterEl = document.getElementById("distanceFilter");
   const priceMinInputEl = document.getElementById("priceMinInput");
@@ -147,6 +158,8 @@
   const priceMaxRangeEl = document.getElementById("priceMaxRange");
   const priceMinLabelEl = document.getElementById("priceMinLabel");
   const priceMaxLabelEl = document.getElementById("priceMaxLabel");
+  let priceBounds = { min: 0, max: 10000000 };
+  let filtersOpen = false;
 
   const modalEl = document.getElementById("galleryModal");
   const galleryEl = document.getElementById("galleryGrid");
@@ -271,8 +284,16 @@
   }
 
   function syncInputToRange() {
-    const bMin = toNum(priceMinRangeEl.min) || 0;
-    const bMax = toNum(priceMinRangeEl.max) || 10000000;
+    const bMin = toNum(priceMinRangeEl.min) || priceBounds.min;
+    const bMax = toNum(priceMinRangeEl.max) || priceBounds.max;
+    const rawMin = String(priceMinInputEl.value || "").trim();
+    const rawMax = String(priceMaxInputEl.value || "").trim();
+    if (!rawMin && !rawMax) {
+      priceMinRangeEl.value = String(bMin);
+      priceMaxRangeEl.value = String(bMax);
+      syncPriceLabels();
+      return;
+    }
     let minV = toNum(priceMinInputEl.value);
     let maxV = toNum(priceMaxInputEl.value);
     if (minV === null) minV = bMin;
@@ -319,7 +340,16 @@
     document.querySelectorAll("[data-ph]").forEach((el) => {
       el.placeholder = t(el.dataset.ph);
     });
+    updateFiltersToggleUi();
     render();
+  }
+
+  function updateFiltersToggleUi() {
+    if (!toggleFiltersTextEl || !filtersPanelEl) return;
+    toggleFiltersTextEl.textContent = filtersOpen ? t("hide_filters") : t("show_filters");
+    if (toggleFiltersIconEl) {
+      toggleFiltersIconEl.textContent = filtersOpen ? "🔽" : "🔎";
+    }
   }
 
   function refreshRoomTypeOptions(selected) {
@@ -345,15 +375,17 @@
     const res = await fetch(`/public-api/branches?${q.toString()}`, { cache: "no-store" });
     rows = await res.json();
     const bounds = getSliderBounds();
+    priceBounds = bounds;
     priceMinRangeEl.min = String(bounds.min);
     priceMinRangeEl.max = String(bounds.max);
     priceMaxRangeEl.min = String(bounds.min);
     priceMaxRangeEl.max = String(bounds.max);
-    if (!priceMinInputEl.value.trim()) {
-      priceMinInputEl.value = String(bounds.min);
-    }
-    if (!priceMaxInputEl.value.trim()) {
-      priceMaxInputEl.value = String(bounds.max);
+    if (!priceMinInputEl.value.trim() && !priceMaxInputEl.value.trim()) {
+      priceMinRangeEl.value = String(bounds.min);
+      priceMaxRangeEl.value = String(bounds.max);
+      syncPriceLabels();
+    } else {
+      syncInputToRange();
     }
     syncInputToRange();
     refreshRoomTypeOptions(roomType);
@@ -363,8 +395,18 @@
   function filteredRows() {
     const needle = String(searchEl.value || "").trim().toLowerCase();
     const maxDistance = toNum(distanceFilterEl.value || "");
-    const userMinPrice = toNum(priceMinInputEl.value || "");
-    const userMaxPrice = toNum(priceMaxInputEl.value || "");
+    const typedMin = String(priceMinInputEl.value || "").trim();
+    const typedMax = String(priceMaxInputEl.value || "").trim();
+    const hasTypedPrice = !!typedMin || !!typedMax;
+    const rangeMin = toNum(priceMinRangeEl.value);
+    const rangeMax = toNum(priceMaxRangeEl.value);
+    const usingDefaultRange = (
+      rangeMin === priceBounds.min &&
+      rangeMax === priceBounds.max
+    );
+    const priceFilterActive = hasTypedPrice || !usingDefaultRange;
+    const userMinPrice = hasTypedPrice ? (toNum(typedMin) ?? priceBounds.min) : (rangeMin ?? priceBounds.min);
+    const userMaxPrice = hasTypedPrice ? (toNum(typedMax) ?? priceBounds.max) : (rangeMax ?? priceBounds.max);
 
     let list = rows.filter((r) => {
       const name = String(r.name || "").toLowerCase();
@@ -374,12 +416,12 @@
 
       const rowMin = toNum(r.min_price);
       const rowMax = toNum(r.max_price);
-      if (userMinPrice !== null || userMaxPrice !== null) {
+      if (priceFilterActive) {
         if (rowMin === null && rowMax === null) return false;
         const a = rowMin ?? rowMax;
         const b = rowMax ?? rowMin;
-        const minBound = userMinPrice ?? Number.NEGATIVE_INFINITY;
-        const maxBound = userMaxPrice ?? Number.POSITIVE_INFINITY;
+        const minBound = Math.min(userMinPrice, userMaxPrice);
+        const maxBound = Math.max(userMinPrice, userMaxPrice);
         if (a > maxBound || b < minBound) return false;
       }
 
@@ -626,6 +668,24 @@
   });
 
   refreshEl.addEventListener("click", () => loadBranches());
+  toggleFiltersBtnEl.addEventListener("click", () => {
+    filtersOpen = !filtersOpen;
+    filtersPanelEl.classList.toggle("collapsed", !filtersOpen);
+    updateFiltersToggleUi();
+  });
+  clearFiltersBtnEl.addEventListener("click", () => {
+    searchEl.value = "";
+    roomTypeEl.value = "";
+    ratingEl.value = "0";
+    distanceFilterEl.value = "";
+    priceMinInputEl.value = "";
+    priceMaxInputEl.value = "";
+    userGeo = null;
+    priceMinRangeEl.value = String(priceBounds.min);
+    priceMaxRangeEl.value = String(priceBounds.max);
+    syncPriceLabels();
+    loadBranches();
+  });
   findNearestBtnEl.addEventListener("click", findNearest);
   distanceFilterEl.addEventListener("change", render);
   priceMinInputEl.addEventListener("input", () => {
@@ -749,5 +809,6 @@
   });
 
   applyLang();
+  filtersPanelEl.classList.toggle("collapsed", !filtersOpen);
   loadBranches();
 })();
