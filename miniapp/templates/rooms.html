@@ -94,19 +94,13 @@
                 class="w-full py-2 rounded-xl bg-tgButton text-white font-medium">
           Saqlash
         </button>
-        <button onclick="openRoomPriceModal()"
-                class="w-full py-2 rounded-xl border font-medium">
-          Narxlar
+        <button onclick="deleteRoom()"
+                class="w-full py-2 rounded-xl bg-red-500 text-white font-medium">
+          {{t("delete_room")}}
         </button>
       </div>
     </div>
-
-    <button onclick="deleteRoom()"
-            class="w-full mt-2 py-3 rounded-xl bg-red-500 text-white font-medium">
-      🗑 {{t("delete_room")}}
-    </button>
   </div>
-
   <!-- BEDS CARD -->
   <div class="bg-card rounded-2xl shadow p-4 space-y-3">
 
@@ -132,13 +126,13 @@
     </div>
 
     <!-- ACTIONS -->
-    <div class="pt-2">
+    <div class="pt-2 grid grid-cols-2 gap-2">
       <button onclick="deleteBed()"
               class="w-full py-3 rounded-xl bg-red-500 text-white font-medium">
         🗑 {{t("delete_bed")}}
       </button>
       <button onclick="openEditBed()"
-              class="w-full mt-2 py-3 rounded-xl bg-tgButton text-white font-medium">
+              class="w-full py-3 rounded-xl bg-tgButton text-white font-medium">
         ✏️ {{t("edit_bed")}}
       </button>
 
@@ -407,3 +401,4 @@
 
 <script src="/static/js/rooms.js?v={{version}}"></script>
 {% endblock %}
+

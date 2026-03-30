@@ -5042,6 +5042,12 @@ def get_public_branch_details_db(branch_id: int):
                 MAX(COALESCE(b.price_hourly, r.price_hourly)) AS max_hourly_price,
                 MIN(COALESCE(b.price_monthly, r.price_monthly)) AS min_monthly_price,
                 MAX(COALESCE(b.price_monthly, r.price_monthly)) AS max_monthly_price,
+                MIN(COALESCE(b.price_daily, b.fixed_price)) AS min_bed_daily_price,
+                MAX(COALESCE(b.price_daily, b.fixed_price)) AS max_bed_daily_price,
+                MIN(b.price_hourly) AS min_bed_hourly_price,
+                MAX(b.price_hourly) AS max_bed_hourly_price,
+                MIN(b.price_monthly) AS min_bed_monthly_price,
+                MAX(b.price_monthly) AS max_bed_monthly_price,
                 (
                     SELECT ri.image_path
                     FROM room_images ri
@@ -5116,6 +5122,12 @@ def get_public_branch_details_db(branch_id: int):
                 "max_hourly_price": float(r["max_hourly_price"]) if r["max_hourly_price"] is not None else None,
                 "min_monthly_price": float(r["min_monthly_price"]) if r["min_monthly_price"] is not None else None,
                 "max_monthly_price": float(r["max_monthly_price"]) if r["max_monthly_price"] is not None else None,
+                "min_bed_daily_price": float(r["min_bed_daily_price"]) if r["min_bed_daily_price"] is not None else None,
+                "max_bed_daily_price": float(r["max_bed_daily_price"]) if r["max_bed_daily_price"] is not None else None,
+                "min_bed_hourly_price": float(r["min_bed_hourly_price"]) if r["min_bed_hourly_price"] is not None else None,
+                "max_bed_hourly_price": float(r["max_bed_hourly_price"]) if r["max_bed_hourly_price"] is not None else None,
+                "min_bed_monthly_price": float(r["min_bed_monthly_price"]) if r["min_bed_monthly_price"] is not None else None,
+                "max_bed_monthly_price": float(r["max_bed_monthly_price"]) if r["max_bed_monthly_price"] is not None else None,
                 "cover_image": r["cover_image"],
             }
             for r in src

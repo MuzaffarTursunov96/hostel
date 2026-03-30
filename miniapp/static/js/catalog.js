@@ -708,9 +708,9 @@
     const roomDaily = fmtMinMaxPrice(r.room_price_daily, r.room_price_daily, "day");
     const roomHourly = fmtMinMaxPrice(r.room_price_hourly, r.room_price_hourly, "hour");
     const roomMonthly = fmtMinMaxPrice(r.room_price_monthly, r.room_price_monthly, "month");
-    const bedDaily = fmtMinMaxPrice(r.min_effective_price, r.max_effective_price, "day");
-    const bedHourly = fmtMinMaxPrice(r.min_hourly_price, r.max_hourly_price, "hour");
-    const bedMonthly = fmtMinMaxPrice(r.min_monthly_price, r.max_monthly_price, "month");
+    const bedDaily = fmtMinMaxPrice(r.min_bed_daily_price, r.max_bed_daily_price, "day");
+    const bedHourly = fmtMinMaxPrice(r.min_bed_hourly_price, r.max_bed_hourly_price, "hour");
+    const bedMonthly = fmtMinMaxPrice(r.min_bed_monthly_price, r.max_bed_monthly_price, "month");
     const rid = Number(r.id || 0);
 
     return `
