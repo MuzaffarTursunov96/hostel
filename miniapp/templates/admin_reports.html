@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Admin Reports{% endblock %}
+
+{% block content %}
+<div class="p-4 space-y-4">
+  <div class="flex items-center justify-between">
+    <h1 id="arTitle" class="text-xl font-semibold">Admin Reports</h1>
+    <a href="/settings" class="px-3 py-2 rounded-lg border text-sm">← Back</a>
+  </div>
+
+  <div class="bg-card rounded-2xl shadow p-4 space-y-3">
+    <div class="grid grid-cols-3 gap-2">
+      <select id="arScope" class="px-3 py-2 rounded-lg border bg-transparent">
+        <option value="month">Month</option>
+        <option value="year">Year</option>
+        <option value="total">Total</option>
+      </select>
+      <input id="arYear" type="number" class="px-3 py-2 rounded-lg border bg-transparent" min="2000" max="2100">
+      <input id="arMonth" type="number" class="px-3 py-2 rounded-lg border bg-transparent" min="1" max="12">
+    </div>
+    <button id="arLoad" class="w-full py-2 rounded-xl bg-tgButton text-white font-semibold">Load</button>
+  </div>
+
+  <div id="arTotals" class="grid grid-cols-2 gap-3"></div>
+
+  <div class="bg-card rounded-2xl shadow overflow-hidden">
+    <div class="px-4 py-3 border-b font-semibold" id="arListTitle">Branches</div>
+    <div id="arRows" class="divide-y"></div>
+  </div>
+</div>
+
+<script src="/static/js/admin_reports.js?v={{version}}"></script>
+{% endblock %}

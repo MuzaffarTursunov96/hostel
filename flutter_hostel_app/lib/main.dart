@@ -5908,6 +5908,34 @@ class _SettingsPageState extends State<_SettingsPage> {
               ),
             ),
             const SizedBox(height: 12),
+            _Card(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(_t('Отчеты по филиалам', 'Filial hisobotlari'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(backgroundColor: const Color(0xFF4F46E5)),
+                      onPressed: () async {
+                        await showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.white,
+                          shape: const RoundedRectangleBorder(
+                            borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+                          ),
+                          builder: (_) => _AdminReportsSheet(api: widget.api),
+                        );
+                      },
+                      child: Text(_t('Открыть отчеты', 'Hisobotlarni ochish')),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
           ],
           if (_isRootAdmin) ...[
             _Card(
@@ -6052,6 +6080,185 @@ class _SettingsPageState extends State<_SettingsPage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _AdminReportsSheet extends StatefulWidget {
+  const _AdminReportsSheet({required this.api});
+  final _ApiClient api;
+
+  @override
+  State<_AdminReportsSheet> createState() => _AdminReportsSheetState();
+}
+
+class _AdminReportsSheetState extends State<_AdminReportsSheet> {
+  bool _loading = true;
+  String? _error;
+  String _scope = 'month';
+  int _year = DateTime.now().year;
+  int _month = DateTime.now().month;
+  Map<String, dynamic> _totals = {};
+  List<Map<String, dynamic>> _rows = [];
+
+  String _t(String ru, String uz) => trPair(ru: ru, uz: uz, lang: appLang.value);
+  String _fmt(dynamic x) {
+    final n = (x as num?)?.toDouble() ?? double.tryParse('$x') ?? 0;
+    return n.toStringAsFixed(0);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final q = <String, String>{'scope': _scope};
+      if (_scope != 'total') q['year'] = _year.toString();
+      if (_scope == 'month') q['month'] = _month.toString();
+      final data = await widget.api.getJson('/admin-reports/finance', query: q) as Map;
+      setState(() {
+        _totals = Map<String, dynamic>.from((data['totals'] as Map?) ?? {});
+        _rows = ((data['branches'] as List?) ?? []).cast<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+      });
+    } catch (e) {
+      setState(() => _error = friendlyErrorText('$e', lang: appLang.value));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Widget _metric(String label, dynamic value) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFE5E7EB))),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+          const SizedBox(height: 4),
+          Text(_fmt(value), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(12, 12, 12, MediaQuery.of(context).viewInsets.bottom + 12),
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height * 0.88,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(_t('Отчеты по филиалам', 'Filial hisobotlari'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                  const Spacer(),
+                  IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      value: _scope,
+                      decoration: const InputDecoration(border: OutlineInputBorder()),
+                      items: [
+                        DropdownMenuItem(value: 'month', child: Text(_t('Месяц', 'Oy'))),
+                        DropdownMenuItem(value: 'year', child: Text(_t('Год', 'Yil'))),
+                        DropdownMenuItem(value: 'total', child: Text(_t('Общий', 'Umumiy'))),
+                      ],
+                      onChanged: (v) => setState(() => _scope = v ?? 'month'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  if (_scope != 'total')
+                    SizedBox(
+                      width: 92,
+                      child: TextFormField(
+                        initialValue: '$_year',
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(border: OutlineInputBorder()),
+                        onChanged: (v) => _year = int.tryParse(v) ?? DateTime.now().year,
+                      ),
+                    ),
+                  if (_scope == 'month') ...[
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 76,
+                      child: TextFormField(
+                        initialValue: '$_month',
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(border: OutlineInputBorder()),
+                        onChanged: (v) => _month = int.tryParse(v) ?? DateTime.now().month,
+                      ),
+                    ),
+                  ]
+                ],
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(onPressed: _load, child: Text(_t('Загрузить', 'Yuklash'))),
+              ),
+              const SizedBox(height: 10),
+              if (_loading) const Expanded(child: Center(child: CircularProgressIndicator())),
+              if (!_loading && _error != null) Expanded(child: Center(child: Text(_error!, style: const TextStyle(color: Colors.red)))),
+              if (!_loading && _error == null)
+                Expanded(
+                  child: ListView(
+                    children: [
+                      GridView.count(
+                        crossAxisCount: 2,
+                        childAspectRatio: 1.8,
+                        mainAxisSpacing: 8,
+                        crossAxisSpacing: 8,
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        children: [
+                          _metric(_t('Доход', 'Daromad'), _totals['income']),
+                          _metric(_t('Расходы', 'Xarajatlar'), _totals['expenses']),
+                          _metric(_t('Возвраты', 'Qaytarishlar'), _totals['refunds']),
+                          _metric(_t('Долг', 'Qarz'), _totals['debt']),
+                          _metric(_t('Прибыль', 'Foyda'), _totals['profit']),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Text(_t('Филиалы', 'Filiallar'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                      const SizedBox(height: 8),
+                      if (_rows.isEmpty)
+                        Text(_t('Нет данных', "Ma'lumot yo'q"), style: const TextStyle(color: Color(0xFF64748B))),
+                      ..._rows.map((r) => _Card(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('${r['branch_id']} - ${r['branch_name'] ?? ''}', style: const TextStyle(fontWeight: FontWeight.w700)),
+                                const SizedBox(height: 6),
+                                Text('${_t('Доход', 'Daromad')}: ${_fmt(r['income'])}'),
+                                Text('${_t('Расходы', 'Xarajatlar')}: ${_fmt(r['expenses'])}'),
+                                Text('${_t('Возвраты', 'Qaytarishlar')}: ${_fmt(r['refunds'])}'),
+                                Text('${_t('Долг', 'Qarz')}: ${_fmt(r['debt'])}'),
+                                Text('${_t('Прибыль', 'Foyda')}: ${_fmt(r['profit'])}', style: const TextStyle(fontWeight: FontWeight.w700)),
+                              ],
+                            ),
+                          )),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }

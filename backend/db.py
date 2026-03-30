@@ -1036,6 +1036,110 @@ def get_yearly_finance(branch_id, year):
         }
 
 
+def get_admin_finance_report_db(
+    admin_id: int,
+    year: int | None = None,
+    month: int | None = None,
+    is_root: bool = False
+):
+    with get_connection() as conn:
+        if is_root:
+            branch_rows = conn.execute(text("""
+                SELECT id, name
+                FROM branches
+                ORDER BY id
+            """)).mappings().all()
+        else:
+            branch_rows = conn.execute(text("""
+                SELECT DISTINCT b.id, b.name
+                FROM branches b
+                LEFT JOIN user_branches ub
+                  ON ub.branch_id = b.id
+                WHERE b.created_by = :aid
+                   OR ub.user_id = :aid
+                ORDER BY b.id
+            """), {"aid": admin_id}).mappings().all()
+
+        result_rows = []
+        total_income = 0.0
+        total_expenses = 0.0
+        total_refunds = 0.0
+        total_debt = 0.0
+
+        for b in branch_rows:
+            bid = int(b["id"])
+            income_debt = conn.execute(text("""
+                SELECT
+                    COALESCE(SUM(paid_amount), 0) AS income,
+                    COALESCE(SUM(remaining_amount), 0) AS debt
+                FROM bookings
+                WHERE branch_id = :branch_id
+                  AND status NOT IN ('canceled', 'cancelled')
+                  AND (:year IS NULL OR EXTRACT(YEAR FROM booking_date) = :year)
+                  AND (:month IS NULL OR EXTRACT(MONTH FROM booking_date) = :month)
+            """), {
+                "branch_id": bid,
+                "year": year,
+                "month": month
+            }).mappings().fetchone()
+
+            expenses = conn.execute(text("""
+                SELECT COALESCE(SUM(amount), 0) AS expenses
+                FROM expenses
+                WHERE branch_id = :branch_id
+                  AND (:year IS NULL OR EXTRACT(YEAR FROM expense_date) = :year)
+                  AND (:month IS NULL OR EXTRACT(MONTH FROM expense_date) = :month)
+            """), {
+                "branch_id": bid,
+                "year": year,
+                "month": month
+            }).scalar() or 0
+
+            refunds = conn.execute(text("""
+                SELECT COALESCE(SUM(refunded_amount), 0) AS refunds
+                FROM booking_refunds
+                WHERE branch_id = :branch_id
+                  AND (:year IS NULL OR EXTRACT(YEAR FROM refunded_at) = :year)
+                  AND (:month IS NULL OR EXTRACT(MONTH FROM refunded_at) = :month)
+            """), {
+                "branch_id": bid,
+                "year": year,
+                "month": month
+            }).scalar() or 0
+
+            income = float(income_debt["income"] or 0)
+            debt = float(income_debt["debt"] or 0)
+            expenses = float(expenses)
+            refunds = float(refunds)
+            profit = income - expenses - refunds
+
+            total_income += income
+            total_expenses += expenses
+            total_refunds += refunds
+            total_debt += debt
+
+            result_rows.append({
+                "branch_id": bid,
+                "branch_name": b["name"],
+                "income": income,
+                "expenses": expenses,
+                "refunds": refunds,
+                "debt": debt,
+                "profit": profit,
+            })
+
+        return {
+            "branches": result_rows,
+            "totals": {
+                "income": total_income,
+                "expenses": total_expenses,
+                "refunds": total_refunds,
+                "debt": total_debt,
+                "profit": total_income - total_expenses - total_refunds,
+            }
+        }
+
+
 
 
 

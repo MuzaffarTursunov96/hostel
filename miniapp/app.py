@@ -11,7 +11,7 @@ import json
 
 
 API_URL = "http://backend:8000"
-VERSION ="2026-29-03-22-28"
+VERSION ="2026-30-03-22-28"
 load_dotenv()
 ROOT_ADMIN_TELEGRAM = os.getenv("ROOT_ADMIN_TELEGRAM", "muzaffar_developer")
 ROOT_ADMIN_PHONE = os.getenv("ROOT_ADMIN_PHONE", "+998991422110")
@@ -492,6 +492,13 @@ def settings():
         current_branch_id=session.get("branch_id", 1),
         version = VERSION
     )
+
+@app.route("/admin-reports")
+@login_required
+def admin_reports():
+    if not bool(session.get("is_admin")):
+        return redirect("/dashboard")
+    return render_template("admin_reports.html", version=VERSION)
 
 
 @app.route("/root-management")
