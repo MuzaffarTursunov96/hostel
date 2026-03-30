@@ -58,10 +58,17 @@
 
     <div class="flex justify-between items-center">
       <span class="font-semibold">{{t("rooms")}}</span>
-      <button onclick="addRoom()" id="addRoomBtn"
-              class="w-9 h-9 flex items-center justify-center rounded-full bg-tgButton text-white text-lg">
-        +
-      </button>
+      <div class="flex items-center gap-2">
+        <button onclick="openRoomPriceModal()" id="openRoomPriceModalBtn"
+                class="w-9 h-9 flex items-center justify-center rounded-full border border-blue-200 bg-blue-50 text-blue-700 text-base"
+                title="Xona narxi">
+          <img src="/static/icons/money.png" alt="price" class="w-4 h-4">
+        </button>
+        <button onclick="addRoom()" id="addRoomBtn"
+                class="w-9 h-9 flex items-center justify-center rounded-full bg-tgButton text-white text-lg">
+          +
+        </button>
+      </div>
     </div>
 
     <!-- ROOMS LIST -->
@@ -82,40 +89,16 @@
           <option value="full">To'liq xona</option>
         </select>
       </div>
-      <div class="grid grid-cols-3 gap-2">
-        <input id="roomFixedPriceInput"
-               type="number"
-               step="0.01"
-               min="0"
-               class="w-full px-3 py-2 rounded-lg border"
-               placeholder="Kunlik">
-        <input id="roomHourlyPriceInput"
-               type="number"
-               step="0.01"
-               min="0"
-               class="w-full px-3 py-2 rounded-lg border"
-               placeholder="Soatlik">
-        <input id="roomMonthlyPriceInput"
-               type="number"
-               step="0.01"
-               min="0"
-               class="w-full px-3 py-2 rounded-lg border"
-               placeholder="Oylik">
-      </div>
       <div class="grid grid-cols-2 gap-2">
         <button onclick="saveRoomSettings()"
                 class="w-full py-2 rounded-xl bg-tgButton text-white font-medium">
           Saqlash
         </button>
-        <button onclick="clearRoomPrice()"
+        <button onclick="openRoomPriceModal()"
                 class="w-full py-2 rounded-xl border font-medium">
-          Kelishiladi
+          Narxlar
         </button>
       </div>
-      <button onclick="applyPriceToAllBeds()"
-              class="w-full py-2 rounded-xl border border-blue-300 text-blue-700 font-medium bg-blue-50">
-        Kravatlarga qo'llash
-      </button>
     </div>
 
     <button onclick="deleteRoom()"
@@ -129,10 +112,17 @@
 
     <div class="flex justify-between items-center">
       <span class="font-semibold" id="bedsTitle">{{t("beds")}}</span>
-      <button onclick="addBed()" id="addBedBtn"
-              class="w-9 h-9 flex items-center justify-center rounded-full bg-tgButton text-white text-lg">
-        +
-      </button>
+      <div class="flex items-center gap-2">
+        <button onclick="openBedBulkPriceModal()" id="openBedBulkPriceModalBtn"
+                class="w-9 h-9 flex items-center justify-center rounded-full border border-blue-200 bg-blue-50 text-blue-700 text-base"
+                title="Kravat narxi">
+          <img src="/static/icons/money.png" alt="price" class="w-4 h-4">
+        </button>
+        <button onclick="addBed()" id="addBedBtn"
+                class="w-9 h-9 flex items-center justify-center rounded-full bg-tgButton text-white text-lg">
+          +
+        </button>
+      </div>
     </div>
 
     <!-- BEDS GRID -->
@@ -262,6 +252,94 @@
       <button onclick="submitRoom()"
               class="flex-1 py-2 rounded-xl bg-tgButton text-white font-medium">
         {{ t("create") }}
+      </button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ROOM PRICE MODAL -->
+<div id="roomPriceModal"
+     class="fixed inset-0 bg-black/40 hidden items-center justify-center z-50">
+  <div class="bg-white rounded-2xl w-[90%] max-w-sm p-5 space-y-4">
+    <h2 class="text-lg font-semibold flex items-center gap-2">
+      <img src="/static/icons/money.png" alt="money" class="w-5 h-5">
+      Xona narxi
+    </h2>
+    <div class="grid grid-cols-3 gap-2">
+      <input id="roomFixedPriceInput"
+             type="number"
+             step="0.01"
+             min="0"
+             class="w-full px-3 py-2 rounded-lg border"
+             placeholder="Kunlik">
+      <input id="roomHourlyPriceInput"
+             type="number"
+             step="0.01"
+             min="0"
+             class="w-full px-3 py-2 rounded-lg border"
+             placeholder="Soatlik">
+      <input id="roomMonthlyPriceInput"
+             type="number"
+             step="0.01"
+             min="0"
+             class="w-full px-3 py-2 rounded-lg border"
+             placeholder="Oylik">
+    </div>
+    <div class="grid grid-cols-2 gap-2">
+      <button onclick="saveRoomPriceFromModal()"
+              class="w-full py-2 rounded-xl bg-tgButton text-white font-medium">
+        Saqlash
+      </button>
+      <button onclick="clearRoomPriceFromModal()"
+              class="w-full py-2 rounded-xl border font-medium">
+        Kelishiladi
+      </button>
+    </div>
+    <button onclick="closeRoomPriceModal()"
+            class="w-full py-2 rounded-xl border">
+      {{ t("cancel") }}
+    </button>
+  </div>
+</div>
+
+<!-- BED BULK PRICE MODAL -->
+<div id="bedBulkPriceModal"
+     class="fixed inset-0 bg-black/40 hidden items-center justify-center z-50">
+  <div class="bg-white rounded-2xl w-[90%] max-w-sm p-5 space-y-4">
+    <h2 class="text-lg font-semibold flex items-center gap-2">
+      <img src="/static/icons/money.png" alt="money" class="w-5 h-5">
+      Barcha kravat narxi
+    </h2>
+    <p class="text-xs text-gray-500">Faqat to'ldirilgan maydonlar barcha kravatlarga qo'llanadi.</p>
+    <div class="grid grid-cols-3 gap-2">
+      <input id="bedBulkDailyInput"
+             type="number"
+             step="0.01"
+             min="0"
+             class="w-full px-3 py-2 rounded-lg border"
+             placeholder="Kunlik">
+      <input id="bedBulkHourlyInput"
+             type="number"
+             step="0.01"
+             min="0"
+             class="w-full px-3 py-2 rounded-lg border"
+             placeholder="Soatlik">
+      <input id="bedBulkMonthlyInput"
+             type="number"
+             step="0.01"
+             min="0"
+             class="w-full px-3 py-2 rounded-lg border"
+             placeholder="Oylik">
+    </div>
+    <div class="grid grid-cols-2 gap-2">
+      <button onclick="applyPriceToAllBedsFromModal()"
+              class="w-full py-2 rounded-xl bg-tgButton text-white font-medium">
+        Qo'llash
+      </button>
+      <button onclick="closeBedBulkPriceModal()"
+              class="w-full py-2 rounded-xl border font-medium">
+        {{ t("cancel") }}
       </button>
     </div>
   </div>

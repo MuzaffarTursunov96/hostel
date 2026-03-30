@@ -70,6 +70,12 @@ $(document).ready(function () {
   }
 
   loadRooms();
+  $("#roomPriceModal").on("click", function (e) {
+    if (e.target === this) closeRoomPriceModal();
+  });
+  $("#bedBulkPriceModal").on("click", function (e) {
+    if (e.target === this) closeBedBulkPriceModal();
+  });
   document.addEventListener("DOMContentLoaded", startWebSocket);
 });
 
@@ -429,11 +435,33 @@ function saveRoomPrice() {
   });
 }
 
+function openRoomPriceModal() {
+  if (!CURRENT_ROOM_ID) {
+    alert(t("select_a_room_first"));
+    return;
+  }
+  $("#roomPriceModal").removeClass("hidden").addClass("flex");
+}
+
+function closeRoomPriceModal() {
+  $("#roomPriceModal").addClass("hidden").removeClass("flex");
+}
+
+function saveRoomPriceFromModal() {
+  saveRoomPrice();
+  closeRoomPriceModal();
+}
+
 function clearRoomPrice() {
   $("#roomFixedPriceInput").val("");
   $("#roomHourlyPriceInput").val("");
   $("#roomMonthlyPriceInput").val("");
   saveRoomPrice();
+}
+
+function clearRoomPriceFromModal() {
+  clearRoomPrice();
+  closeRoomPriceModal();
 }
 
 function applyPriceToAllBeds() {
@@ -468,6 +496,54 @@ function applyPriceToAllBeds() {
   });
 }
 
+function openBedBulkPriceModal() {
+  if (!CURRENT_ROOM_ID) {
+    alert(t("select_a_room_first"));
+    return;
+  }
+  $("#bedBulkDailyInput").val($("#roomFixedPriceInput").val() || "");
+  $("#bedBulkHourlyInput").val($("#roomHourlyPriceInput").val() || "");
+  $("#bedBulkMonthlyInput").val($("#roomMonthlyPriceInput").val() || "");
+  $("#bedBulkPriceModal").removeClass("hidden").addClass("flex");
+}
+
+function closeBedBulkPriceModal() {
+  $("#bedBulkPriceModal").addClass("hidden").removeClass("flex");
+}
+
+function applyPriceToAllBedsFromModal() {
+  if (!CURRENT_ROOM_ID) {
+    alert(t("select_a_room_first"));
+    return;
+  }
+  const isRu = (document.documentElement.lang || "").toLowerCase().startsWith("ru");
+  const confirmMsg = isRu
+    ? "Применить введенные цены ко всем кроватям этой комнаты?"
+    : "Ushbu xonadagi barcha kravatlarga kiritilgan narxlarni qo'llaysizmi?";
+  if (!confirm(confirmMsg)) {
+    return;
+  }
+
+  const daily = String($("#bedBulkDailyInput").val() || "").trim();
+  const hourly = String($("#bedBulkHourlyInput").val() || "").trim();
+  const monthly = String($("#bedBulkMonthlyInput").val() || "").trim();
+
+  const params = { branch_id: CURRENT_BRANCH };
+  if (daily !== "") params.price_daily = daily;
+  if (hourly !== "") params.price_hourly = hourly;
+  if (monthly !== "") params.price_monthly = monthly;
+
+  if (params.price_daily === undefined && params.price_hourly === undefined && params.price_monthly === undefined) {
+    alert(isRu ? "Введите цену: за день, за час или за месяц." : "Narx kiriting: kunlik, soatlik yoki oylik.");
+    return;
+  }
+
+  apiPut(`/beds/room/${CURRENT_ROOM_ID}/bulk-price`, params).done(function () {
+    closeBedBulkPriceModal();
+    loadBeds(CURRENT_ROOM_ID);
+  });
+}
+
 function saveRoomType() {
   if (!CURRENT_ROOM_ID) {
     alert(t("select_a_room_first"));
@@ -490,9 +566,6 @@ function saveRoomSettings() {
 
   const roomType = roomTypeDbValue($("#roomTypeInput").val());
   const mode = String($("#roomBookingModeInput").val() || "bed").trim().toLowerCase();
-  const daily = String($("#roomFixedPriceInput").val() || "").trim();
-  const hourly = String($("#roomHourlyPriceInput").val() || "").trim();
-  const monthly = String($("#roomMonthlyPriceInput").val() || "").trim();
 
   const reqType = apiPut(`/rooms/${CURRENT_ROOM_ID}/type`, {
     branch_id: CURRENT_BRANCH,
@@ -502,15 +575,7 @@ function saveRoomSettings() {
     branch_id: CURRENT_BRANCH,
     booking_mode: mode === "full" ? "full" : "bed"
   });
-  const reqPrice = apiPut(`/rooms/${CURRENT_ROOM_ID}/price`, {
-    branch_id: CURRENT_BRANCH,
-    fixed_price: daily,
-    price_daily: daily,
-    price_hourly: hourly,
-    price_monthly: monthly
-  });
-
-  $.when(reqType, reqMode, reqPrice).done(function () {
+  $.when(reqType, reqMode).done(function () {
     loadRooms();
   });
 }
