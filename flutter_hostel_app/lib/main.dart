@@ -6,7 +6,9 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 const String kLanguageKey = 'language';
 final ValueNotifier<String> appLang = ValueNotifier<String>('uz');
@@ -53,6 +55,15 @@ String friendlyErrorText(String raw, {String? lang}) {
     return l == 'ru'
         ? 'Требуется предоплата. Укажите минимально необходимую сумму.'
         : "Oldindan to'lov talab qilinadi. Minimal summani kiriting.";
+  }
+  if (s.contains('room already exists')) {
+    return l == 'ru' ? 'Комната с таким номером уже существует.' : 'Bunday raqamli xona allaqachon mavjud.';
+  }
+  if (s.contains('maximum 12 room images allowed')) {
+    return l == 'ru' ? 'Можно загрузить максимум 12 фото на комнату.' : 'Har xona uchun eng ko‘pi 12 ta rasm yuklash mumkin.';
+  }
+  if (s.contains('admin only')) {
+    return l == 'ru' ? 'Действие доступно только администратору.' : 'Bu amal faqat admin uchun.';
   }
   return l == 'ru'
       ? 'Произошла ошибка. Пожалуйста, попробуйте снова.'
@@ -197,6 +208,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _checkingSession = true;
   String? _error;
   String _uiLang = 'uz';
+  String _entryMode = 'staff';
 
   @override
   void initState() {
@@ -252,6 +264,21 @@ class _LoginScreenState extends State<LoginScreen> {
 
   String _tr({required String ru, required String uz}) {
     return _uiLang == 'ru' ? ru : uz;
+  }
+
+  Future<void> _openClientCatalog() async {
+    final uri = Uri.parse('https://hmsuz.com/catalog');
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok && mounted) {
+      showAppAlert(
+        context,
+        _tr(
+          ru: 'Не удалось открыть каталог. Откройте вручную: https://hmsuz.com/catalog',
+          uz: 'Katalogni ochib bo‘lmadi. Qo‘lda oching: https://hmsuz.com/catalog',
+        ),
+        error: true,
+      );
+    }
   }
 
   Future<bool> _validateToken(String token) async {
@@ -456,68 +483,123 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             style: const TextStyle(color: Color(0xFF475569)),
                           ),
+                          const SizedBox(height: 12),
+                          SegmentedButton<String>(
+                            segments: [
+                              ButtonSegment<String>(
+                                value: 'staff',
+                                icon: const Icon(Icons.badge_outlined),
+                                label: Text(_tr(ru: 'Сотрудник', uz: 'Xodim')),
+                              ),
+                              ButtonSegment<String>(
+                                value: 'client',
+                                icon: const Icon(Icons.travel_explore_outlined),
+                                label: Text(_tr(ru: 'Клиент', uz: 'Mijoz')),
+                              ),
+                            ],
+                            selected: {_entryMode},
+                            onSelectionChanged: (v) {
+                              if (v.isEmpty) return;
+                              setState(() {
+                                _entryMode = v.first;
+                                _error = null;
+                              });
+                            },
+                          ),
                           const SizedBox(height: 18),
-                          TextFormField(
-                            controller: _usernameController,
-                            decoration: InputDecoration(
-                              labelText: _tr(
-                                ru: 'Имя пользователя',
-                                uz: 'Foydalanuvchi nomi',
+                          if (_entryMode == 'staff') ...[
+                            TextFormField(
+                              controller: _usernameController,
+                              decoration: InputDecoration(
+                                labelText: _tr(
+                                  ru: 'Имя пользователя',
+                                  uz: 'Foydalanuvchi nomi',
+                                ),
+                                prefixIcon: const Icon(Icons.person_outline_rounded),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
                               ),
-                              prefixIcon: const Icon(Icons.person_outline_rounded),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                            ),
-                            validator: (v) => (v == null || v.trim().isEmpty)
-                                ? _tr(
-                                    ru: 'Введите имя пользователя',
-                                    uz: 'Foydalanuvchi nomini kiriting',
-                                  )
-                                : null,
-                          ),
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            controller: _passwordController,
-                            obscureText: true,
-                            decoration: InputDecoration(
-                              labelText: _tr(ru: 'Пароль', uz: 'Parol'),
-                              prefixIcon: const Icon(Icons.lock_outline_rounded),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                            ),
-                            validator: (v) => (v == null || v.isEmpty)
-                                ? _tr(ru: 'Введите пароль', uz: 'Parolni kiriting')
-                                : null,
-                          ),
-                          const SizedBox(height: 12),
-                          if (_error != null)
-                            Text(
-                              _error!,
-                              style: const TextStyle(color: Color(0xFFDC2626), fontWeight: FontWeight.w600),
-                              textAlign: TextAlign.center,
-                            ),
-                          const SizedBox(height: 8),
-                          SizedBox(
-                            width: double.infinity,
-                            child: FilledButton(
-                              style: FilledButton.styleFrom(
-                                backgroundColor: const Color(0xFF1D4ED8),
-                                foregroundColor: Colors.white,
-                                minimumSize: const Size.fromHeight(50),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                              ),
-                              onPressed: _loading ? null : _login,
-                              child: _loading
-                                  ? const SizedBox(
-                                      height: 18,
-                                      width: 18,
-                                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              validator: (v) => (v == null || v.trim().isEmpty)
+                                  ? _tr(
+                                      ru: 'Введите имя пользователя',
+                                      uz: 'Foydalanuvchi nomini kiriting',
                                     )
-                                  : Text(_tr(ru: 'Войти', uz: 'Kirish')),
+                                  : null,
                             ),
-                          ),
+                            const SizedBox(height: 12),
+                            TextFormField(
+                              controller: _passwordController,
+                              obscureText: true,
+                              decoration: InputDecoration(
+                                labelText: _tr(ru: 'Пароль', uz: 'Parol'),
+                                prefixIcon: const Icon(Icons.lock_outline_rounded),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                              validator: (v) => (v == null || v.isEmpty)
+                                  ? _tr(ru: 'Введите пароль', uz: 'Parolni kiriting')
+                                  : null,
+                            ),
+                            const SizedBox(height: 12),
+                            if (_error != null)
+                              Text(
+                                _error!,
+                                style: const TextStyle(color: Color(0xFFDC2626), fontWeight: FontWeight.w600),
+                                textAlign: TextAlign.center,
+                              ),
+                            const SizedBox(height: 8),
+                            SizedBox(
+                              width: double.infinity,
+                              child: FilledButton(
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: const Color(0xFF1D4ED8),
+                                  foregroundColor: Colors.white,
+                                  minimumSize: const Size.fromHeight(50),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                ),
+                                onPressed: _loading ? null : _login,
+                                child: _loading
+                                    ? const SizedBox(
+                                        height: 18,
+                                        width: 18,
+                                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                      )
+                                    : Text(_tr(ru: 'Войти', uz: 'Kirish')),
+                              ),
+                            ),
+                          ] else ...[
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: const Color(0xFFE2E8F0)),
+                              ),
+                              child: Text(
+                                _tr(
+                                  ru: 'Режим клиента: просмотр отелей/хостелов, цены, фото, рейтинг и контакты.',
+                                  uz: 'Mijoz rejimi: mehmonxona/xostellar, narx, rasm, reyting va kontaktlarni ko‘rish.',
+                                ),
+                                style: const TextStyle(height: 1.3, color: Color(0xFF334155)),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            SizedBox(
+                              width: double.infinity,
+                              child: FilledButton.icon(
+                                style: FilledButton.styleFrom(
+                                  minimumSize: const Size.fromHeight(50),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                ),
+                                onPressed: _openClientCatalog,
+                                icon: const Icon(Icons.open_in_new),
+                                label: Text(_tr(ru: 'Открыть каталог', uz: 'Katalogni ochish')),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -930,6 +1012,65 @@ class _ApiClient {
       throw Exception('status ${r.statusCode}: ${r.body}');
     }
     return r.body.isEmpty ? <String, dynamic>{} : jsonDecode(r.body);
+  }
+
+  Future<dynamic> postMultipart(
+    String path, {
+    Map<String, String>? query,
+    List<http.MultipartFile>? files,
+    Map<String, String>? fields,
+  }) async {
+    final uri = Uri.parse('$baseApi$path').replace(queryParameters: query);
+    final req = http.MultipartRequest('POST', uri);
+    req.headers['Authorization'] = 'Bearer $token';
+    if (fields != null && fields.isNotEmpty) {
+      req.fields.addAll(fields);
+    }
+    if (files != null && files.isNotEmpty) {
+      req.files.addAll(files);
+    }
+    final stream = await req.send().timeout(timeout);
+    final r = await http.Response.fromStream(stream);
+    if (r.statusCode < 200 || r.statusCode >= 300) {
+      throw Exception('status ${r.statusCode}: ${r.body}');
+    }
+    return r.body.isEmpty ? <String, dynamic>{} : jsonDecode(r.body);
+  }
+
+  Future<List<Map<String, dynamic>>> listRoomImages(int roomId) async {
+    final data = await getJson('/rooms/$roomId/images', query: {
+      'branch_id': branchId.toString(),
+    }) as Map;
+    final rows = (data['images'] as List?) ?? const [];
+    return rows.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+  }
+
+  Future<void> uploadRoomImage(
+    int roomId, {
+    required String filePath,
+    bool isCover = false,
+  }) async {
+    final file = await http.MultipartFile.fromPath('files', filePath);
+    await postMultipart(
+      '/rooms/$roomId/images',
+      query: {
+        'branch_id': branchId.toString(),
+        'is_cover': isCover ? 'true' : 'false',
+      },
+      files: [file],
+    );
+  }
+
+  Future<void> setRoomImageCover(int roomId, int imageId) async {
+    await putQuery('/rooms/$roomId/images/$imageId/cover', {
+      'branch_id': branchId.toString(),
+    });
+  }
+
+  Future<void> deleteRoomImage(int roomId, int imageId) async {
+    await deleteJson('/rooms/$roomId/images/$imageId', query: {
+      'branch_id': branchId.toString(),
+    });
   }
 }
 
@@ -2434,8 +2575,12 @@ class _RoomsPageState extends State<_RoomsPage> {
   String? _error;
   List<dynamic> _rooms = [];
   List<dynamic> _selectedRoomBeds = [];
+  List<Map<String, dynamic>> _roomImages = [];
   int? _selectedRoomId;
   int? _selectedBedId;
+  bool _imagesLoading = false;
+  bool _uploadingImage = false;
+  final ImagePicker _imagePicker = ImagePicker();
   String _t(String ru, String uz) => trPair(ru: ru, uz: uz);
 
   int? _toInt(dynamic v) {
@@ -2472,6 +2617,7 @@ class _RoomsPageState extends State<_RoomsPage> {
         _selectedRoomBeds = [];
       });
       await _loadBedsForSelectedRoom();
+      await _loadImagesForSelectedRoom();
     } catch (e) {
       setState(() => _error = e.toString());
     } finally {
@@ -2506,6 +2652,105 @@ class _RoomsPageState extends State<_RoomsPage> {
         _selectedRoomBeds = [];
       });
       _showSnack("${_t('Не удалось загрузить кровати', "Krovatlarni yuklab bo'lmadi")}: $e");
+    }
+  }
+
+  Future<void> _loadImagesForSelectedRoom() async {
+    final roomId = _selectedRoomId;
+    if (roomId == null) {
+      if (mounted) setState(() => _roomImages = []);
+      return;
+    }
+    if (mounted) setState(() => _imagesLoading = true);
+    try {
+      final rows = await widget.api.listRoomImages(roomId);
+      if (!mounted) return;
+      setState(() => _roomImages = rows);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _roomImages = []);
+      _showSnack(
+        "${_t('Не удалось загрузить фото комнаты', 'Xona rasmlarini yuklab bo‘lmadi')}: $e",
+        error: true,
+      );
+    } finally {
+      if (mounted) setState(() => _imagesLoading = false);
+    }
+  }
+
+  String _imageUrl(dynamic imagePath) {
+    final raw = '${imagePath ?? ''}'.trim();
+    if (raw.isEmpty) return '';
+    if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+    if (raw.startsWith('/')) return 'https://hmsuz.com$raw';
+    return 'https://hmsuz.com/$raw';
+  }
+
+  Future<void> _pickAndUploadRoomImage() async {
+    final roomId = _selectedRoomId;
+    if (roomId == null) {
+      _showSnack(_t('Сначала выберите комнату.', 'Avval xona tanlang.'));
+      return;
+    }
+    final picked = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 88,
+      maxWidth: 1800,
+    );
+    if (picked == null) return;
+    setState(() => _uploadingImage = true);
+    try {
+      await widget.api.uploadRoomImage(
+        roomId,
+        filePath: picked.path,
+        isCover: _roomImages.isEmpty,
+      );
+      await _loadImagesForSelectedRoom();
+      widget.onDataChanged();
+      _showSnack(_t('Фото загружено.', 'Rasm yuklandi.'));
+    } catch (e) {
+      _showSnack('$e', error: true);
+    } finally {
+      if (mounted) setState(() => _uploadingImage = false);
+    }
+  }
+
+  Future<void> _setCoverImage(Map<String, dynamic> image) async {
+    final roomId = _selectedRoomId;
+    final imageId = _toInt(image['id']);
+    if (roomId == null || imageId == null) return;
+    try {
+      await widget.api.setRoomImageCover(roomId, imageId);
+      await _loadImagesForSelectedRoom();
+      _showSnack(_t('Обложка обновлена.', 'Muqova yangilandi.'));
+    } catch (e) {
+      _showSnack('$e', error: true);
+    }
+  }
+
+  Future<void> _deleteRoomImage(Map<String, dynamic> image) async {
+    final roomId = _selectedRoomId;
+    final imageId = _toInt(image['id']);
+    if (roomId == null || imageId == null) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(_t('Удалить фото', 'Rasmni o‘chirish')),
+        content: Text(_t('Удалить выбранное фото комнаты?', 'Tanlangan xona rasmini o‘chirasizmi?')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(_t('Отмена', 'Bekor'))),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(_t('Удалить', "O'chirish"))),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await widget.api.deleteRoomImage(roomId, imageId);
+      await _loadImagesForSelectedRoom();
+      widget.onDataChanged();
+      _showSnack(_t('Фото удалено.', 'Rasm o‘chirildi.'));
+    } catch (e) {
+      _showSnack('$e', error: true);
     }
   }
 
@@ -2827,6 +3072,7 @@ class _RoomsPageState extends State<_RoomsPage> {
                           _selectedRoomBeds = [];
                         });
                         await _loadBedsForSelectedRoom();
+                        await _loadImagesForSelectedRoom();
                       },
                     );
                   }).toList(),
@@ -2844,6 +3090,136 @@ class _RoomsPageState extends State<_RoomsPage> {
               ],
             ),
           ),
+          const SizedBox(height: 12),
+          if (room != null)
+            _Card(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        _t('Фото комнаты', 'Xona rasmlari'),
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                      ),
+                      const Spacer(),
+                      FilledButton.icon(
+                        onPressed: _uploadingImage ? null : _pickAndUploadRoomImage,
+                        icon: _uploadingImage
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              )
+                            : const Icon(Icons.upload_outlined),
+                        label: Text(_t('Загрузить', 'Yuklash')),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _t(
+                      'Схема: выберите комнату -> загрузите фото -> при необходимости сделайте обложкой или удалите.',
+                      'Tartib: xona tanlang -> rasm yuklang -> kerak bo‘lsa muqova qiling yoki o‘chiring.',
+                    ),
+                    style: const TextStyle(color: Color(0xFF475467), fontSize: 12.5),
+                  ),
+                  const SizedBox(height: 10),
+                  if (_imagesLoading) const LinearProgressIndicator(minHeight: 3),
+                  if (!_imagesLoading && _roomImages.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(
+                        _t('Фото пока нет.', 'Hozircha rasm yo‘q.'),
+                        style: const TextStyle(color: Colors.black54),
+                      ),
+                    ),
+                  if (_roomImages.isNotEmpty)
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: _roomImages.map((img) {
+                        final isCover = img['is_cover'] == true;
+                        final url = _imageUrl(img['image_path']);
+                        return Container(
+                          width: 140,
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: isCover ? const Color(0xFF1D4ED8) : const Color(0xFFE2E8F0),
+                              width: isCover ? 2 : 1,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            color: Colors.white,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              ClipRRect(
+                                borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
+                                child: Container(
+                                  color: const Color(0xFFF1F5F9),
+                                  height: 90,
+                                  child: url.isEmpty
+                                      ? const Icon(Icons.image_not_supported_outlined)
+                                      : Image.network(
+                                          url,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_outlined),
+                                        ),
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(6, 6, 6, 6),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: isCover
+                                          ? Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFE0ECFF),
+                                                borderRadius: BorderRadius.circular(999),
+                                              ),
+                                              child: Text(
+                                                _t('Обложка', 'Muqova'),
+                                                textAlign: TextAlign.center,
+                                                style: const TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: Color(0xFF1E40AF),
+                                                ),
+                                              ),
+                                            )
+                                          : OutlinedButton(
+                                              onPressed: () => _setCoverImage(img),
+                                              style: OutlinedButton.styleFrom(
+                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                              ),
+                                              child: Text(
+                                                _t('Сделать', 'Muqova'),
+                                                style: const TextStyle(fontSize: 11),
+                                              ),
+                                            ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    IconButton(
+                                      onPressed: () => _deleteRoomImage(img),
+                                      icon: const Icon(Icons.delete_outline, color: Color(0xFFDC2626)),
+                                      tooltip: _t('Удалить фото', 'Rasmni o‘chirish'),
+                                      constraints: const BoxConstraints(minHeight: 30, minWidth: 30),
+                                      padding: EdgeInsets.zero,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                ],
+              ),
+            ),
           const SizedBox(height: 12),
           if (room == null) _EmptyState(_t('Комната не выбрана.', 'Xona tanlanmagan.')),
           if (room != null)

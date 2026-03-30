@@ -23,8 +23,10 @@ from api.feedback import router as feedback_router
 from aiogram.types import Update
 
 from bot.bot import bot
+from bot.client_bot import client_bot
 from bot.dispatcher import dp
-from bot.handlers import setup_routers
+from bot.client_dispatcher import client_dp
+from bot.handlers import setup_routers, setup_client_routers
 
 
 
@@ -47,6 +49,7 @@ app = FastAPI(
 
 
 setup_routers(dp)
+setup_client_routers(client_dp)
 
 # ================= STARTUP =================
 
@@ -75,6 +78,15 @@ async def ws_endpoint(ws: WebSocket):
 async def telegram_webhook(request: Request):
     update = Update.model_validate(await request.json())
     await dp.feed_update(bot, update)
+    return {"ok": True}
+
+
+@app.post("/tg/client-webhook")
+async def telegram_client_webhook(request: Request):
+    if client_bot is None:
+        return {"ok": False, "detail": "Client bot is not configured"}
+    update = Update.model_validate(await request.json())
+    await client_dp.feed_update(client_bot, update)
     return {"ok": True}
 
 @app.get("/health")
