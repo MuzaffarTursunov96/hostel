@@ -347,6 +347,7 @@
   function updateFiltersToggleUi() {
     if (!toggleFiltersTextEl || !filtersPanelEl) return;
     toggleFiltersTextEl.textContent = filtersOpen ? t("hide_filters") : t("show_filters");
+    filtersPanelEl.hidden = !filtersOpen;
     if (toggleFiltersIconEl) {
       toggleFiltersIconEl.textContent = filtersOpen ? "🔽" : "🔎";
     }
@@ -809,6 +810,7 @@
   });
 
   applyLang();
+  filtersPanelEl.hidden = !filtersOpen;
   filtersPanelEl.classList.toggle("collapsed", !filtersOpen);
   loadBranches();
 })();
