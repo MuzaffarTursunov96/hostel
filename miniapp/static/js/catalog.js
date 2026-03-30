@@ -18,8 +18,13 @@
       photo_count: "rasm",
       from_price: "Narx",
       by_agreement: "Kelishiladi",
+      min_price: "Min narx",
+      max_price: "Max narx",
       room_types: "Xona turlari",
       bed_info: "Yotoqlar",
+      bed_single: "Bir kishilik",
+      bed_double: "Ikki kishilik",
+      bed_child: "Bolalar",
       rating_prompt: "1 dan 5 gacha baho kiriting",
       comment_prompt: "Qisqa izoh (ixtiyoriy)",
       saved: "Rahmat, bahoyingiz saqlandi",
@@ -70,8 +75,13 @@
       photo_count: "фото",
       from_price: "Цена",
       by_agreement: "Договорная",
+      min_price: "Мин цена",
+      max_price: "Макс цена",
       room_types: "Типы комнат",
       bed_info: "Кровати",
+      bed_single: "Одноместные",
+      bed_double: "Двухместные",
+      bed_child: "Детские",
       rating_prompt: "Введите оценку от 1 до 5",
       comment_prompt: "Короткий комментарий (необязательно)",
       saved: "Спасибо, ваша оценка сохранена",
@@ -165,6 +175,21 @@
   function fmtPrice(v) {
     if (v === null || v === undefined || String(v).trim() === "") return t("by_agreement");
     return `${Number(v).toLocaleString()} ${lang === "ru" ? "сум" : "so'm"}`;
+  }
+
+  function fmtMinMaxPrice(minPrice, maxPrice) {
+    if (minPrice === null || minPrice === undefined) return t("by_agreement");
+    if (maxPrice === null || maxPrice === undefined) {
+      return `${t("min_price")}: ${fmtPrice(minPrice)}`;
+    }
+    if (Number(minPrice) === Number(maxPrice)) {
+      return `${t("min_price")}: ${fmtPrice(minPrice)} | ${t("max_price")}: ${fmtPrice(maxPrice)}`;
+    }
+    return `${t("min_price")}: ${fmtPrice(minPrice)} | ${t("max_price")}: ${fmtPrice(maxPrice)}`;
+  }
+
+  function fmtBedBreakdown(total, singleCount, doubleCount, childCount) {
+    return `${total} (${t("bed_single")}: ${singleCount}, ${t("bed_double")}: ${doubleCount}, ${t("bed_child")}: ${childCount})`;
   }
 
   function toNum(v) {
@@ -270,9 +295,12 @@
     const photoCount = Number(r.photo_count || 0);
     const photo = r.cover_image || "";
     const minPrice = r.min_price;
+    const maxPrice = r.max_price;
     const roomTypes = String(r.room_types || "").trim() || "-";
-    const bedTypes = String(r.bed_types || "").trim() || "-";
     const totalBeds = Number(r.total_beds || 0);
+    const singleBeds = Number(r.single_beds || 0);
+    const doubleBeds = Number(r.double_beds || 0);
+    const childBeds = Number(r.child_beds || 0);
     const distance = rowDistance(r);
     const distanceHtml = distance === null
       ? ""
@@ -293,25 +321,21 @@
             <span>${photoCount} ${t("photo_count")}</span>
           </div>
           <div class="branch-meta">
-            <span>${t("from_price")}: ${
-              minPrice === null || minPrice === undefined
-                ? t("by_agreement")
-                : `${Number(minPrice).toLocaleString()} ${lang === "ru" ? "сум" : "so'm"}`
-            }</span>
+            <span>${fmtMinMaxPrice(minPrice, maxPrice)}</span>
             ${distanceHtml}
           </div>
           <div class="branch-meta">
             <span>${t("room_types")}: ${escapeHtml(roomTypes)}</span>
           </div>
           <div class="branch-meta">
-            <span>${t("bed_info")}: ${totalBeds} (${escapeHtml(bedTypes)})</span>
+            <span>${t("bed_info")}: ${fmtBedBreakdown(totalBeds, singleBeds, doubleBeds, childBeds)}</span>
           </div>
           <div class="branch-actions">
-            <button class="ghost-btn" data-open-photos="${r.id}">${t("photos")}</button>
-            <button class="ghost-btn" data-open-details="${r.id}">${t("details")}</button>
-            <button class="solid-btn" data-book="${r.id}">${t("booking")}</button>
-            <button class="solid-btn" data-rate="${r.id}">${t("rate")}</button>
-            <button class="ghost-btn" data-report="${r.id}">${t("report")}</button>
+            <button class="ghost-btn small-btn" data-open-photos="${r.id}">📷 ${t("photos")}</button>
+            <button class="ghost-btn small-btn" data-open-details="${r.id}">ℹ ${t("details")}</button>
+            <button class="solid-btn small-btn" data-book="${r.id}">🛏 ${t("booking")}</button>
+            <button class="solid-btn small-btn" data-rate="${r.id}">⭐ ${t("rate")}</button>
+            <button class="ghost-btn small-btn" data-report="${r.id}">✉ ${t("report")}</button>
           </div>
         </div>
       </article>
@@ -386,11 +410,7 @@
           const img = r.cover_image
             ? `<img src="${escapeHtml(r.cover_image)}" alt="${escapeHtml(r.room_name || "")}" loading="lazy" />`
             : `<img alt="no photo" />`;
-          const priceLine = r.min_effective_price === null || r.max_effective_price === null
-            ? t("by_agreement")
-            : r.min_effective_price === r.max_effective_price
-              ? fmtPrice(r.min_effective_price)
-              : `${fmtPrice(r.min_effective_price)} - ${fmtPrice(r.max_effective_price)}`;
+          const priceLine = fmtMinMaxPrice(r.min_effective_price, r.max_effective_price);
 
           return `
             <div class="details-room">
@@ -399,7 +419,12 @@
                 <div class="details-room-meta">
                   <div class="details-room-title">${escapeHtml(r.room_name || r.room_number || "")}</div>
                   <div>${t("room_types")}: ${escapeHtml(r.room_type || "-")}</div>
-                  <div>${t("details_beds")}: ${Number(r.bed_count || 0)} (S:${Number(r.single_count || 0)} D:${Number(r.double_count || 0)} C:${Number(r.child_count || 0)})</div>
+                  <div>${t("details_beds")}: ${fmtBedBreakdown(
+                    Number(r.bed_count || 0),
+                    Number(r.single_count || 0),
+                    Number(r.double_count || 0),
+                    Number(r.child_count || 0)
+                  )}</div>
                   <div>${t("details_price")}: ${priceLine}</div>
                 </div>
               </div>

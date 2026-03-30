@@ -167,6 +167,9 @@ body {
   margin-top: 10px;
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  flex-wrap: wrap;
   color: #1e3a8a;
   font-weight: 600;
   font-size: 13px;
@@ -188,20 +191,34 @@ body {
 .branch-actions {
   margin-top: 10px;
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
 .branch-actions button {
-  flex: 1;
-  padding: 8px 10px;
+  flex: 1 1 calc(50% - 8px);
+  min-width: 108px;
+  padding: 7px 9px;
+  font-size: 13px;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
 .branch-actions a {
-  flex: 1;
+  flex: 1 1 calc(50% - 8px);
+  min-width: 108px;
   text-align: center;
   text-decoration: none;
   display: block;
-  padding: 8px 10px;
+  padding: 7px 9px;
+  font-size: 13px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.small-btn {
+  border-radius: 10px;
+  font-weight: 700;
 }
 
 .empty {
@@ -338,5 +355,11 @@ body {
 
   .geo-tools {
     grid-template-columns: 1fr;
+  }
+
+  .branch-actions button,
+  .branch-actions a {
+    flex: 1 1 calc(50% - 6px);
+    min-width: 0;
   }
 }

@@ -4349,11 +4349,41 @@ def list_public_branches_with_rating_db(
                       AND COALESCE(bb.fixed_price, rr.fixed_price) IS NOT NULL
                 ) AS min_price,
                 (
+                    SELECT MAX(COALESCE(bb.fixed_price, rr.fixed_price))
+                    FROM rooms rr
+                    LEFT JOIN beds bb
+                      ON bb.room_id = rr.id
+                     AND bb.branch_id = rr.branch_id
+                    WHERE rr.branch_id = b.id
+                      AND COALESCE(bb.fixed_price, rr.fixed_price) IS NOT NULL
+                ) AS max_price,
+                (
                     SELECT COUNT(*)
                     FROM beds bb
                     JOIN rooms rr ON rr.id = bb.room_id
                     WHERE rr.branch_id = b.id
                 ) AS total_beds,
+                (
+                    SELECT COUNT(*)
+                    FROM beds bb
+                    JOIN rooms rr ON rr.id = bb.room_id
+                    WHERE rr.branch_id = b.id
+                      AND lower(coalesce(bb.bed_type, '')) = 'single'
+                ) AS single_beds,
+                (
+                    SELECT COUNT(*)
+                    FROM beds bb
+                    JOIN rooms rr ON rr.id = bb.room_id
+                    WHERE rr.branch_id = b.id
+                      AND lower(coalesce(bb.bed_type, '')) = 'double'
+                ) AS double_beds,
+                (
+                    SELECT COUNT(*)
+                    FROM beds bb
+                    JOIN rooms rr ON rr.id = bb.room_id
+                    WHERE rr.branch_id = b.id
+                      AND lower(coalesce(bb.bed_type, '')) = 'child'
+                ) AS child_beds,
                 (
                     SELECT string_agg(DISTINCT bb.bed_type, ', ')
                     FROM beds bb
@@ -4402,7 +4432,11 @@ def list_public_branches_with_rating_db(
             "cover_image": r["cover_image"],
             "photo_count": int(r["photo_count"] or 0),
             "min_price": float(r["min_price"]) if r["min_price"] is not None else None,
+            "max_price": float(r["max_price"]) if r["max_price"] is not None else None,
             "total_beds": int(r["total_beds"] or 0),
+            "single_beds": int(r["single_beds"] or 0),
+            "double_beds": int(r["double_beds"] or 0),
+            "child_beds": int(r["child_beds"] or 0),
             "bed_types": r["bed_types"] or "",
             "room_types": r["room_types"] or "",
         }
