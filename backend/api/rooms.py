@@ -23,6 +23,37 @@ ROOM_IMAGE_DIR = os.path.abspath(
     os.getenv("ROOM_IMAGE_DIR", "/var/www/miniapp/static/room_images")
 )
 os.makedirs(ROOM_IMAGE_DIR, exist_ok=True)
+ALLOWED_IMAGE_EXTENSIONS = {
+    ".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".heic", ".heif", ".avif"
+}
+
+
+def _is_image_upload(file: UploadFile) -> bool:
+    ctype = (file.content_type or "").strip().lower()
+    ext = (os.path.splitext(file.filename or "")[1] or "").strip().lower()
+    return ctype.startswith("image/") or ext in ALLOWED_IMAGE_EXTENSIONS
+
+
+def _pick_extension(file: UploadFile) -> str:
+    ext = (os.path.splitext(file.filename or "")[1] or "").strip().lower()
+    if ext in ALLOWED_IMAGE_EXTENSIONS:
+        return ext
+    ctype = (file.content_type or "").strip().lower()
+    if "png" in ctype:
+        return ".png"
+    if "webp" in ctype:
+        return ".webp"
+    if "gif" in ctype:
+        return ".gif"
+    if "bmp" in ctype:
+        return ".bmp"
+    if "heic" in ctype:
+        return ".heic"
+    if "heif" in ctype:
+        return ".heif"
+    if "avif" in ctype:
+        return ".avif"
+    return ".jpg"
 
 
 # ================= SCHEMAS =================
@@ -169,11 +200,13 @@ async def upload_room_images(
         raise HTTPException(400, "No files uploaded")
 
     saved = []
+    skipped = 0
     for idx, file in enumerate(files):
-        if not file.content_type or not file.content_type.startswith("image/"):
+        if not _is_image_upload(file):
+            skipped += 1
             continue
 
-        ext = (os.path.splitext(file.filename or "")[1] or ".jpg").lower()
+        ext = _pick_extension(file)
         filename = f"{uuid.uuid4().hex}{ext}"
         path = os.path.join(ROOM_IMAGE_DIR, filename)
 
@@ -196,6 +229,11 @@ async def upload_room_images(
         saved.append(row)
 
     if not saved:
+        if skipped > 0:
+            raise HTTPException(
+                400,
+                "No valid image files (supported: jpg, jpeg, png, webp, gif, bmp, heic, heif, avif)"
+            )
         raise HTTPException(400, "No valid image files")
 
     await ws_manager.broadcast({
