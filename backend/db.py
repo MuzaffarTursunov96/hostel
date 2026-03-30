@@ -4595,8 +4595,8 @@ def add_branch_feedback_db(
     if sent not in (None, "positive", "neutral", "negative"):
         raise ValueError("sentiment must be positive, neutral or negative")
     rtype = (str(report_type or "").strip().lower() or "general")
-    if rtype not in {"general", "room_state"}:
-        raise ValueError("report_type must be general or room_state")
+    if rtype not in {"general", "room_state", "booking_request"}:
+        raise ValueError("report_type must be general, room_state or booking_request")
 
     with get_connection() as conn:
         conn.execute(text("""

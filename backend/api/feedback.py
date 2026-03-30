@@ -25,6 +25,16 @@ class FeedbackIn(BaseModel):
     contact: str | None = None
 
 
+class BookingRequestIn(BaseModel):
+    branch_id: int
+    full_name: str | None = None
+    phone: str
+    room_or_bed: str | None = None
+    checkin: str | None = None
+    checkout: str | None = None
+    message: str | None = None
+
+
 @router.post("/public")
 def submit_feedback(data: FeedbackIn):
     try:
@@ -35,6 +45,48 @@ def submit_feedback(data: FeedbackIn):
             telegram_id=data.telegram_id,
             user_name=data.user_name,
             contact=data.contact,
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+    return {"ok": True}
+
+
+@router.post("/public-booking-request")
+def submit_booking_request(data: BookingRequestIn):
+    phone = (data.phone or "").strip()
+    if not phone:
+        raise HTTPException(400, "phone required")
+
+    parts = []
+    full_name = (data.full_name or "").strip()
+    if full_name:
+        parts.append(f"Client: {full_name}")
+    parts.append(f"Phone: {phone}")
+    room_or_bed = (data.room_or_bed or "").strip()
+    if room_or_bed:
+        parts.append(f"Room/Bed: {room_or_bed}")
+    checkin = (data.checkin or "").strip()
+    if checkin:
+        parts.append(f"Check-in: {checkin}")
+    checkout = (data.checkout or "").strip()
+    if checkout:
+        parts.append(f"Check-out: {checkout}")
+    user_msg = (data.message or "").strip()
+    if user_msg:
+        parts.append(f"Message: {user_msg}")
+
+    summary = " | ".join(parts)
+
+    try:
+        add_branch_feedback_db(
+            branch_id=data.branch_id,
+            message=summary,
+            sentiment=None,
+            user_name=full_name or None,
+            contact=phone,
+            report_type="booking_request",
+            room_label=room_or_bed or None,
         )
     except ValueError as exc:
         raise HTTPException(400, str(exc))

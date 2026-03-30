@@ -85,8 +85,14 @@ body {
 .filters {
   margin-top: 18px;
   display: grid;
-  grid-template-columns: 1fr 180px 160px auto;
+  grid-template-columns: 1fr 180px 160px 320px auto;
   gap: 10px;
+}
+
+.geo-tools {
+  display: grid;
+  grid-template-columns: 1fr 120px;
+  gap: 8px;
 }
 
 .filters input,
@@ -164,6 +170,19 @@ body {
   color: #1e3a8a;
   font-weight: 600;
   font-size: 13px;
+}
+
+.distance-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #f8fbff;
+  color: #0f3e8a;
+  font-weight: 600;
 }
 
 .branch-actions {
@@ -314,6 +333,10 @@ body {
 
 @media (max-width: 760px) {
   .filters {
+    grid-template-columns: 1fr;
+  }
+
+  .geo-tools {
     grid-template-columns: 1fr;
   }
 }

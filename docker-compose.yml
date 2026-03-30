@@ -23,6 +23,8 @@ services:
       SET_WEBHOOK: "true"
     depends_on:
       - postgres
+    volumes:
+      - ./miniapp/static:/var/www/miniapp/static
     expose:
       - "8000"
     command: >

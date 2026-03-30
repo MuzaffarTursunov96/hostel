@@ -11,6 +11,7 @@
       details: "Batafsil",
       rate: "Baholash",
       report: "Xabar yuborish",
+      booking: "Bron ariza",
       no_data: "Mos obyekt topilmadi",
       no_photo: "Rasm yo'q",
       reviews: "baho",
@@ -26,17 +27,30 @@
       room_label_ph: "Masalan: 203 xona, 2-kravat",
       report_message: "Xabar",
       report_message_ph: "Xona holati haqida yozing...",
+      booking_message_ph: "Qo'shimcha izoh...",
       contact_optional: "Aloqa (ixtiyoriy)",
       contact_ph: "+998...",
       photo_optional: "Rasm (ixtiyoriy)",
       send_report: "Yuborish",
       report_saved: "Xabar adminlarga yuborildi",
+      send_booking_request: "Bron ariza yuborish",
+      booking_saved: "Bron arizangiz yuborildi",
+      full_name_optional: "Ism (ixtiyoriy)",
+      phone_required: "Telefon raqam (majburiy)",
+      room_or_bed: "Xona yoki yotoq raqami",
+      checkin_date: "Kelish sanasi",
+      checkout_date: "Ketish sanasi",
       details_rooms: "Xonalar",
       details_beds: "Kravatlar",
       details_price: "Narx",
       details_none: "Ma'lumot topilmadi",
       call: "Qo'ng'iroq",
-      telegram: "Telegram"
+      telegram: "Telegram",
+      nearest_by_gps: "GPS bo'yicha yaqinlarini topish",
+      any_distance: "Masofa: hammasi",
+      location_denied: "Joylashuvga ruxsat berilmadi",
+      location_unavailable: "GPS ma'lumoti olinmadi",
+      distance_km: "km"
     },
     ru: {
       title: "Каталог Hotel и Hostel",
@@ -49,6 +63,7 @@
       details: "Подробнее",
       rate: "Оценить",
       report: "Отправить сообщение",
+      booking: "Заявка на бронь",
       no_data: "Подходящие объекты не найдены",
       no_photo: "Нет фото",
       reviews: "оценок",
@@ -64,28 +79,44 @@
       room_label_ph: "Например: комната 203, кровать 2",
       report_message: "Сообщение",
       report_message_ph: "Опишите состояние комнаты...",
+      booking_message_ph: "Дополнительный комментарий...",
       contact_optional: "Контакт (необязательно)",
       contact_ph: "+998...",
       photo_optional: "Фото (необязательно)",
       send_report: "Отправить",
       report_saved: "Сообщение отправлено администраторам",
+      send_booking_request: "Отправить заявку на бронь",
+      booking_saved: "Ваша заявка на бронь отправлена",
+      full_name_optional: "Имя (необязательно)",
+      phone_required: "Телефон (обязательно)",
+      room_or_bed: "Комната или номер кровати",
+      checkin_date: "Дата заезда",
+      checkout_date: "Дата выезда",
       details_rooms: "Комнаты",
       details_beds: "Кровати",
       details_price: "Цена",
       details_none: "Данные не найдены",
       call: "Позвонить",
-      telegram: "Telegram"
+      telegram: "Telegram",
+      nearest_by_gps: "Найти ближайшие по GPS",
+      any_distance: "Расстояние: все",
+      location_denied: "Нет доступа к геолокации",
+      location_unavailable: "Не удалось получить GPS",
+      distance_km: "км"
     }
   };
 
   let lang = localStorage.getItem("hms_lang") === "ru" ? "ru" : "uz";
   let rows = [];
+  let userGeo = null;
 
   const cardsEl = document.getElementById("cards");
   const searchEl = document.getElementById("searchInput");
   const roomTypeEl = document.getElementById("roomTypeFilter");
   const ratingEl = document.getElementById("ratingFilter");
   const refreshEl = document.getElementById("refreshBtn");
+  const findNearestBtnEl = document.getElementById("findNearestBtn");
+  const distanceFilterEl = document.getElementById("distanceFilter");
 
   const modalEl = document.getElementById("galleryModal");
   const galleryEl = document.getElementById("galleryGrid");
@@ -107,6 +138,18 @@
   const detailsBodyEl = document.getElementById("detailsBody");
   const closeDetailsEl = document.getElementById("closeDetails");
 
+  const bookingModalEl = document.getElementById("bookingModal");
+  const bookingTitleEl = document.getElementById("bookingTitle");
+  const closeBookingEl = document.getElementById("closeBooking");
+  const bookingFormEl = document.getElementById("bookingForm");
+  const bookingBranchIdEl = document.getElementById("bookingBranchId");
+  const bookingNameEl = document.getElementById("bookingName");
+  const bookingPhoneEl = document.getElementById("bookingPhone");
+  const bookingRoomBedEl = document.getElementById("bookingRoomBed");
+  const bookingCheckinEl = document.getElementById("bookingCheckin");
+  const bookingCheckoutEl = document.getElementById("bookingCheckout");
+  const bookingMessageEl = document.getElementById("bookingMessage");
+
   function t(key) {
     return (tr[lang] && tr[lang][key]) || key;
   }
@@ -122,6 +165,31 @@
   function fmtPrice(v) {
     if (v === null || v === undefined || String(v).trim() === "") return t("by_agreement");
     return `${Number(v).toLocaleString()} ${lang === "ru" ? "сум" : "so'm"}`;
+  }
+
+  function toNum(v) {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function haversineKm(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
+  function rowDistance(r) {
+    if (!userGeo) return null;
+    const lat = toNum(r.latitude);
+    const lon = toNum(r.longitude);
+    if (lat === null || lon === null) return null;
+    return haversineKm(userGeo.lat, userGeo.lon, lat, lon);
   }
 
   function applyLang() {
@@ -167,12 +235,30 @@
 
   function filteredRows() {
     const needle = String(searchEl.value || "").trim().toLowerCase();
-    if (!needle) return rows;
-    return rows.filter((r) => {
+    const maxDistance = toNum(distanceFilterEl.value || "");
+
+    let list = rows.filter((r) => {
       const name = String(r.name || "").toLowerCase();
       const address = String(r.address || "").toLowerCase();
-      return name.includes(needle) || address.includes(needle);
+      const textOk = !needle || name.includes(needle) || address.includes(needle);
+      if (!textOk) return false;
+
+      if (maxDistance === null) return true;
+      const d = rowDistance(r);
+      return d !== null && d <= maxDistance;
     });
+
+    if (userGeo) {
+      list = list.slice().sort((a, b) => {
+        const da = rowDistance(a);
+        const db = rowDistance(b);
+        if (da === null && db === null) return 0;
+        if (da === null) return 1;
+        if (db === null) return -1;
+        return da - db;
+      });
+    }
+    return list;
   }
 
   function cardHtml(r) {
@@ -184,6 +270,11 @@
     const roomTypes = String(r.room_types || "").trim() || "-";
     const bedTypes = String(r.bed_types || "").trim() || "-";
     const totalBeds = Number(r.total_beds || 0);
+    const distance = rowDistance(r);
+    const distanceHtml = distance === null
+      ? ""
+      : `<span class="distance-chip">📍 ${distance.toFixed(1)} ${t("distance_km")}</span>`;
+
     return `
       <article class="branch-card">
         ${
@@ -204,6 +295,7 @@
                 ? t("by_agreement")
                 : `${Number(minPrice).toLocaleString()} ${lang === "ru" ? "сум" : "so'm"}`
             }</span>
+            ${distanceHtml}
           </div>
           <div class="branch-meta">
             <span>${t("room_types")}: ${escapeHtml(roomTypes)}</span>
@@ -214,6 +306,7 @@
           <div class="branch-actions">
             <button class="ghost-btn" data-open-photos="${r.id}">${t("photos")}</button>
             <button class="ghost-btn" data-open-details="${r.id}">${t("details")}</button>
+            <button class="solid-btn" data-book="${r.id}">${t("booking")}</button>
             <button class="solid-btn" data-rate="${r.id}">${t("rate")}</button>
             <button class="ghost-btn" data-report="${r.id}">${t("report")}</button>
           </div>
@@ -342,6 +435,46 @@
     reportModalEl.classList.remove("hidden");
   }
 
+  function openBooking(branchId, branchName) {
+    bookingBranchIdEl.value = String(branchId);
+    bookingTitleEl.textContent = `${branchName} - ${t("booking")}`;
+    bookingNameEl.value = "";
+    bookingPhoneEl.value = "";
+    bookingRoomBedEl.value = "";
+    bookingCheckinEl.value = "";
+    bookingCheckoutEl.value = "";
+    bookingMessageEl.value = "";
+    bookingModalEl.classList.remove("hidden");
+  }
+
+  function findNearest() {
+    if (!navigator.geolocation) {
+      alert(t("location_unavailable"));
+      return;
+    }
+
+    findNearestBtnEl.disabled = true;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        userGeo = {
+          lat: pos.coords.latitude,
+          lon: pos.coords.longitude,
+        };
+        findNearestBtnEl.disabled = false;
+        render();
+      },
+      () => {
+        findNearestBtnEl.disabled = false;
+        alert(t("location_denied"));
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 12000,
+        maximumAge: 300000,
+      }
+    );
+  }
+
   document.querySelectorAll(".lang-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       lang = btn.dataset.lang === "ru" ? "ru" : "uz";
@@ -350,12 +483,15 @@
   });
 
   refreshEl.addEventListener("click", () => loadBranches());
+  findNearestBtnEl.addEventListener("click", findNearest);
+  distanceFilterEl.addEventListener("change", render);
   searchEl.addEventListener("input", render);
   roomTypeEl.addEventListener("change", () => loadBranches());
   ratingEl.addEventListener("change", () => loadBranches());
   closeGalleryEl.addEventListener("click", () => modalEl.classList.add("hidden"));
   closeReportEl.addEventListener("click", () => reportModalEl.classList.add("hidden"));
   closeDetailsEl.addEventListener("click", () => detailsModalEl.classList.add("hidden"));
+  closeBookingEl.addEventListener("click", () => bookingModalEl.classList.add("hidden"));
   modalEl.addEventListener("click", (e) => {
     if (e.target === modalEl) modalEl.classList.add("hidden");
   });
@@ -364,6 +500,9 @@
   });
   detailsModalEl.addEventListener("click", (e) => {
     if (e.target === detailsModalEl) detailsModalEl.classList.add("hidden");
+  });
+  bookingModalEl.addEventListener("click", (e) => {
+    if (e.target === bookingModalEl) bookingModalEl.classList.add("hidden");
   });
 
   cardsEl.addEventListener("click", (e) => {
@@ -379,6 +518,13 @@
       const id = Number(detailsBtn.getAttribute("data-open-details"));
       const row = rows.find((x) => Number(x.id) === id) || {};
       openDetails(id, row.name || "Branch");
+      return;
+    }
+    const bookBtn = e.target.closest("[data-book]");
+    if (bookBtn) {
+      const id = Number(bookBtn.getAttribute("data-book"));
+      const row = rows.find((x) => Number(x.id) === id) || {};
+      openBooking(id, row.name || "Branch");
       return;
     }
     const rateBtn = e.target.closest("[data-rate]");
@@ -415,6 +561,32 @@
     if (!res.ok) return;
     reportModalEl.classList.add("hidden");
     alert(t("report_saved"));
+  });
+
+  bookingFormEl.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const branchId = Number(bookingBranchIdEl.value || 0);
+    const phone = String(bookingPhoneEl.value || "").trim();
+    if (!branchId || !phone) return;
+
+    const payload = {
+      branch_id: branchId,
+      full_name: String(bookingNameEl.value || "").trim() || null,
+      phone,
+      room_or_bed: String(bookingRoomBedEl.value || "").trim() || null,
+      checkin: String(bookingCheckinEl.value || "").trim() || null,
+      checkout: String(bookingCheckoutEl.value || "").trim() || null,
+      message: String(bookingMessageEl.value || "").trim() || null,
+    };
+
+    const res = await fetch("/public-api/booking-request", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) return;
+    bookingModalEl.classList.add("hidden");
+    alert(t("booking_saved"));
   });
 
   applyLang();

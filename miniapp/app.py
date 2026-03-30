@@ -271,6 +271,16 @@ def public_api_room_report():
     )
     return jsonify(resp.json()), resp.status_code
 
+
+@app.post("/public-api/booking-request")
+def public_api_booking_request():
+    resp = requests.post(
+        f"{API_URL}/feedback/public-booking-request",
+        json=request.get_json(silent=True) or {},
+        timeout=(10, 20)
+    )
+    return jsonify(resp.json()), resp.status_code
+
 @app.post("/lead")
 def capture_lead():
     data = request.get_json(silent=True) or {}

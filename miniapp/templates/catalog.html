@@ -36,6 +36,17 @@
         <option value="4">4.0+</option>
         <option value="4.5">4.5+</option>
       </select>
+      <div class="geo-tools">
+        <button id="findNearestBtn" class="ghost-btn" data-i18n="nearest_by_gps">Yaqinlarni GPS bo'yicha topish</button>
+        <select id="distanceFilter">
+          <option value="" data-i18n="any_distance">Masofa: hammasi</option>
+          <option value="3">3 km</option>
+          <option value="5">5 km</option>
+          <option value="10">10 km</option>
+          <option value="20">20 km</option>
+          <option value="50">50 km</option>
+        </select>
+      </div>
       <button id="refreshBtn" class="solid-btn" data-i18n="refresh">Yangilash</button>
     </section>
 
@@ -91,6 +102,43 @@
     </div>
   </div>
 
-  <script src="/static/js/catalog.js?v=20260330a"></script>
+  <div id="bookingModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3 id="bookingTitle">Booking request</h3>
+        <button id="closeBooking" class="ghost-btn">X</button>
+      </div>
+      <form id="bookingForm" class="report-form">
+        <input id="bookingBranchId" type="hidden">
+        <label>
+          <span data-i18n="full_name_optional">Ism (ixtiyoriy)</span>
+          <input id="bookingName" type="text" placeholder="Ism familiya" data-ph="full_name_optional">
+        </label>
+        <label>
+          <span data-i18n="phone_required">Telefon raqam (majburiy)</span>
+          <input id="bookingPhone" type="text" required placeholder="+998..." data-ph="phone_required">
+        </label>
+        <label>
+          <span data-i18n="room_or_bed">Xona yoki yotoq raqami</span>
+          <input id="bookingRoomBed" type="text" placeholder="Masalan: 203 xona yoki 2-kravat" data-ph="room_or_bed">
+        </label>
+        <label>
+          <span data-i18n="checkin_date">Kelish sanasi</span>
+          <input id="bookingCheckin" type="date">
+        </label>
+        <label>
+          <span data-i18n="checkout_date">Ketish sanasi</span>
+          <input id="bookingCheckout" type="date">
+        </label>
+        <label>
+          <span data-i18n="report_message">Xabar</span>
+          <textarea id="bookingMessage" rows="3" data-ph="booking_message_ph" placeholder="Qo'shimcha izoh..."></textarea>
+        </label>
+        <button type="submit" class="solid-btn" data-i18n="send_booking_request">Bron ariza yuborish</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="/static/js/catalog.js?v=20260330b"></script>
 </body>
 </html>

@@ -20,7 +20,7 @@ from api.ws_manager import ws_manager
 
 router = APIRouter(prefix="/rooms", tags=["Rooms"])
 ROOM_IMAGE_DIR = os.path.abspath(
-    os.path.join(os.getcwd(), "miniapp", "static", "room_images")
+    os.getenv("ROOM_IMAGE_DIR", "/var/www/miniapp/static/room_images")
 )
 os.makedirs(ROOM_IMAGE_DIR, exist_ok=True)
 
@@ -245,9 +245,15 @@ async def delete_room_image(
     if not row:
         raise HTTPException(404, "Image not found")
 
-    image_path = str(row.get("image_path") or "").lstrip("/")
-    if image_path and os.path.exists(image_path):
-        os.remove(image_path)
+    image_path = str(row.get("image_path") or "").strip()
+    abs_path = ""
+    if image_path.startswith("/static/room_images/"):
+        filename = os.path.basename(image_path)
+        abs_path = os.path.join(ROOM_IMAGE_DIR, filename)
+    elif image_path:
+        abs_path = image_path
+    if abs_path and os.path.exists(abs_path):
+        os.remove(abs_path)
 
     await ws_manager.broadcast({
         "type": "rooms_changed",
