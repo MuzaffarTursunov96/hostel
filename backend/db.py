@@ -2316,15 +2316,22 @@ def export_monthly_data_db(year, month, branch_id: int):
 
 def create_room_db(number: str, room_name: str, branch_id: int):
     with get_connection() as conn:
-        conn.execute(text("""
-            INSERT INTO rooms (number, room_name, branch_id)
-            VALUES (:number, :room_name, :branch_id)
-        """), {
-            "number": number,
-            "room_name": room_name,
-            "branch_id": branch_id
-        })
-    return {"status": "success"}
+        try:
+            conn.execute(text("""
+                INSERT INTO rooms (number, room_name, branch_id)
+                VALUES (:number, :room_name, :branch_id)
+            """), {
+                "number": number,
+                "room_name": room_name,
+                "branch_id": branch_id
+            })
+            return {"status": "success"}
+        except IntegrityError:
+            conn.rollback()
+            return {"status": "error", "message": "Room already exists"}
+        except Exception:
+            conn.rollback()
+            raise
 
 
 

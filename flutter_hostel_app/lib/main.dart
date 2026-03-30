@@ -1454,7 +1454,7 @@ class _DashboardPageState extends State<_DashboardPage> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setD) => AlertDialog(
-          title: const Text('Редактировать будущее бронирование'),
+          title: Text(_t('Редактировать будущее бронирование', 'Kelgusi bronni tahrirlash')),
           content: SingleChildScrollView(
             child: SizedBox(
               width: 360,
@@ -1463,7 +1463,7 @@ class _DashboardPageState extends State<_DashboardPage> {
                 children: [
                   DropdownButtonFormField<int>(
                     value: roomId == 0 ? null : roomId,
-                    decoration: const InputDecoration(labelText: 'Комната', border: OutlineInputBorder()),
+                    decoration: InputDecoration(labelText: _t('Комната', 'Xona'), border: const OutlineInputBorder()),
                     items: rooms
                         .map((r) => DropdownMenuItem<int>(
                               value: (r['id'] as num).toInt(),
@@ -1480,11 +1480,11 @@ class _DashboardPageState extends State<_DashboardPage> {
                   const SizedBox(height: 10),
                   DropdownButtonFormField<int>(
                     value: bedId == 0 ? null : bedId,
-                    decoration: const InputDecoration(labelText: 'Кровать', border: OutlineInputBorder()),
+                    decoration: InputDecoration(labelText: _t('Кровать', 'Kravat'), border: const OutlineInputBorder()),
                     items: beds
                         .map((b) => DropdownMenuItem<int>(
                               value: (b['id'] as num).toInt(),
-                              child: Text('Кровать ${b['bed_number']}'),
+                              child: Text('${_t('Кровать', 'Kravat')} ${b['bed_number']}'),
                             ))
                         .toList(),
                     onChanged: (v) => setD(() => bedId = v ?? bedId),
@@ -1492,7 +1492,7 @@ class _DashboardPageState extends State<_DashboardPage> {
                   const SizedBox(height: 10),
                   ListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('Дата заезда'),
+                    title: Text(_t('Дата заезда', 'Kirish sanasi')),
                     subtitle: Text(fmt(checkin)),
                     trailing: const Icon(Icons.calendar_month),
                     onTap: () async {
@@ -1507,7 +1507,7 @@ class _DashboardPageState extends State<_DashboardPage> {
                   ),
                   ListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text('Дата выезда'),
+                    title: Text(_t('Дата выезда', 'Chiqish sanasi')),
                     subtitle: Text(fmt(checkout)),
                     trailing: const Icon(Icons.calendar_month),
                     onTap: () async {
@@ -1524,15 +1524,15 @@ class _DashboardPageState extends State<_DashboardPage> {
                   TextField(
                     controller: totalCtrl,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(labelText: 'Общая сумма', border: OutlineInputBorder()),
+                    decoration: InputDecoration(labelText: _t('Общая сумма', 'Jami summa'), border: const OutlineInputBorder()),
                   ),
                 ],
               ),
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Отмена')),
-            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Сохранить')),
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(_t('Отмена', 'Bekor'))),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(_t('Сохранить', 'Saqlash'))),
           ],
         ),
       ),
@@ -1540,7 +1540,7 @@ class _DashboardPageState extends State<_DashboardPage> {
     if (saved != true) return;
     final total = double.tryParse(totalCtrl.text.trim());
     if (total == null) {
-      showAppAlert(context, 'Неверная сумма', error: true);
+      showAppAlert(context, _t('Неверная сумма', "Noto'g'ri summa"), error: true);
       return;
     }
     await _updateFutureBooking(
@@ -1553,7 +1553,7 @@ class _DashboardPageState extends State<_DashboardPage> {
     );
     if (!mounted) return;
     setState(() => _reloadDashboard());
-    showAppAlert(context, 'Будущее бронирование обновлено');
+    showAppAlert(context, _t('Будущее бронирование обновлено', 'Kelgusi bron yangilandi'));
   }
 
   Future<void> _openFutureBookingsForBed({
@@ -1602,7 +1602,7 @@ class _DashboardPageState extends State<_DashboardPage> {
               children: [
                 Row(
                   children: [
-                    const Text('🗓 Будущие бронирования', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                    Text('🗓 ${_t('Будущие бронирования', 'Kelgusi bronlar')}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
                     const Spacer(),
                     IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
                   ],
@@ -1610,7 +1610,7 @@ class _DashboardPageState extends State<_DashboardPage> {
                 if (error != null)
                   Expanded(child: Center(child: Text(error!, style: const TextStyle(color: Colors.red))))
                 else if (rows.isEmpty)
-                  const Expanded(child: Center(child: Text('Будущих бронирований нет')))
+                  Expanded(child: Center(child: Text(_t('Будущих бронирований нет', "Kelgusi bronlar yo'q"))))
                 else
                   Expanded(
                     child: ListView.separated(
@@ -1640,7 +1640,7 @@ class _DashboardPageState extends State<_DashboardPage> {
                                           await _openEditFutureBooking(b);
                                         },
                                         icon: const Icon(Icons.edit, size: 16),
-                                        label: const Text('Редактировать'),
+                                        label: Text(_t('Редактировать', 'Tahrirlash')),
                                       ),
                                     ),
                                     const SizedBox(width: 8),
@@ -1650,20 +1650,20 @@ class _DashboardPageState extends State<_DashboardPage> {
                                         onPressed: () async {
                                           final ok = await confirmAction(
                                             context,
-                                            title: 'Отменить бронирование',
-                                            message: 'Подтверждаете отмену будущего бронирования?',
-                                            confirmText: 'Отменить',
-                                            cancelText: 'Назад',
+                                            title: _t('Отменить бронирование', 'Bronni bekor qilish'),
+                                            message: _t('Подтверждаете отмену будущего бронирования?', 'Kelgusi bronni bekor qilishni tasdiqlaysizmi?'),
+                                            confirmText: _t('Отменить', 'Bekor qilish'),
+                                            cancelText: _t('Назад', 'Orqaga'),
                                           );
                                           if (!ok) return;
                                           await _cancelFutureBooking(b);
                                           if (!mounted) return;
                                           Navigator.pop(context);
                                           setState(() => _reloadDashboard());
-                                          showAppAlert(context, 'Будущее бронирование отменено');
+                                          showAppAlert(context, _t('Будущее бронирование отменено', 'Kelgusi bron bekor qilindi'));
                                         },
                                         icon: const Icon(Icons.close, size: 16),
-                                        label: const Text('Отменить'),
+                                        label: Text(_t('Отменить', 'Bekor qilish')),
                                       ),
                                     ),
                                   ],
@@ -1872,7 +1872,7 @@ class _DashboardPageState extends State<_DashboardPage> {
                                                   });
                                                   if (!mounted) return;
                                                   Navigator.pop(context);
-                                                  setState(() {});
+                                                  setState(() => _reloadDashboard());
                                                   showAppAlert(context, _t('Бронирование отменено', 'Buyurtma bekor qilindi'));
                                                 },
                                                 icon: const Icon(Icons.close, size: 16),
@@ -1921,7 +1921,7 @@ class _DashboardPageState extends State<_DashboardPage> {
                                               });
                                               if (!mounted) return;
                                               Navigator.pop(context);
-                                              setState(() {});
+                                              setState(() => _reloadDashboard());
                                               showAppAlert(context, _t('Бронирование завершено', 'Buyurtma yakunlandi'));
                                             },
                                             icon: const Icon(Icons.check_circle_outline, size: 16),
@@ -2089,7 +2089,7 @@ class _DashboardPageState extends State<_DashboardPage> {
       'total_amount': total,
     });
     if (!mounted) return;
-    setState(() {});
+    setState(() => _reloadDashboard());
     showAppAlert(context, 'Buyurtma yangilandi');
   }
 
@@ -2527,12 +2527,16 @@ class _RoomsPageState extends State<_RoomsPage> {
     final name = c.text.trim();
     if (name.isEmpty) return;
 
-    int maxNumber = 0;
+    final usedNumbers = <String>{};
     for (final r in _rooms) {
-      final n = int.tryParse('${r['room_number'] ?? ''}') ?? 0;
-      if (n > maxNumber) maxNumber = n;
+      final value = '${r['room_number'] ?? r['number'] ?? ''}'.trim();
+      if (value.isNotEmpty) usedNumbers.add(value);
     }
-    final nextNumber = (maxNumber + 1).toString();
+    var candidate = 1;
+    while (usedNumbers.contains(candidate.toString())) {
+      candidate += 1;
+    }
+    final nextNumber = candidate.toString();
 
     try {
       await widget.api.postJson('/rooms/', {
