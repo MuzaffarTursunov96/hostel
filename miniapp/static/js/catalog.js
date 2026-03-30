@@ -606,9 +606,6 @@
             <button class="ghost-btn small-btn" data-open-details="${r.id}">
               <img class="btn-ico" src="/static/icons/info_client.png" alt=""> ${t("details")}
             </button>
-            <button class="solid-btn small-btn" data-book="${r.id}">
-              <img class="btn-ico" src="/static/icons/booking_client.png" alt=""> ${t("booking")}
-            </button>
             ${reportButtonHtml}
           </div>
         </div>
@@ -704,6 +701,15 @@
                   <div>${t("available_beds_label")}: ${Number(r.available_beds || 0)}</div>
                   <div>${t("room_status")}: ${occupancyLabel(r.occupancy_status)}</div>
                   <div>${t("details_price")}: ${priceLine}</div>
+                  <button
+                    type="button"
+                    class="solid-btn small-btn"
+                    data-book-room="${branchId}"
+                    data-book-room-name="${escapeHtml(branch.name || "")}"
+                    data-book-room-label="${escapeHtml(r.room_name || r.room_number || "")}"
+                  >
+                    <img class="btn-ico" src="/static/icons/booking_client.png" alt=""> ${t("booking")}
+                  </button>
                 </div>
               </div>
             </div>
@@ -716,6 +722,14 @@
     if (rateBtn) {
       rateBtn.addEventListener("click", () => submitRating(branchId));
     }
+    detailsBodyEl.querySelectorAll("[data-book-room]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const bId = Number(btn.getAttribute("data-book-room"));
+        const bName = btn.getAttribute("data-book-room-name") || "Branch";
+        const roomLabel = btn.getAttribute("data-book-room-label") || "";
+        openBooking(bId, bName, roomLabel);
+      });
+    });
   }
 
   async function submitRating(branchId) {
@@ -766,12 +780,12 @@
     reportModalEl.classList.remove("hidden");
   }
 
-  function openBooking(branchId, branchName) {
+  function openBooking(branchId, branchName, roomPrefill = "") {
     bookingBranchIdEl.value = String(branchId);
     bookingTitleEl.textContent = `${branchName} - ${t("booking")}`;
     bookingNameEl.value = "";
     bookingPhoneEl.value = "";
-    bookingRoomBedEl.value = "";
+    bookingRoomBedEl.value = String(roomPrefill || "");
     bookingCheckinEl.value = "";
     bookingCheckoutEl.value = "";
     bookingMessageEl.value = "";
@@ -888,13 +902,6 @@
       const id = Number(detailsBtn.getAttribute("data-open-details"));
       const row = rows.find((x) => Number(x.id) === id) || {};
       openDetails(id, row.name || "Branch");
-      return;
-    }
-    const bookBtn = e.target.closest("[data-book]");
-    if (bookBtn) {
-      const id = Number(bookBtn.getAttribute("data-book"));
-      const row = rows.find((x) => Number(x.id) === id) || {};
-      openBooking(id, row.name || "Branch");
       return;
     }
     const reportBtn = e.target.closest("[data-report]");

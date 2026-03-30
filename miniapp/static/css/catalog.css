@@ -407,6 +407,11 @@ body {
   font-size: 13px;
 }
 
+.details-room-meta .small-btn {
+  margin-top: 6px;
+  width: fit-content;
+}
+
 .details-room-title {
   font-weight: 700;
 }
