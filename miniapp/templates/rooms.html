@@ -5,6 +5,46 @@
 <!-- <script>
   let CURRENT_BRANCH = {{ current_branch_id }};
 </script> -->
+<style>
+  .room-photos-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+    gap: 10px;
+  }
+  .room-photo-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #fff;
+  }
+  .room-photo-img {
+    width: 100%;
+    height: 88px;
+    object-fit: cover;
+    background: #f3f4f6;
+  }
+  .room-photo-actions {
+    display: flex;
+    gap: 6px;
+    padding: 8px;
+  }
+  .room-photo-actions button {
+    flex: 1;
+    border: 0;
+    border-radius: 8px;
+    padding: 6px 8px;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .room-photo-cover {
+    background: #dbeafe;
+    color: #1d4ed8;
+  }
+  .room-photo-delete {
+    background: #fee2e2;
+    color: #b91c1c;
+  }
+</style>
 
 <div class="p-4 space-y-6">
 
@@ -29,6 +69,34 @@
          class="flex gap-2 overflow-x-auto pb-2">
       <!-- injected -->
     </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+      <input id="roomTypeInput"
+             type="text"
+             class="sm:col-span-2 px-3 py-2 rounded-lg border"
+             placeholder="{{ t('room_type_optional') }}">
+      <button onclick="saveRoomType()"
+              class="py-2 rounded-xl border font-medium">
+        {{ t("save_room_type") }}
+      </button>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+      <input id="roomFixedPriceInput"
+             type="number"
+             step="0.01"
+             min="0"
+             class="sm:col-span-2 px-3 py-2 rounded-lg border"
+             placeholder="{{ t('fixed_price_optional') }}">
+      <button onclick="saveRoomPrice()"
+              class="py-2 rounded-xl bg-tgButton text-white font-medium">
+        {{ t("save_room_price") }}
+      </button>
+    </div>
+    <button onclick="clearRoomPrice()"
+            class="w-full py-2 rounded-xl border font-medium">
+      {{ t("clear_price_agreement") }}
+    </button>
 
     <button onclick="deleteRoom()"
             class="w-full mt-2 py-3 rounded-xl bg-red-500 text-white font-medium">
@@ -69,6 +137,21 @@
 
   </div>
 
+  <!-- ROOM PHOTOS CARD -->
+  <div class="bg-card rounded-2xl shadow p-4 space-y-3">
+    <div class="flex justify-between items-center gap-3">
+      <span class="font-semibold">{{ t("room_photos") }}</span>
+      <label class="px-3 py-2 rounded-xl bg-tgButton text-white text-sm cursor-pointer">
+        {{ t("upload_room_photos") }}
+        <input id="roomPhotoInput" type="file" accept="image/*" multiple class="hidden" onchange="uploadRoomPhotos()" />
+      </label>
+    </div>
+
+    <p class="text-xs text-tgHint">{{ t("max_room_images_hint") }}</p>
+
+    <div id="roomPhotosList" class="room-photos-grid"></div>
+  </div>
+
 </div>
 
 <!-- ADD ROOM MODAL -->
@@ -90,6 +173,26 @@
         type="text"
         class="w-full mt-1 px-3 py-2 rounded-xl border focus:outline-none focus:ring-2 focus:ring-tgButton"
         placeholder="{{ t('enter_room_name') }}"
+      />
+    </div>
+    <div>
+      <label class="text-sm text-gray-600">{{ t("room_type_optional") }}</label>
+      <input
+        id="roomTypeCreateInput"
+        type="text"
+        class="w-full mt-1 px-3 py-2 rounded-xl border focus:outline-none focus:ring-2 focus:ring-tgButton"
+        placeholder="{{ t('room_type_optional') }}"
+      />
+    </div>
+    <div>
+      <label class="text-sm text-gray-600">{{ t("fixed_price_optional") }}</label>
+      <input
+        id="roomPriceInput"
+        type="number"
+        step="0.01"
+        min="0"
+        class="w-full mt-1 px-3 py-2 rounded-xl border focus:outline-none focus:ring-2 focus:ring-tgButton"
+        placeholder="{{ t('fixed_price_optional') }}"
       />
     </div>
 
@@ -126,6 +229,15 @@
         <option value="double">{{t("double_bed")}}</option>
         <option value="child">{{t("child_bed")}}</option>
       </select>
+    </div>
+    <div>
+      <label class="text-sm text-gray-600">{{ t("fixed_price_optional") }}</label>
+      <input id="editBedPrice"
+             type="number"
+             step="0.01"
+             min="0"
+             class="w-full mt-1 px-3 py-2 rounded-xl border"
+             placeholder="{{ t('fixed_price_optional') }}">
     </div>
 
     <div class="flex gap-2 pt-2">

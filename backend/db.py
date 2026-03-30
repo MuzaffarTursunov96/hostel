@@ -5,8 +5,11 @@ from database import engine
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
+from time_utils import app_today, app_now_naive
 
 _hourly_column_checked = False
+_pricing_columns_checked = False
+_branch_contact_columns_checked = False
 
 def get_connection():
     return engine.begin()
@@ -57,6 +60,8 @@ def init_db():
             address TEXT,
             latitude DOUBLE PRECISION,
             longitude DOUBLE PRECISION,
+            contact_phone TEXT,
+            contact_telegram TEXT,
             created_by INTEGER
         )
         """))
@@ -127,6 +132,20 @@ def init_db():
             image_path TEXT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE
+        )
+        """))
+
+        # ---------- ROOM IMAGES ----------
+        conn.execute(text("""
+        CREATE TABLE IF NOT EXISTS room_images (
+            id SERIAL PRIMARY KEY,
+            room_id INTEGER NOT NULL,
+            branch_id INTEGER NOT NULL,
+            image_path TEXT NOT NULL,
+            is_cover BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE,
+            FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE CASCADE
         )
         """))
 
@@ -369,6 +388,45 @@ def get_system_setting_db(key: str, default: str | None = None):
     return row.get("value") if row.get("value") is not None else default
 
 
+def get_booking_prepayment_config_db():
+    enabled_raw = str(get_system_setting_db("booking_prepayment_enabled", "0") or "0").strip().lower()
+    enabled = enabled_raw in {"1", "true", "yes", "on"}
+
+    mode = str(get_system_setting_db("booking_prepayment_mode", "percent") or "percent").strip().lower()
+    if mode not in {"percent", "fixed"}:
+        mode = "percent"
+
+    try:
+        value = float(get_system_setting_db("booking_prepayment_value", "0") or 0)
+    except Exception:
+        value = 0.0
+
+    if value < 0:
+        value = 0.0
+
+    return {
+        "enabled": enabled,
+        "mode": mode,
+        "value": value,
+    }
+
+
+def set_booking_prepayment_config_db(enabled: bool, mode: str, value: float):
+    mode_norm = str(mode or "").strip().lower()
+    if mode_norm not in {"percent", "fixed"}:
+        raise ValueError("mode must be percent or fixed")
+
+    value_num = float(value)
+    if value_num < 0:
+        raise ValueError("value must be >= 0")
+    if mode_norm == "percent" and value_num > 100:
+        raise ValueError("percent must be <= 100")
+
+    set_system_setting_db("booking_prepayment_enabled", "1" if bool(enabled) else "0")
+    set_system_setting_db("booking_prepayment_mode", mode_norm)
+    set_system_setting_db("booking_prepayment_value", str(value_num))
+
+
 def is_app_expired_db(now_utc=None):
     from datetime import datetime
 
@@ -377,7 +435,7 @@ def is_app_expired_db(now_utc=None):
         return False
 
     if now_utc is None:
-        now_utc = datetime.utcnow()
+        now_utc = app_now_naive()
 
     return now_utc > expires_at
 
@@ -447,20 +505,59 @@ def ensure_bookings_hourly_column():
         """))
     _hourly_column_checked = True
 
+
+def ensure_pricing_columns():
+    global _pricing_columns_checked
+    if _pricing_columns_checked:
+        return
+    with get_connection() as conn:
+        conn.execute(text("""
+            ALTER TABLE rooms
+            ADD COLUMN IF NOT EXISTS fixed_price NUMERIC NULL
+        """))
+        conn.execute(text("""
+            ALTER TABLE beds
+            ADD COLUMN IF NOT EXISTS fixed_price NUMERIC NULL
+        """))
+        conn.execute(text("""
+            ALTER TABLE rooms
+            ADD COLUMN IF NOT EXISTS room_type TEXT NULL
+        """))
+    _pricing_columns_checked = True
+
+
+def ensure_branch_contact_columns():
+    global _branch_contact_columns_checked
+    if _branch_contact_columns_checked:
+        return
+    with get_connection() as conn:
+        conn.execute(text("""
+            ALTER TABLE branches
+            ADD COLUMN IF NOT EXISTS contact_phone TEXT
+        """))
+        conn.execute(text("""
+            ALTER TABLE branches
+            ADD COLUMN IF NOT EXISTS contact_telegram TEXT
+        """))
+    _branch_contact_columns_checked = True
+
 def get_rooms_with_beds(branch_id):
+    ensure_pricing_columns()
     with get_connection() as conn:
         result = conn.execute(text("""
             SELECT 
                 rooms.id,
                 rooms.number AS room_number,
                 COALESCE(rooms.room_name, rooms.number) AS room_name,
-                COUNT(beds.id) AS bed_count
+                COUNT(beds.id) AS bed_count,
+                rooms.fixed_price,
+                rooms.room_type
             FROM rooms
             LEFT JOIN beds 
                 ON beds.room_id = rooms.id
                AND beds.branch_id = rooms.branch_id
             WHERE rooms.branch_id = :branch_id
-            GROUP BY rooms.id, rooms.number
+            GROUP BY rooms.id, rooms.number, rooms.room_name, rooms.fixed_price, rooms.room_type
             ORDER BY rooms.id ASC
         """), {"branch_id": branch_id})
 
@@ -471,21 +568,28 @@ def get_rooms_with_beds(branch_id):
             "id": r["id"],
             "room_number": r["room_number"],
             "room_name": r["room_name"],
-            "bed_count": r["bed_count"]
+            "bed_count": r["bed_count"],
+            "fixed_price": float(r["fixed_price"]) if r["fixed_price"] is not None else None,
+            "room_type": (r["room_type"] or "").strip() or None,
         }
         for r in rows
     ]
 
 
 def get_available_beds(branch_id, room_id, checkin_date, checkout_date):
+    ensure_pricing_columns()
     with get_connection() as conn:
         result = conn.execute(text("""
             SELECT 
                 b.id,
                 b.bed_number,
                 b.room_id,
-                b.bed_type
+                b.bed_type,
+                b.fixed_price,
+                r.fixed_price AS room_fixed_price,
+                COALESCE(b.fixed_price, r.fixed_price) AS effective_price
             FROM beds b
+            JOIN rooms r ON r.id = b.room_id
             WHERE b.branch_id = :branch_id
               AND b.room_id = :room_id
               AND NOT EXISTS (
@@ -690,7 +794,7 @@ def get_default_branch_id(user_id: int):
 
 
 def is_bed_busy_today(branch_id, bed_id):
-    today = date.today()
+    today = app_today()
 
     with get_connection() as conn:
         row = conn.execute(text("""
@@ -1223,9 +1327,17 @@ def pay_booking_debt(branch_id, booking_id, pay_amount):
 
 # ================= BRANCHES =================
 def get_branches(user_id):
+    ensure_branch_contact_columns()
     with get_connection() as conn:
         result = conn.execute(text("""
-            SELECT b.id, b.name
+            SELECT
+                b.id,
+                b.name,
+                b.address,
+                b.latitude,
+                b.longitude,
+                b.contact_phone,
+                b.contact_telegram
             FROM branches b
             JOIN user_branches ub ON ub.branch_id = b.id
             WHERE ub.user_id = :user_id
@@ -1577,7 +1689,7 @@ def update_future_booking_admin(
         checkout_date,
         total_amount
     ):
-    today = date.today()
+    today = app_today()
 
     # 🔒 HARD BUSINESS RULE
     if checkin_date <= today:
@@ -1611,7 +1723,7 @@ def update_future_booking_admin(
 
 
 def get_past_bookings(branch_id, from_date=None, to_date=None):
-    today = date.today().isoformat()
+    today = app_today().isoformat()
 
     sql = """
         SELECT
@@ -1674,7 +1786,7 @@ def get_past_bookings(branch_id, from_date=None, to_date=None):
 
 
 def get_active_bookings(branch_id):
-    today = date.today().isoformat()
+    today = app_today().isoformat()
     ensure_bookings_hourly_column()
 
     with get_connection() as conn:
@@ -1796,6 +1908,7 @@ def create_admin_if_not_exists():
 
 # ================= BEDS CRUD =================
 def add_bed(branch_id, room_id):
+    ensure_pricing_columns()
     with get_connection() as conn:
 
         next_number = conn.execute(text("""
@@ -1809,8 +1922,8 @@ def add_bed(branch_id, room_id):
         }).scalar()
 
         conn.execute(text("""
-            INSERT INTO beds (branch_id, room_id, bed_number)
-            VALUES (:branch_id, :room_id, :bed_number)
+            INSERT INTO beds (branch_id, room_id, bed_number, fixed_price)
+            VALUES (:branch_id, :room_id, :bed_number, NULL)
         """), {
             "branch_id": branch_id,
             "room_id": room_id,
@@ -1832,9 +1945,10 @@ def delete_bed(bed_id):
 
 
 def get_beds(branch_id, room_id):
+    ensure_pricing_columns()
     with get_connection() as conn:
         result = conn.execute(text("""
-            SELECT id, bed_number,bed_type
+            SELECT id, bed_number, bed_type, fixed_price
             FROM beds
             WHERE branch_id = :branch_id
               AND room_id = :room_id
@@ -1848,7 +1962,7 @@ def get_beds(branch_id, room_id):
 
 
 def busy_beds_now(branch_id, room_id):
-    today = date.today().isoformat()
+    today = app_today().isoformat()
 
     with get_connection() as conn:
         result = conn.execute(text("""
@@ -1876,7 +1990,7 @@ def busy_beds_now(branch_id, room_id):
 
 
 def get_beds_with_busy_like_dashboard(branch_id: int, room_id: int):
-    today = date.today().isoformat()
+    today = app_today().isoformat()
 
     # 1️⃣ get all beds
     with get_connection() as conn:
@@ -1912,7 +2026,7 @@ def get_beds_with_busy_like_dashboard(branch_id: int, room_id: int):
 
 
 def get_beds_with_booking_status(room_id: int, branch_id: int):
-    today = date.today().isoformat()
+    today = app_today().isoformat()
 
     with get_connection() as conn:
         rows = conn.execute(text("""
@@ -1967,7 +2081,7 @@ def bed_future_exists(branch_id, bed_id):
 
 
 def get_future_bookings(branch_id, bed_id):
-    today = date.today().isoformat()
+    today = app_today().isoformat()
 
     with get_connection() as conn:
         rows = conn.execute(text("""
@@ -2316,6 +2430,177 @@ def upload_passport_image_db(customer_id: int):
     return count
 
 
+def ensure_room_images_table():
+    with get_connection() as conn:
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS room_images (
+                id SERIAL PRIMARY KEY,
+                room_id INTEGER NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+                branch_id INTEGER NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+                image_path TEXT NOT NULL,
+                is_cover BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """))
+        conn.execute(text("""
+            CREATE INDEX IF NOT EXISTS idx_room_images_room_id
+            ON room_images(room_id)
+        """))
+
+
+def list_room_images_db(room_id: int, branch_id: int | None = None, limit: int = 30):
+    ensure_room_images_table()
+    lim = int(limit or 30)
+    if lim < 1:
+        lim = 1
+    if lim > 200:
+        lim = 200
+    with get_connection() as conn:
+        rows = conn.execute(text("""
+            SELECT id, room_id, branch_id, image_path, is_cover, created_at
+            FROM room_images
+            WHERE room_id = :room_id
+              AND (:branch_id IS NULL OR branch_id = :branch_id)
+            ORDER BY is_cover DESC, created_at DESC, id DESC
+            LIMIT :lim
+        """), {
+            "room_id": int(room_id),
+            "branch_id": branch_id,
+            "lim": lim,
+        }).mappings().all()
+    return [dict(r) for r in rows]
+
+
+def add_room_image_path_db(
+    room_id: int,
+    branch_id: int,
+    filename: str,
+    is_cover: bool = False,
+    max_images: int = 12
+):
+    ensure_room_images_table()
+    with get_connection() as conn:
+        room = conn.execute(text("""
+            SELECT 1
+            FROM rooms
+            WHERE id = :room_id
+              AND branch_id = :branch_id
+            LIMIT 1
+        """), {
+            "room_id": int(room_id),
+            "branch_id": int(branch_id),
+        }).fetchone()
+        if not room:
+            raise ValueError("Room not found")
+
+        current_count = conn.execute(text("""
+            SELECT COUNT(*)
+            FROM room_images
+            WHERE room_id = :room_id
+              AND branch_id = :branch_id
+        """), {
+            "room_id": int(room_id),
+            "branch_id": int(branch_id),
+        }).scalar() or 0
+        if int(current_count) >= int(max_images):
+            raise ValueError(f"Maximum {max_images} room images allowed")
+
+        if is_cover:
+            conn.execute(text("""
+                UPDATE room_images
+                SET is_cover = FALSE
+                WHERE room_id = :room_id
+                  AND branch_id = :branch_id
+            """), {
+                "room_id": int(room_id),
+                "branch_id": int(branch_id),
+            })
+
+        row = conn.execute(text("""
+            INSERT INTO room_images (room_id, branch_id, image_path, is_cover)
+            VALUES (:room_id, :branch_id, :image_path, :is_cover)
+            RETURNING id, image_path, is_cover
+        """), {
+            "room_id": int(room_id),
+            "branch_id": int(branch_id),
+            "image_path": f"/static/room_images/{filename}",
+            "is_cover": bool(is_cover),
+        }).mappings().fetchone()
+    return dict(row)
+
+
+def set_room_cover_image_db(image_id: int, room_id: int, branch_id: int) -> bool:
+    ensure_room_images_table()
+    with get_connection() as conn:
+        row = conn.execute(text("""
+            SELECT id
+            FROM room_images
+            WHERE id = :image_id
+              AND room_id = :room_id
+              AND branch_id = :branch_id
+            LIMIT 1
+        """), {
+            "image_id": int(image_id),
+            "room_id": int(room_id),
+            "branch_id": int(branch_id),
+        }).fetchone()
+        if not row:
+            return False
+
+        conn.execute(text("""
+            UPDATE room_images
+            SET is_cover = FALSE
+            WHERE room_id = :room_id
+              AND branch_id = :branch_id
+        """), {
+            "room_id": int(room_id),
+            "branch_id": int(branch_id),
+        })
+        conn.execute(text("""
+            UPDATE room_images
+            SET is_cover = TRUE
+            WHERE id = :image_id
+              AND room_id = :room_id
+              AND branch_id = :branch_id
+        """), {
+            "image_id": int(image_id),
+            "room_id": int(room_id),
+            "branch_id": int(branch_id),
+        })
+    return True
+
+
+def delete_room_image_db(image_id: int, room_id: int, branch_id: int):
+    ensure_room_images_table()
+    with get_connection() as conn:
+        row = conn.execute(text("""
+            SELECT id, image_path
+            FROM room_images
+            WHERE id = :image_id
+              AND room_id = :room_id
+              AND branch_id = :branch_id
+            LIMIT 1
+        """), {
+            "image_id": int(image_id),
+            "room_id": int(room_id),
+            "branch_id": int(branch_id),
+        }).mappings().fetchone()
+        if not row:
+            return None
+
+        conn.execute(text("""
+            DELETE FROM room_images
+            WHERE id = :image_id
+              AND room_id = :room_id
+              AND branch_id = :branch_id
+        """), {
+            "image_id": int(image_id),
+            "room_id": int(room_id),
+            "branch_id": int(branch_id),
+        })
+    return dict(row)
+
+
 def image_path(customer_id: int, filename: str):
     with get_connection() as conn:
         conn.execute(text("""
@@ -2418,16 +2703,25 @@ def export_monthly_data_db(year, month, branch_id: int):
 
 
 
-def create_room_db(number: str, room_name: str, branch_id: int):
+def create_room_db(
+    number: str,
+    room_name: str,
+    branch_id: int,
+    fixed_price: float | None = None,
+    room_type: str | None = None
+):
+    ensure_pricing_columns()
     with get_connection() as conn:
         try:
             conn.execute(text("""
-                INSERT INTO rooms (number, room_name, branch_id)
-                VALUES (:number, :room_name, :branch_id)
+                INSERT INTO rooms (number, room_name, branch_id, fixed_price, room_type)
+                VALUES (:number, :room_name, :branch_id, :fixed_price, :room_type)
             """), {
                 "number": number,
                 "room_name": room_name,
-                "branch_id": branch_id
+                "branch_id": branch_id,
+                "fixed_price": fixed_price,
+                "room_type": (room_type or "").strip() or None,
             })
             return {"status": "success"}
         except IntegrityError:
@@ -2722,8 +3016,11 @@ def create_branch_db(
             created_by: int,
             address: str | None = None,
             latitude: float | None = None,
-            longitude: float | None = None
+            longitude: float | None = None,
+            contact_phone: str | None = None,
+            contact_telegram: str | None = None,
         ):
+    ensure_branch_contact_columns()
     with get_connection() as conn:
         try:
             # 1️⃣ create branch
@@ -2733,6 +3030,8 @@ def create_branch_db(
                     address,
                     latitude,
                     longitude,
+                    contact_phone,
+                    contact_telegram,
                     created_by
                 )
                 VALUES (
@@ -2740,6 +3039,8 @@ def create_branch_db(
                     :address,
                     :latitude,
                     :longitude,
+                    :contact_phone,
+                    :contact_telegram,
                     :created_by
                 )
                 RETURNING id
@@ -2748,6 +3049,8 @@ def create_branch_db(
                 "address": address,
                 "latitude": latitude,
                 "longitude": longitude,
+                "contact_phone": (contact_phone or "").strip() or None,
+                "contact_telegram": (contact_telegram or "").strip() or None,
                 "created_by": created_by
             }).scalar()
 
@@ -3340,9 +3643,10 @@ def update_user_by_admin_db(admin_id, user_id, username, telegram_id, is_active)
         return res.rowcount > 0
 
 def list_branches_by_admin_db(admin_id):
+    ensure_branch_contact_columns()
     with get_connection() as conn:
         return conn.execute(text("""
-            SELECT id, name
+            SELECT id, name, address, latitude, longitude, contact_phone, contact_telegram
             FROM branches
             WHERE created_by = :aid
             ORDER BY id
@@ -3355,15 +3659,20 @@ def update_branch_by_admin_db(
         name,
         address=None,
         latitude=None,
-        longitude=None
+        longitude=None,
+        contact_phone=None,
+        contact_telegram=None
     ):
+    ensure_branch_contact_columns()
     with get_connection() as conn:
         res = conn.execute(text("""
             UPDATE branches
             SET name = :name,
                 address = :address,
                 latitude = :latitude,
-                longitude = :longitude
+                longitude = :longitude,
+                contact_phone = :contact_phone,
+                contact_telegram = :contact_telegram
             WHERE id = :bid
               AND created_by = :aid
         """), {
@@ -3371,6 +3680,8 @@ def update_branch_by_admin_db(
             "address": address,
             "latitude": latitude,
             "longitude": longitude,
+            "contact_phone": (contact_phone or "").strip() or None,
+            "contact_telegram": (contact_telegram or "").strip() or None,
             "bid": branch_id,
             "aid": admin_id
         })
@@ -3806,20 +4117,55 @@ def delete_customer_db(customer_id, branch_id):
         })
     return {"status": "success"}
 
-def update_bed_db(bed_id, bed_number, bed_type, branch_id):
+def update_bed_db(bed_id, bed_number, bed_type, branch_id, fixed_price=None):
+    ensure_pricing_columns()
     with get_connection() as conn:
         conn.execute(text("""
             UPDATE beds
             SET
                 bed_number = :bed_number,
-                bed_type = :bed_type
+                bed_type = :bed_type,
+                fixed_price = :fixed_price
             WHERE id = :bed_id
               AND branch_id = :branch_id
         """), {
             "bed_id": bed_id,
             "branch_id": branch_id,
             "bed_number": bed_number,
-            "bed_type": bed_type
+            "bed_type": bed_type,
+            "fixed_price": fixed_price,
+        })
+    return {"status": "success"}
+
+
+def set_room_fixed_price_db(room_id: int, branch_id: int, fixed_price=None):
+    ensure_pricing_columns()
+    with get_connection() as conn:
+        conn.execute(text("""
+            UPDATE rooms
+            SET fixed_price = :fixed_price
+            WHERE id = :room_id
+              AND branch_id = :branch_id
+        """), {
+            "room_id": int(room_id),
+            "branch_id": int(branch_id),
+            "fixed_price": fixed_price,
+        })
+    return {"status": "success"}
+
+
+def set_room_type_db(room_id: int, branch_id: int, room_type: str | None = None):
+    ensure_pricing_columns()
+    with get_connection() as conn:
+        conn.execute(text("""
+            UPDATE rooms
+            SET room_type = :room_type
+            WHERE id = :room_id
+              AND branch_id = :branch_id
+        """), {
+            "room_id": int(room_id),
+            "branch_id": int(branch_id),
+            "room_type": (room_type or "").strip() or None,
         })
     return {"status": "success"}
 
@@ -3869,3 +4215,567 @@ def sync_admin_active_by_expiry_db(root_telegram_id: int):
               AND admin_expires_at > CURRENT_TIMESTAMP
               AND is_active = FALSE
         """), {"root_tg": int(root_telegram_id)})
+
+
+def ensure_branch_ratings_table():
+    with get_connection() as conn:
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS branch_ratings (
+                id SERIAL PRIMARY KEY,
+                branch_id INTEGER NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+                telegram_id BIGINT NULL,
+                user_name TEXT,
+                rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+                comment TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """))
+
+
+def add_branch_rating_db(
+    branch_id: int,
+    rating: int,
+    comment: str | None = None,
+    telegram_id: int | None = None,
+    user_name: str | None = None
+):
+    ensure_branch_ratings_table()
+    r = int(rating)
+    if r < 1 or r > 5:
+        raise ValueError("rating must be 1..5")
+
+    with get_connection() as conn:
+        conn.execute(text("""
+            INSERT INTO branch_ratings (branch_id, telegram_id, user_name, rating, comment)
+            VALUES (:branch_id, :telegram_id, :user_name, :rating, :comment)
+        """), {
+            "branch_id": int(branch_id),
+            "telegram_id": telegram_id,
+            "user_name": user_name,
+            "rating": r,
+            "comment": (comment or "").strip() or None,
+        })
+
+
+def get_branch_rating_summary_db(branch_id: int):
+    ensure_branch_ratings_table()
+    with get_connection() as conn:
+        row = conn.execute(text("""
+            SELECT
+                COALESCE(AVG(rating), 0) AS avg_rating,
+                COUNT(*) AS rating_count
+            FROM branch_ratings
+            WHERE branch_id = :branch_id
+        """), {"branch_id": int(branch_id)}).mappings().fetchone()
+
+    return {
+        "avg_rating": float(row["avg_rating"] or 0),
+        "rating_count": int(row["rating_count"] or 0),
+    }
+
+
+def list_branch_ratings_db(branch_id: int, limit: int = 50):
+    ensure_branch_ratings_table()
+    lim = int(limit or 50)
+    if lim < 1:
+        lim = 1
+    if lim > 200:
+        lim = 200
+
+    with get_connection() as conn:
+        rows = conn.execute(text("""
+            SELECT id, branch_id, telegram_id, user_name, rating, comment, created_at
+            FROM branch_ratings
+            WHERE branch_id = :branch_id
+            ORDER BY created_at DESC
+            LIMIT :lim
+        """), {
+            "branch_id": int(branch_id),
+            "lim": lim,
+        }).mappings().all()
+
+    return [dict(r) for r in rows]
+
+
+def list_public_branches_with_rating_db(
+    min_rating: float | None = None,
+    room_type: str | None = None,
+    limit: int = 100
+):
+    ensure_branch_ratings_table()
+    ensure_room_images_table()
+    ensure_pricing_columns()
+    ensure_branch_contact_columns()
+    lim = int(limit or 100)
+    if lim < 1:
+        lim = 1
+    if lim > 500:
+        lim = 500
+
+    room_type_norm = (str(room_type or "").strip() or None)
+    with get_connection() as conn:
+        rows = conn.execute(text("""
+            SELECT
+                b.id,
+                b.name,
+                b.address,
+                b.latitude,
+                b.longitude,
+                b.contact_phone,
+                b.contact_telegram,
+                COALESCE(AVG(br.rating), 0) AS avg_rating,
+                COUNT(br.id) AS rating_count,
+                (
+                    SELECT ri.image_path
+                    FROM room_images ri
+                    JOIN rooms rr ON rr.id = ri.room_id
+                    WHERE rr.branch_id = b.id
+                    ORDER BY ri.is_cover DESC, ri.created_at DESC, ri.id DESC
+                    LIMIT 1
+                ) AS cover_image,
+                (
+                    SELECT COUNT(*)
+                    FROM room_images ri
+                    JOIN rooms rr ON rr.id = ri.room_id
+                    WHERE rr.branch_id = b.id
+                ) AS photo_count,
+                (
+                    SELECT MIN(COALESCE(bb.fixed_price, rr.fixed_price))
+                    FROM rooms rr
+                    LEFT JOIN beds bb
+                      ON bb.room_id = rr.id
+                     AND bb.branch_id = rr.branch_id
+                    WHERE rr.branch_id = b.id
+                      AND COALESCE(bb.fixed_price, rr.fixed_price) IS NOT NULL
+                ) AS min_price,
+                (
+                    SELECT COUNT(*)
+                    FROM beds bb
+                    JOIN rooms rr ON rr.id = bb.room_id
+                    WHERE rr.branch_id = b.id
+                ) AS total_beds,
+                (
+                    SELECT string_agg(DISTINCT bb.bed_type, ', ')
+                    FROM beds bb
+                    JOIN rooms rr ON rr.id = bb.room_id
+                    WHERE rr.branch_id = b.id
+                ) AS bed_types,
+                (
+                    SELECT string_agg(DISTINCT rr.room_type, ', ')
+                    FROM rooms rr
+                    WHERE rr.branch_id = b.id
+                      AND rr.room_type IS NOT NULL
+                      AND length(trim(rr.room_type)) > 0
+                ) AS room_types
+            FROM branches b
+            LEFT JOIN branch_ratings br ON br.branch_id = b.id
+            WHERE (
+                :room_type IS NULL
+                OR EXISTS (
+                    SELECT 1
+                    FROM rooms rx
+                    WHERE rx.branch_id = b.id
+                      AND lower(coalesce(trim(rx.room_type), '')) = lower(:room_type)
+                )
+            )
+            GROUP BY b.id, b.name, b.address, b.latitude, b.longitude, b.contact_phone, b.contact_telegram
+            HAVING (:min_rating IS NULL OR COALESCE(AVG(br.rating), 0) >= :min_rating)
+            ORDER BY avg_rating DESC, rating_count DESC, b.id ASC
+            LIMIT :lim
+        """), {
+            "min_rating": min_rating,
+            "room_type": room_type_norm,
+            "lim": lim,
+        }).mappings().all()
+
+    return [
+        {
+            "id": int(r["id"]),
+            "name": r["name"],
+            "address": r["address"],
+            "latitude": r["latitude"],
+            "longitude": r["longitude"],
+            "contact_phone": r["contact_phone"],
+            "contact_telegram": r["contact_telegram"],
+            "avg_rating": float(r["avg_rating"] or 0),
+            "rating_count": int(r["rating_count"] or 0),
+            "cover_image": r["cover_image"],
+            "photo_count": int(r["photo_count"] or 0),
+            "min_price": float(r["min_price"]) if r["min_price"] is not None else None,
+            "total_beds": int(r["total_beds"] or 0),
+            "bed_types": r["bed_types"] or "",
+            "room_types": r["room_types"] or "",
+        }
+        for r in rows
+    ]
+
+
+def list_public_branch_photos_db(branch_id: int, limit: int = 50):
+    ensure_room_images_table()
+    lim = int(limit or 50)
+    if lim < 1:
+        lim = 1
+    if lim > 300:
+        lim = 300
+
+    with get_connection() as conn:
+        rows = conn.execute(text("""
+            SELECT
+                ri.id,
+                ri.room_id,
+                COALESCE(r.room_name, r.number) AS room_name,
+                ri.image_path,
+                ri.is_cover,
+                ri.created_at
+            FROM room_images ri
+            JOIN rooms r ON r.id = ri.room_id
+            WHERE r.branch_id = :branch_id
+            ORDER BY ri.is_cover DESC, ri.created_at DESC, ri.id DESC
+            LIMIT :lim
+        """), {
+            "branch_id": int(branch_id),
+            "lim": lim,
+        }).mappings().all()
+
+    return [dict(r) for r in rows]
+
+
+def get_public_branch_details_db(branch_id: int):
+    ensure_pricing_columns()
+    ensure_branch_ratings_table()
+    ensure_room_images_table()
+    ensure_branch_contact_columns()
+
+    bid = int(branch_id)
+    with get_connection() as conn:
+        branch = conn.execute(text("""
+            SELECT
+                b.id,
+                b.name,
+                b.address,
+                b.latitude,
+                b.longitude,
+                b.contact_phone,
+                b.contact_telegram,
+                COALESCE(AVG(br.rating), 0) AS avg_rating,
+                COUNT(br.id) AS rating_count
+            FROM branches b
+            LEFT JOIN branch_ratings br ON br.branch_id = b.id
+            WHERE b.id = :bid
+            GROUP BY b.id, b.name, b.address, b.latitude, b.longitude, b.contact_phone, b.contact_telegram
+            LIMIT 1
+        """), {"bid": bid}).mappings().fetchone()
+
+        if not branch:
+            return None
+
+        rooms = conn.execute(text("""
+            SELECT
+                r.id,
+                r.number AS room_number,
+                COALESCE(r.room_name, r.number) AS room_name,
+                r.room_type,
+                r.fixed_price AS room_fixed_price,
+                COUNT(b.id) AS bed_count,
+                COALESCE(SUM(CASE WHEN b.bed_type = 'single' THEN 1 ELSE 0 END), 0) AS single_count,
+                COALESCE(SUM(CASE WHEN b.bed_type = 'double' THEN 1 ELSE 0 END), 0) AS double_count,
+                COALESCE(SUM(CASE WHEN b.bed_type = 'child' THEN 1 ELSE 0 END), 0) AS child_count,
+                MIN(COALESCE(b.fixed_price, r.fixed_price)) AS min_effective_price,
+                MAX(COALESCE(b.fixed_price, r.fixed_price)) AS max_effective_price,
+                (
+                    SELECT ri.image_path
+                    FROM room_images ri
+                    WHERE ri.room_id = r.id
+                    ORDER BY ri.is_cover DESC, ri.created_at DESC, ri.id DESC
+                    LIMIT 1
+                ) AS cover_image
+            FROM rooms r
+            LEFT JOIN beds b
+              ON b.room_id = r.id
+             AND b.branch_id = r.branch_id
+            WHERE r.branch_id = :bid
+            GROUP BY r.id, r.number, r.room_name, r.room_type, r.fixed_price
+            ORDER BY r.id ASC
+        """), {"bid": bid}).mappings().all()
+
+    return {
+        "branch": {
+            "id": int(branch["id"]),
+            "name": branch["name"],
+            "address": branch["address"],
+            "latitude": branch["latitude"],
+            "longitude": branch["longitude"],
+            "contact_phone": branch["contact_phone"],
+            "contact_telegram": branch["contact_telegram"],
+            "avg_rating": float(branch["avg_rating"] or 0),
+            "rating_count": int(branch["rating_count"] or 0),
+        },
+        "rooms": [
+            {
+                "id": int(r["id"]),
+                "room_number": r["room_number"],
+                "room_name": r["room_name"],
+                "room_type": (r["room_type"] or "").strip() or None,
+                "room_fixed_price": float(r["room_fixed_price"]) if r["room_fixed_price"] is not None else None,
+                "bed_count": int(r["bed_count"] or 0),
+                "single_count": int(r["single_count"] or 0),
+                "double_count": int(r["double_count"] or 0),
+                "child_count": int(r["child_count"] or 0),
+                "min_effective_price": float(r["min_effective_price"]) if r["min_effective_price"] is not None else None,
+                "max_effective_price": float(r["max_effective_price"]) if r["max_effective_price"] is not None else None,
+                "cover_image": r["cover_image"],
+            }
+            for r in rooms
+        ]
+    }
+
+
+def ensure_branch_feedback_table():
+    with get_connection() as conn:
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS branch_feedback (
+                id SERIAL PRIMARY KEY,
+                branch_id INTEGER NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+                telegram_id BIGINT NULL,
+                user_name TEXT,
+                contact TEXT,
+                sentiment TEXT,
+                message TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """))
+        conn.execute(text("""
+            ALTER TABLE branch_feedback
+            ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'new'
+        """))
+        conn.execute(text("""
+            ALTER TABLE branch_feedback
+            ADD COLUMN IF NOT EXISTS admin_note TEXT
+        """))
+        conn.execute(text("""
+            ALTER TABLE branch_feedback
+            ADD COLUMN IF NOT EXISTS is_read BOOLEAN DEFAULT FALSE
+        """))
+        conn.execute(text("""
+            ALTER TABLE branch_feedback
+            ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        """))
+        conn.execute(text("""
+            ALTER TABLE branch_feedback
+            ADD COLUMN IF NOT EXISTS report_type TEXT DEFAULT 'general'
+        """))
+        conn.execute(text("""
+            ALTER TABLE branch_feedback
+            ADD COLUMN IF NOT EXISTS room_label TEXT
+        """))
+        conn.execute(text("""
+            ALTER TABLE branch_feedback
+            ADD COLUMN IF NOT EXISTS image_path TEXT
+        """))
+
+
+def add_branch_feedback_db(
+    branch_id: int,
+    message: str,
+    sentiment: str | None = None,
+    telegram_id: int | None = None,
+    user_name: str | None = None,
+    contact: str | None = None,
+    report_type: str | None = None,
+    room_label: str | None = None,
+    image_path: str | None = None,
+):
+    ensure_branch_feedback_table()
+
+    msg = str(message or "").strip()
+    if not msg:
+        raise ValueError("message required")
+
+    sent = (str(sentiment or "").strip().lower() or None)
+    if sent not in (None, "positive", "neutral", "negative"):
+        raise ValueError("sentiment must be positive, neutral or negative")
+    rtype = (str(report_type or "").strip().lower() or "general")
+    if rtype not in {"general", "room_state"}:
+        raise ValueError("report_type must be general or room_state")
+
+    with get_connection() as conn:
+        conn.execute(text("""
+            INSERT INTO branch_feedback (
+                branch_id,
+                telegram_id,
+                user_name,
+                contact,
+                sentiment,
+                message,
+                status,
+                is_read,
+                report_type,
+                room_label,
+                image_path
+            )
+            VALUES (
+                :branch_id,
+                :telegram_id,
+                :user_name,
+                :contact,
+                :sentiment,
+                :message,
+                'new',
+                FALSE,
+                :report_type,
+                :room_label,
+                :image_path
+            )
+        """), {
+            "branch_id": int(branch_id),
+            "telegram_id": telegram_id,
+            "user_name": (user_name or "").strip() or None,
+            "contact": (contact or "").strip() or None,
+            "sentiment": sent,
+            "message": msg,
+            "report_type": rtype,
+            "room_label": (room_label or "").strip() or None,
+            "image_path": (image_path or "").strip() or None,
+        })
+
+
+def list_branch_feedback_for_admin_db(
+    admin_id: int,
+    is_root: bool = False,
+    branch_id: int | None = None,
+    limit: int = 200
+):
+    ensure_branch_feedback_table()
+
+    lim = int(limit or 200)
+    if lim < 1:
+        lim = 1
+    if lim > 1000:
+        lim = 1000
+
+    with get_connection() as conn:
+        if is_root:
+            rows = conn.execute(text("""
+                SELECT
+                    f.id,
+                    f.branch_id,
+                    b.name AS branch_name,
+                    f.telegram_id,
+                    f.user_name,
+                    f.contact,
+                    f.sentiment,
+                    f.message,
+                    f.status,
+                    f.admin_note,
+                    f.is_read,
+                    f.report_type,
+                    f.room_label,
+                    f.image_path,
+                    f.created_at
+                FROM branch_feedback f
+                JOIN branches b ON b.id = f.branch_id
+                WHERE (:branch_id IS NULL OR f.branch_id = :branch_id)
+                ORDER BY f.created_at DESC
+                LIMIT :lim
+            """), {
+                "branch_id": branch_id,
+                "lim": lim,
+            }).mappings().all()
+        else:
+            rows = conn.execute(text("""
+                SELECT
+                    f.id,
+                    f.branch_id,
+                    b.name AS branch_name,
+                    f.telegram_id,
+                    f.user_name,
+                    f.contact,
+                    f.sentiment,
+                    f.message,
+                    f.status,
+                    f.admin_note,
+                    f.is_read,
+                    f.report_type,
+                    f.room_label,
+                    f.image_path,
+                    f.created_at
+                FROM branch_feedback f
+                JOIN branches b ON b.id = f.branch_id
+                LEFT JOIN user_branches ub
+                  ON ub.branch_id = b.id
+                 AND ub.user_id = :aid
+                WHERE (
+                    b.created_by = :aid
+                    OR ub.user_id IS NOT NULL
+                )
+                  AND (:branch_id IS NULL OR f.branch_id = :branch_id)
+                ORDER BY f.created_at DESC
+                LIMIT :lim
+            """), {
+                "aid": int(admin_id),
+                "branch_id": branch_id,
+                "lim": lim,
+            }).mappings().all()
+
+    return [dict(r) for r in rows]
+
+
+def update_feedback_status_db(
+    admin_id: int,
+    feedback_id: int,
+    status: str | None = None,
+    is_read: bool | None = None,
+    admin_note: str | None = None,
+    is_root: bool = False
+):
+    ensure_branch_feedback_table()
+
+    st = None if status is None else str(status).strip().lower()
+    if st is not None and st not in {"new", "read", "resolved"}:
+        raise ValueError("status must be new, read or resolved")
+
+    with get_connection() as conn:
+        if is_root:
+            allowed = conn.execute(text("""
+                SELECT 1
+                FROM branch_feedback
+                WHERE id = :fid
+                LIMIT 1
+            """), {"fid": int(feedback_id)}).fetchone()
+        else:
+            allowed = conn.execute(text("""
+                SELECT 1
+                FROM branch_feedback f
+                JOIN branches b ON b.id = f.branch_id
+                LEFT JOIN user_branches ub
+                  ON ub.branch_id = b.id
+                 AND ub.user_id = :aid
+                WHERE f.id = :fid
+                  AND (
+                    b.created_by = :aid
+                    OR ub.user_id IS NOT NULL
+                  )
+                LIMIT 1
+            """), {
+                "aid": int(admin_id),
+                "fid": int(feedback_id),
+            }).fetchone()
+
+        if not allowed:
+            return False
+
+        conn.execute(text("""
+            UPDATE branch_feedback
+            SET
+                status = COALESCE(:status, status),
+                is_read = COALESCE(:is_read, is_read),
+                admin_note = COALESCE(:admin_note, admin_note),
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = :fid
+        """), {
+            "status": st,
+            "is_read": is_read,
+            "admin_note": (admin_note or "").strip() or None,
+            "fid": int(feedback_id),
+        })
+        return True

@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from api.deps import get_current_user
 from datetime import date
 from api.ws_manager import ws_manager
+from time_utils import app_today
 from db import (
     get_beds,
     add_bed,
@@ -33,6 +34,7 @@ def list_beds(branch_id: int, room_id: int, user=Depends(get_current_user)):
                     "id": r["id"],
                     "bed_number": r["bed_number"],
                     "bed_type": r["bed_type"],
+                    "fixed_price": float(r["fixed_price"]) if r.get("fixed_price") is not None else None,
                 }
                 for r in rows
             ]
@@ -125,8 +127,7 @@ def busy_beds(
     room_id: int,
     user=Depends(get_current_user)
 ):
-    from datetime import date
-    today = date.today()
+    today = app_today()
 
     return get_busy_beds_from_db(
         branch_id=branch_id,
@@ -141,10 +142,23 @@ def update_bed(
         bed_id: int,
         bed_number: int,
         bed_type: str,
+        fixed_price: str | None = None,
         user=Depends(get_current_user)
     ):
     if bed_type not in ("single", "double", "child"):
         raise HTTPException(400, "Invalid bed type")
-    update_bed_db(bed_id, bed_number, bed_type, user["branch_id"])
+
+    price_val = None
+    if fixed_price is not None:
+        s = str(fixed_price).strip().lower()
+        if s not in {"", "null", "none"}:
+            try:
+                price_val = float(s)
+            except Exception:
+                raise HTTPException(400, "Invalid fixed_price")
+            if price_val < 0:
+                raise HTTPException(400, "fixed_price must be >= 0")
+
+    update_bed_db(bed_id, bed_number, bed_type, user["branch_id"], fixed_price=price_val)
 
     return {"ok": True}

@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Admin Feedback{% endblock %}
+
+{% block content %}
+<div class="p-4 space-y-4">
+  <div class="flex items-center justify-between">
+    <h1 class="text-xl font-semibold">{% if session.get('language','ru') == 'uz' %}Mijoz fikrlari{% else %}Отзывы клиентов{% endif %}</h1>
+    <a href="/settings" class="px-3 py-2 rounded-lg border text-sm">← Back</a>
+  </div>
+
+  <div class="bg-card rounded-2xl shadow p-4 space-y-3">
+    <div class="grid grid-cols-3 gap-2">
+      <input id="fbBranchId" type="number" class="px-3 py-2 rounded-lg border bg-transparent" placeholder="{% if session.get('language','ru') == 'uz' %}Filial ID{% else %}ID филиала{% endif %}">
+      <select id="fbStatus" class="px-3 py-2 rounded-lg border bg-transparent">
+        <option value="">{% if session.get('language','ru') == 'uz' %}Barchasi{% else %}Все{% endif %}</option>
+        <option value="new">new</option>
+        <option value="read">read</option>
+        <option value="resolved">resolved</option>
+      </select>
+      <button id="fbLoad" class="py-2 rounded-xl bg-tgButton text-white font-semibold">{% if session.get('language','ru') == 'uz' %}Yuklash{% else %}Загрузить{% endif %}</button>
+    </div>
+  </div>
+
+  <div id="fbRows" class="space-y-3"></div>
+</div>
+
+<script src="/static/js/admin_feedback.js?v={{version}}"></script>
+{% endblock %}

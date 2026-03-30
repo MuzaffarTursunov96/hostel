@@ -12,6 +12,7 @@ from db import (
     create_admin_if_not_exists,
 )
 from api.deps import get_current_user
+from time_utils import app_now_naive
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -52,7 +53,7 @@ def _assert_not_expired(lang_hint="ru"):
         raise HTTPException(status_code=403, detail=msg + _contact_block(lang))
 
     # Block login if expired
-    if datetime.utcnow() > expires_at:
+    if app_now_naive() > expires_at:
         expiry_text = expires_at.strftime("%Y-%m-%d %H:%M:%S")
         msg = (
             f"РЎСЂРѕРє РґРѕСЃС‚СѓРїР° РёСЃС‚РµРє: {expiry_text}.\n\n"
@@ -92,7 +93,7 @@ def _assert_user_not_expired(u):
             expires_at = datetime.fromisoformat(expires_at)
         except Exception:
             return
-    if datetime.utcnow() > expires_at:
+    if app_now_naive() > expires_at:
         lang = _lang_code(u.get("language") if isinstance(u, dict) else "ru")
         msg = (
             f"РЎСЂРѕРє РґРµР№СЃС‚РІРёСЏ РІР°С€РµР№ СѓС‡РµС‚РЅРѕР№ Р·Р°РїРёСЃРё Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР° РёСЃС‚РµРє: {expires_at.strftime('%Y-%m-%d %H:%M:%S')}.\n\n"

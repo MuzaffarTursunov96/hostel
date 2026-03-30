@@ -1,6 +1,8 @@
 ﻿(function () {
   const translations = {
     uz: {
+      catalog: "Katalog",
+      catalog_view: "Katalogni ko'rish",
       login: "Telegram Login",
       prices: "Narxlar",
       apply: "Ariza Qoldirish",
@@ -55,6 +57,8 @@
       ph_note: "Hozir qaysi tizimdan foydalanyapsiz?"
     },
     ru: {
+      catalog: "Каталог",
+      catalog_view: "Смотреть каталог",
       login: "Вход через Telegram",
       prices: "Цены",
       apply: "Оставить заявку",

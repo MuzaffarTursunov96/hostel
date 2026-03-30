@@ -200,6 +200,77 @@ def marketing_page():
 def login_page():
     return render_template("login.html")
 
+@app.route("/catalog")
+def public_catalog_page():
+    return render_template("catalog.html")
+
+
+@app.get("/public-api/branches")
+def public_api_branches():
+    resp = requests.get(
+        f"{API_URL}/public/branches",
+        params=request.args,
+        timeout=(10, 20)
+    )
+    return jsonify(resp.json()), resp.status_code
+
+
+@app.get("/public-api/branches/<int:branch_id>/photos")
+def public_api_branch_photos(branch_id: int):
+    resp = requests.get(
+        f"{API_URL}/public/branches/{branch_id}/photos",
+        params=request.args,
+        timeout=(10, 20)
+    )
+    return jsonify(resp.json()), resp.status_code
+
+
+@app.get("/public-api/branches/<int:branch_id>/details")
+def public_api_branch_details(branch_id: int):
+    resp = requests.get(
+        f"{API_URL}/public/branches/{branch_id}/details",
+        params=request.args,
+        timeout=(10, 20)
+    )
+    return jsonify(resp.json()), resp.status_code
+
+
+@app.get("/public-api/branches/<int:branch_id>/ratings")
+def public_api_branch_ratings(branch_id: int):
+    resp = requests.get(
+        f"{API_URL}/public/branches/{branch_id}/ratings",
+        params=request.args,
+        timeout=(10, 20)
+    )
+    return jsonify(resp.json()), resp.status_code
+
+
+@app.post("/public-api/branches/<int:branch_id>/ratings")
+def public_api_add_rating(branch_id: int):
+    resp = requests.post(
+        f"{API_URL}/public/branches/{branch_id}/ratings",
+        json=request.get_json(silent=True) or {},
+        timeout=(10, 20)
+    )
+    return jsonify(resp.json()), resp.status_code
+
+
+@app.post("/public-api/feedback/room-report")
+def public_api_room_report():
+    files = {}
+    if "file" in request.files:
+        f = request.files["file"]
+        files["file"] = (f.filename, f.stream, f.mimetype)
+
+    data = dict(request.form)
+    resp = requests.post(
+        f"{API_URL}/feedback/public-room-report",
+        data=data,
+        files=files or None,
+        timeout=(10, 30)
+    )
+    return jsonify(resp.json()), resp.status_code
+
 @app.post("/lead")
 def capture_lead():
     data = request.get_json(silent=True) or {}
@@ -499,6 +570,13 @@ def admin_reports():
     if not bool(session.get("is_admin")):
         return redirect("/dashboard")
     return render_template("admin_reports.html", version=VERSION)
+
+@app.route("/admin-feedback")
+@login_required
+def admin_feedback():
+    if not bool(session.get("is_admin")):
+        return redirect("/dashboard")
+    return render_template("admin_feedback.html", version=VERSION)
 
 
 @app.route("/root-management")

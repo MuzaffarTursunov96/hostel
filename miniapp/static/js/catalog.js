@@ -1,0 +1,422 @@
+﻿(function () {
+  const tr = {
+    uz: {
+      title: "Hotel va Hostel katalogi",
+      subtitle: "Rasm, reyting va joylashuv bo'yicha mos variantni tanlang.",
+      search_ph: "Nom yoki manzil bo'yicha qidirish...",
+      all_room_types: "Barcha xona turlari",
+      all_ratings: "Barcha reytinglar",
+      refresh: "Yangilash",
+      photos: "Rasmlar",
+      details: "Batafsil",
+      rate: "Baholash",
+      report: "Xabar yuborish",
+      no_data: "Mos obyekt topilmadi",
+      no_photo: "Rasm yo'q",
+      reviews: "baho",
+      photo_count: "rasm",
+      from_price: "Narx",
+      by_agreement: "Kelishiladi",
+      room_types: "Xona turlari",
+      bed_info: "Yotoqlar",
+      rating_prompt: "1 dan 5 gacha baho kiriting",
+      comment_prompt: "Qisqa izoh (ixtiyoriy)",
+      saved: "Rahmat, bahoyingiz saqlandi",
+      room_label: "Xona/Yotoq",
+      room_label_ph: "Masalan: 203 xona, 2-kravat",
+      report_message: "Xabar",
+      report_message_ph: "Xona holati haqida yozing...",
+      contact_optional: "Aloqa (ixtiyoriy)",
+      contact_ph: "+998...",
+      photo_optional: "Rasm (ixtiyoriy)",
+      send_report: "Yuborish",
+      report_saved: "Xabar adminlarga yuborildi",
+      details_rooms: "Xonalar",
+      details_beds: "Kravatlar",
+      details_price: "Narx",
+      details_none: "Ma'lumot topilmadi",
+      call: "Qo'ng'iroq",
+      telegram: "Telegram"
+    },
+    ru: {
+      title: "Каталог Hotel и Hostel",
+      subtitle: "Выберите вариант по фото, рейтингу и локации.",
+      search_ph: "Поиск по названию или адресу...",
+      all_room_types: "Все типы комнат",
+      all_ratings: "Все рейтинги",
+      refresh: "Обновить",
+      photos: "Фото",
+      details: "Подробнее",
+      rate: "Оценить",
+      report: "Отправить сообщение",
+      no_data: "Подходящие объекты не найдены",
+      no_photo: "Нет фото",
+      reviews: "оценок",
+      photo_count: "фото",
+      from_price: "Цена",
+      by_agreement: "Договорная",
+      room_types: "Типы комнат",
+      bed_info: "Кровати",
+      rating_prompt: "Введите оценку от 1 до 5",
+      comment_prompt: "Короткий комментарий (необязательно)",
+      saved: "Спасибо, ваша оценка сохранена",
+      room_label: "Комната/Кровать",
+      room_label_ph: "Например: комната 203, кровать 2",
+      report_message: "Сообщение",
+      report_message_ph: "Опишите состояние комнаты...",
+      contact_optional: "Контакт (необязательно)",
+      contact_ph: "+998...",
+      photo_optional: "Фото (необязательно)",
+      send_report: "Отправить",
+      report_saved: "Сообщение отправлено администраторам",
+      details_rooms: "Комнаты",
+      details_beds: "Кровати",
+      details_price: "Цена",
+      details_none: "Данные не найдены",
+      call: "Позвонить",
+      telegram: "Telegram"
+    }
+  };
+
+  let lang = localStorage.getItem("hms_lang") === "ru" ? "ru" : "uz";
+  let rows = [];
+
+  const cardsEl = document.getElementById("cards");
+  const searchEl = document.getElementById("searchInput");
+  const roomTypeEl = document.getElementById("roomTypeFilter");
+  const ratingEl = document.getElementById("ratingFilter");
+  const refreshEl = document.getElementById("refreshBtn");
+
+  const modalEl = document.getElementById("galleryModal");
+  const galleryEl = document.getElementById("galleryGrid");
+  const galleryTitleEl = document.getElementById("galleryTitle");
+  const closeGalleryEl = document.getElementById("closeGallery");
+
+  const reportModalEl = document.getElementById("reportModal");
+  const closeReportEl = document.getElementById("closeReport");
+  const reportTitleEl = document.getElementById("reportTitle");
+  const reportFormEl = document.getElementById("reportForm");
+  const reportBranchIdEl = document.getElementById("reportBranchId");
+  const reportRoomLabelEl = document.getElementById("reportRoomLabel");
+  const reportMessageEl = document.getElementById("reportMessage");
+  const reportContactEl = document.getElementById("reportContact");
+  const reportPhotoEl = document.getElementById("reportPhoto");
+
+  const detailsModalEl = document.getElementById("detailsModal");
+  const detailsTitleEl = document.getElementById("detailsTitle");
+  const detailsBodyEl = document.getElementById("detailsBody");
+  const closeDetailsEl = document.getElementById("closeDetails");
+
+  function t(key) {
+    return (tr[lang] && tr[lang][key]) || key;
+  }
+
+  function escapeHtml(s) {
+    return String(s || "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;");
+  }
+
+  function fmtPrice(v) {
+    if (v === null || v === undefined || String(v).trim() === "") return t("by_agreement");
+    return `${Number(v).toLocaleString()} ${lang === "ru" ? "сум" : "so'm"}`;
+  }
+
+  function applyLang() {
+    document.documentElement.lang = lang;
+    localStorage.setItem("hms_lang", lang);
+    document.querySelectorAll(".lang-btn").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.lang === lang);
+    });
+    document.querySelectorAll("[data-i18n]").forEach((el) => {
+      el.textContent = t(el.dataset.i18n);
+    });
+    document.querySelectorAll("[data-ph]").forEach((el) => {
+      el.placeholder = t(el.dataset.ph);
+    });
+    render();
+  }
+
+  function refreshRoomTypeOptions(selected) {
+    const set = new Set();
+    rows.forEach((r) => {
+      const raw = String(r.room_types || "");
+      raw.split(",").map((x) => x.trim()).filter(Boolean).forEach((x) => set.add(x));
+    });
+    const vals = Array.from(set).sort((a, b) => a.localeCompare(b));
+    const current = selected || "";
+    roomTypeEl.innerHTML =
+      `<option value="" data-i18n="all_room_types">${t("all_room_types")}</option>` +
+      vals.map((v) => `<option value="${escapeHtml(v)}"${v === current ? " selected" : ""}>${escapeHtml(v)}</option>`).join("");
+  }
+
+  async function loadBranches() {
+    const minRating = Number(ratingEl.value || 0);
+    const roomType = String(roomTypeEl.value || "").trim();
+    const q = new URLSearchParams();
+    if (minRating > 0) q.set("min_rating", String(minRating));
+    if (roomType) q.set("room_type", roomType);
+    q.set("limit", "200");
+    const res = await fetch(`/public-api/branches?${q.toString()}`, { cache: "no-store" });
+    rows = await res.json();
+    refreshRoomTypeOptions(roomType);
+    render();
+  }
+
+  function filteredRows() {
+    const needle = String(searchEl.value || "").trim().toLowerCase();
+    if (!needle) return rows;
+    return rows.filter((r) => {
+      const name = String(r.name || "").toLowerCase();
+      const address = String(r.address || "").toLowerCase();
+      return name.includes(needle) || address.includes(needle);
+    });
+  }
+
+  function cardHtml(r) {
+    const rating = Number(r.avg_rating || 0).toFixed(1);
+    const ratingCount = Number(r.rating_count || 0);
+    const photoCount = Number(r.photo_count || 0);
+    const photo = r.cover_image || "";
+    const minPrice = r.min_price;
+    const roomTypes = String(r.room_types || "").trim() || "-";
+    const bedTypes = String(r.bed_types || "").trim() || "-";
+    const totalBeds = Number(r.total_beds || 0);
+    return `
+      <article class="branch-card">
+        ${
+          photo
+            ? `<img class="branch-photo" src="${escapeHtml(photo)}" alt="${escapeHtml(r.name)}" loading="lazy" />`
+            : `<div class="branch-photo" style="display:grid;place-items:center;color:#64748b">${t("no_photo")}</div>`
+        }
+        <div class="branch-body">
+          <h3 class="branch-title">${escapeHtml(r.name)}</h3>
+          <p class="branch-address">${escapeHtml(r.address || "")}</p>
+          <div class="branch-meta">
+            <span>* ${rating} (${ratingCount} ${t("reviews")})</span>
+            <span>${photoCount} ${t("photo_count")}</span>
+          </div>
+          <div class="branch-meta">
+            <span>${t("from_price")}: ${
+              minPrice === null || minPrice === undefined
+                ? t("by_agreement")
+                : `${Number(minPrice).toLocaleString()} ${lang === "ru" ? "сум" : "so'm"}`
+            }</span>
+          </div>
+          <div class="branch-meta">
+            <span>${t("room_types")}: ${escapeHtml(roomTypes)}</span>
+          </div>
+          <div class="branch-meta">
+            <span>${t("bed_info")}: ${totalBeds} (${escapeHtml(bedTypes)})</span>
+          </div>
+          <div class="branch-actions">
+            <button class="ghost-btn" data-open-photos="${r.id}">${t("photos")}</button>
+            <button class="ghost-btn" data-open-details="${r.id}">${t("details")}</button>
+            <button class="solid-btn" data-rate="${r.id}">${t("rate")}</button>
+            <button class="ghost-btn" data-report="${r.id}">${t("report")}</button>
+          </div>
+        </div>
+      </article>
+    `;
+  }
+
+  function render() {
+    const list = filteredRows();
+    if (!list.length) {
+      cardsEl.innerHTML = `<div class="empty">${t("no_data")}</div>`;
+      return;
+    }
+    cardsEl.innerHTML = list.map(cardHtml).join("");
+  }
+
+  async function openGallery(branchId, branchName) {
+    modalEl.classList.remove("hidden");
+    galleryTitleEl.textContent = `${branchName} - ${t("photos")}`;
+    galleryEl.innerHTML = `<div class="empty">${t("refresh")}...</div>`;
+
+    const res = await fetch(`/public-api/branches/${branchId}/photos?limit=80`, { cache: "no-store" });
+    const payload = await res.json();
+    const items = (payload && payload.items) || [];
+
+    if (!items.length) {
+      galleryEl.innerHTML = `<div class="empty">${t("no_photo")}</div>`;
+      return;
+    }
+
+    galleryEl.innerHTML = items
+      .map((i) => `<img src="${escapeHtml(i.image_path)}" alt="${escapeHtml(i.room_name || "")}" loading="lazy" />`)
+      .join("");
+  }
+
+  async function openDetails(branchId, branchName) {
+    detailsModalEl.classList.remove("hidden");
+    detailsTitleEl.textContent = `${branchName} - ${t("details")}`;
+    detailsBodyEl.innerHTML = `<div class="empty">${t("refresh")}...</div>`;
+
+    const res = await fetch(`/public-api/branches/${branchId}/details`, { cache: "no-store" });
+    const payload = await res.json();
+    const branch = payload && payload.branch;
+    const rooms = (payload && payload.rooms) || [];
+
+    if (!branch) {
+      detailsBodyEl.innerHTML = `<div class="empty">${t("details_none")}</div>`;
+      return;
+    }
+
+    const tgRaw = String(branch.contact_telegram || "").trim();
+    const tgHandle = tgRaw.startsWith("@") ? tgRaw.slice(1) : tgRaw;
+    const tgLink = tgHandle ? `https://t.me/${encodeURIComponent(tgHandle)}` : "";
+    const phone = String(branch.contact_phone || "").trim();
+    const actions = `
+      <div class="branch-actions" style="margin-top:8px;">
+        ${phone ? `<a class="solid-btn" href="tel:${escapeHtml(phone)}">${t("call")}</a>` : ""}
+        ${tgLink ? `<a class="ghost-btn" target="_blank" rel="noopener" href="${tgLink}">${t("telegram")}</a>` : ""}
+      </div>
+    `;
+
+    const top = `
+      <div class="details-top">
+        <div><b>${escapeHtml(branch.name || "")}</b></div>
+        <div>${escapeHtml(branch.address || "")}</div>
+        <div>* ${Number(branch.avg_rating || 0).toFixed(1)} (${Number(branch.rating_count || 0)} ${t("reviews")})</div>
+        ${actions}
+      </div>
+    `;
+
+    const roomCards = rooms.length
+      ? rooms.map((r) => {
+          const img = r.cover_image
+            ? `<img src="${escapeHtml(r.cover_image)}" alt="${escapeHtml(r.room_name || "")}" loading="lazy" />`
+            : `<img alt="no photo" />`;
+          const priceLine = r.min_effective_price === null || r.max_effective_price === null
+            ? t("by_agreement")
+            : r.min_effective_price === r.max_effective_price
+              ? fmtPrice(r.min_effective_price)
+              : `${fmtPrice(r.min_effective_price)} - ${fmtPrice(r.max_effective_price)}`;
+
+          return `
+            <div class="details-room">
+              <div class="details-room-top">
+                ${img}
+                <div class="details-room-meta">
+                  <div class="details-room-title">${escapeHtml(r.room_name || r.room_number || "")}</div>
+                  <div>${t("room_types")}: ${escapeHtml(r.room_type || "-")}</div>
+                  <div>${t("details_beds")}: ${Number(r.bed_count || 0)} (S:${Number(r.single_count || 0)} D:${Number(r.double_count || 0)} C:${Number(r.child_count || 0)})</div>
+                  <div>${t("details_price")}: ${priceLine}</div>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join("")
+      : `<div class="empty">${t("details_none")}</div>`;
+
+    detailsBodyEl.innerHTML = top + roomCards;
+  }
+
+  async function submitRating(branchId) {
+    const raw = window.prompt(t("rating_prompt"), "5");
+    if (raw == null) return;
+    const value = Math.max(1, Math.min(5, parseInt(raw, 10) || 0));
+    if (!value) return;
+    const comment = window.prompt(t("comment_prompt"), "") || "";
+
+    const res = await fetch(`/public-api/branches/${branchId}/ratings`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rating: value, comment: comment })
+    });
+    if (!res.ok) return;
+    alert(t("saved"));
+    await loadBranches();
+  }
+
+  function openReport(branchId, branchName) {
+    reportBranchIdEl.value = String(branchId);
+    reportTitleEl.textContent = `${branchName} - ${t("report")}`;
+    reportRoomLabelEl.value = "";
+    reportMessageEl.value = "";
+    reportContactEl.value = "";
+    reportPhotoEl.value = "";
+    reportModalEl.classList.remove("hidden");
+  }
+
+  document.querySelectorAll(".lang-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      lang = btn.dataset.lang === "ru" ? "ru" : "uz";
+      applyLang();
+    });
+  });
+
+  refreshEl.addEventListener("click", () => loadBranches());
+  searchEl.addEventListener("input", render);
+  roomTypeEl.addEventListener("change", () => loadBranches());
+  ratingEl.addEventListener("change", () => loadBranches());
+  closeGalleryEl.addEventListener("click", () => modalEl.classList.add("hidden"));
+  closeReportEl.addEventListener("click", () => reportModalEl.classList.add("hidden"));
+  closeDetailsEl.addEventListener("click", () => detailsModalEl.classList.add("hidden"));
+  modalEl.addEventListener("click", (e) => {
+    if (e.target === modalEl) modalEl.classList.add("hidden");
+  });
+  reportModalEl.addEventListener("click", (e) => {
+    if (e.target === reportModalEl) reportModalEl.classList.add("hidden");
+  });
+  detailsModalEl.addEventListener("click", (e) => {
+    if (e.target === detailsModalEl) detailsModalEl.classList.add("hidden");
+  });
+
+  cardsEl.addEventListener("click", (e) => {
+    const openBtn = e.target.closest("[data-open-photos]");
+    if (openBtn) {
+      const id = Number(openBtn.getAttribute("data-open-photos"));
+      const row = rows.find((x) => Number(x.id) === id) || {};
+      openGallery(id, row.name || "Branch");
+      return;
+    }
+    const detailsBtn = e.target.closest("[data-open-details]");
+    if (detailsBtn) {
+      const id = Number(detailsBtn.getAttribute("data-open-details"));
+      const row = rows.find((x) => Number(x.id) === id) || {};
+      openDetails(id, row.name || "Branch");
+      return;
+    }
+    const rateBtn = e.target.closest("[data-rate]");
+    if (rateBtn) {
+      const id = Number(rateBtn.getAttribute("data-rate"));
+      submitRating(id);
+      return;
+    }
+    const reportBtn = e.target.closest("[data-report]");
+    if (reportBtn) {
+      const id = Number(reportBtn.getAttribute("data-report"));
+      const row = rows.find((x) => Number(x.id) === id) || {};
+      openReport(id, row.name || "Branch");
+    }
+  });
+
+  reportFormEl.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const branchId = Number(reportBranchIdEl.value || 0);
+    const message = String(reportMessageEl.value || "").trim();
+    if (!branchId || !message) return;
+
+    const form = new FormData();
+    form.append("branch_id", String(branchId));
+    form.append("message", message);
+    if (reportRoomLabelEl.value.trim()) form.append("room_label", reportRoomLabelEl.value.trim());
+    if (reportContactEl.value.trim()) form.append("contact", reportContactEl.value.trim());
+    if (reportPhotoEl.files && reportPhotoEl.files[0]) form.append("file", reportPhotoEl.files[0]);
+
+    const res = await fetch("/public-api/feedback/room-report", {
+      method: "POST",
+      body: form
+    });
+    if (!res.ok) return;
+    reportModalEl.classList.add("hidden");
+    alert(t("report_saved"));
+  });
+
+  applyLang();
+  loadBranches();
+})();

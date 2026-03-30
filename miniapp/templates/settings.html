@@ -75,6 +75,16 @@
       <select id="branchSelect"
               class="w-full px-3 py-2 rounded-lg border bg-transparent">
       </select>
+      <input id="editBranchPhone"
+            class="w-full px-3 py-2 rounded-lg border bg-transparent"
+            placeholder="{{t('branch_phone_optional')}}">
+      <input id="editBranchTelegram"
+            class="w-full px-3 py-2 rounded-lg border bg-transparent"
+            placeholder="{{t('branch_telegram_optional')}}">
+      <button onclick="saveBranchContacts()"
+              class="w-full py-2 rounded-xl border font-semibold">
+        {{t("save_branch_contacts")}}
+      </button>
 
       <!-- CREATE -->
       <input id="newBranchName"
@@ -91,6 +101,12 @@
       <input id="newBranchLongitude"
             class="w-full px-3 py-2 rounded-lg border bg-transparent"
             placeholder="{{t('longitude_optional')}}">
+      <input id="newBranchPhone"
+            class="w-full px-3 py-2 rounded-lg border bg-transparent"
+            placeholder="{{t('branch_phone_optional')}}">
+      <input id="newBranchTelegram"
+            class="w-full px-3 py-2 rounded-lg border bg-transparent"
+            placeholder="{{t('branch_telegram_optional')}}">
 
 
       <button onclick="createBranch()"
@@ -106,9 +122,35 @@
 
     </div>
 
+    <div class="bg-card rounded-2xl shadow p-4 space-y-3 admin-only">
+      <h3 class="font-semibold">💳 {% if session.get('language', 'ru') == 'uz' %}Oldindan to'lov sozlamasi{% else %}Настройка предоплаты{% endif %}</h3>
+      <label class="flex items-center justify-between">
+        <span>{% if session.get('language', 'ru') == 'uz' %}Yoqilgan{% else %}Включено{% endif %}</span>
+        <input id="prepayEnabled" type="checkbox">
+      </label>
+      <select id="prepayMode" class="w-full px-3 py-2 rounded-lg border bg-transparent">
+        <option value="percent">{% if session.get('language', 'ru') == 'uz' %}Foiz{% else %}Процент{% endif %}</option>
+        <option value="fixed">{% if session.get('language', 'ru') == 'uz' %}Qat'iy summa{% else %}Фиксированная сумма{% endif %}</option>
+      </select>
+      <input id="prepayValue"
+             type="number"
+             step="0.01"
+             min="0"
+             class="w-full px-3 py-2 rounded-lg border bg-transparent"
+             placeholder="{% if session.get('language', 'ru') == 'uz' %}Qiymat{% else %}Значение{% endif %}">
+      <button onclick="savePrepaymentSettings()"
+              class="w-full py-3 rounded-xl bg-blue-600 text-white font-semibold">
+        {{t("save")}}
+      </button>
+    </div>
+
     <a href="/admin-reports"
        class="block w-full text-center py-3 rounded-xl bg-indigo-600 text-white font-semibold">
       {% if session.get('language', 'ru') == 'uz' %}Filial hisobotlari{% else %}Отчеты по филиалам{% endif %}
+    </a>
+    <a href="/admin-feedback"
+       class="block w-full text-center py-3 rounded-xl bg-emerald-600 text-white font-semibold">
+      {% if session.get('language', 'ru') == 'uz' %}Mijoz fikrlari{% else %}Отзывы клиентов{% endif %}
     </a>
 
     <!-- ================= ROOT ADMIN: APP EXPIRY ================= -->

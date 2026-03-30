@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HMSUZ Catalog</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/catalog.css?v=20260330a">
+</head>
+<body>
+  <div class="bg-glow"></div>
+  <header class="topbar">
+    <a class="back-link" href="/">HMSUZ</a>
+    <div class="lang-switch">
+      <button type="button" class="lang-btn active" data-lang="uz">UZ</button>
+      <button type="button" class="lang-btn" data-lang="ru">RU</button>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section class="hero">
+      <h1 data-i18n="title">Hotel va Hostel katalogi</h1>
+      <p data-i18n="subtitle">Rasm, reyting va joylashuv bo'yicha mos variantni tanlang.</p>
+    </section>
+
+    <section class="filters">
+      <input id="searchInput" type="text" placeholder="Qidirish..." data-ph="search_ph">
+      <select id="roomTypeFilter">
+        <option value="" data-i18n="all_room_types">Barcha xona turlari</option>
+      </select>
+      <select id="ratingFilter">
+        <option value="0" data-i18n="all_ratings">Barcha reytinglar</option>
+        <option value="3">3.0+</option>
+        <option value="4">4.0+</option>
+        <option value="4.5">4.5+</option>
+      </select>
+      <button id="refreshBtn" class="solid-btn" data-i18n="refresh">Yangilash</button>
+    </section>
+
+    <section id="cards" class="cards"></section>
+  </main>
+
+  <div id="galleryModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3 id="galleryTitle">Photos</h3>
+        <button id="closeGallery" class="ghost-btn">X</button>
+      </div>
+      <div id="galleryGrid" class="gallery-grid"></div>
+    </div>
+  </div>
+
+  <div id="reportModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3 id="reportTitle">Report</h3>
+        <button id="closeReport" class="ghost-btn">X</button>
+      </div>
+      <form id="reportForm" class="report-form">
+        <input id="reportBranchId" type="hidden">
+        <label>
+          <span data-i18n="room_label">Xona/Yotoq</span>
+          <input id="reportRoomLabel" type="text" placeholder="Masalan: 203 xona, 2-kravat" data-ph="room_label_ph">
+        </label>
+        <label>
+          <span data-i18n="report_message">Xabar</span>
+          <textarea id="reportMessage" rows="4" required data-ph="report_message_ph" placeholder="Xona holati haqida yozing..."></textarea>
+        </label>
+        <label>
+          <span data-i18n="contact_optional">Aloqa (ixtiyoriy)</span>
+          <input id="reportContact" type="text" placeholder="+998..." data-ph="contact_ph">
+        </label>
+        <label>
+          <span data-i18n="photo_optional">Rasm (ixtiyoriy)</span>
+          <input id="reportPhoto" type="file" accept="image/*">
+        </label>
+        <button type="submit" class="solid-btn" data-i18n="send_report">Yuborish</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="detailsModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3 id="detailsTitle">Details</h3>
+        <button id="closeDetails" class="ghost-btn">X</button>
+      </div>
+      <div id="detailsBody" class="details-body"></div>
+    </div>
+  </div>
+
+  <script src="/static/js/catalog.js?v=20260330a"></script>
+</body>
+</html>

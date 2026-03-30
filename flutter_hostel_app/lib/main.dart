@@ -49,6 +49,11 @@ String friendlyErrorText(String raw, {String? lang}) {
         ? 'Для брони в одну дату включите "Почасовое бронирование".'
         : 'Bir kunda bron qilish uchun "Soatlik bron"ni yoqing.';
   }
+  if (s.contains('prepayment required')) {
+    return l == 'ru'
+        ? 'Требуется предоплата. Укажите минимально необходимую сумму.'
+        : "Oldindan to'lov talab qilinadi. Minimal summani kiriting.";
+  }
   return l == 'ru'
       ? 'Произошла ошибка. Пожалуйста, попробуйте снова.'
       : 'Xatolik yuz berdi. Iltimos, qayta urinib ko‘ring.';
@@ -5331,6 +5336,9 @@ class _SettingsPageState extends State<_SettingsPage> {
   String _language = 'ru';
   bool _myNotify = false;
   bool _userNotify = false;
+  bool _prepayEnabled = false;
+  String _prepayMode = 'percent';
+  final _prepayValueCtrl = TextEditingController(text: '0');
   String _t(String ru, String uz) => trPair(ru: ru, uz: uz, lang: appLang.value);
   bool _saving = false;
 
@@ -5370,6 +5378,7 @@ class _SettingsPageState extends State<_SettingsPage> {
     _newBranchAddressCtrl.dispose();
     _newBranchLatCtrl.dispose();
     _newBranchLngCtrl.dispose();
+    _prepayValueCtrl.dispose();
     super.dispose();
   }
 
@@ -5452,6 +5461,7 @@ class _SettingsPageState extends State<_SettingsPage> {
           }
         } catch (_) {}
         branches = await _loadAdminBranches();
+        await _loadPrepaymentSettings();
       }
 
       setState(() {
@@ -5502,6 +5512,35 @@ class _SettingsPageState extends State<_SettingsPage> {
       if (!mounted) return;
       setState(() => _userNotify = u['notify_enabled'] == true);
     } catch (_) {}
+  }
+
+  Future<void> _loadPrepaymentSettings() async {
+    try {
+      final cfg = Map<String, dynamic>.from(await widget.api.getJson('/settings/booking-prepayment') as Map);
+      if (!mounted) return;
+      setState(() {
+        _prepayEnabled = cfg['enabled'] == true;
+        _prepayMode = '${cfg['mode'] ?? 'percent'}';
+        _prepayValueCtrl.text = '${cfg['value'] ?? 0}';
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _savePrepaymentSettings() async {
+    final value = double.tryParse(_prepayValueCtrl.text.trim()) ?? 0;
+    setState(() => _saving = true);
+    try {
+      await widget.api.postJson('/settings/booking-prepayment', {
+        'enabled': _prepayEnabled,
+        'mode': _prepayMode,
+        'value': value,
+      });
+      _snack(_t('Настройки сохранены', 'Sozlamalar saqlandi'));
+    } catch (e) {
+      _snack(_friendlyError(e), error: true);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   Future<void> _createUser() async {
@@ -5912,6 +5951,52 @@ class _SettingsPageState extends State<_SettingsPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Text(_t('Предоплата для брони', "Bron uchun oldindan to'lov"), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(child: Text(_t('Включить', 'Yoqish'))),
+                      Switch(
+                        value: _prepayEnabled,
+                        onChanged: _saving ? null : (v) => setState(() => _prepayEnabled = v),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                    value: _prepayMode,
+                    decoration: const InputDecoration(border: OutlineInputBorder()),
+                    items: [
+                      DropdownMenuItem(value: 'percent', child: Text(_t('Процент', 'Foiz'))),
+                      DropdownMenuItem(value: 'fixed', child: Text(_t('Фиксированная сумма', "Qat'iy summa"))),
+                    ],
+                    onChanged: _saving ? null : (v) => setState(() => _prepayMode = v ?? 'percent'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _prepayValueCtrl,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                      hintText: _prepayMode == 'percent' ? _t('Значение в %', 'Qiymat %') : _t('Сумма', 'Summa'),
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: _saving ? null : _savePrepaymentSettings,
+                      child: Text(_t('Сохранить', 'Saqlash')),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            _Card(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Text(_t('Отчеты по филиалам', 'Filial hisobotlari'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 10),
                   SizedBox(
@@ -6035,12 +6120,40 @@ class _SettingsPageState extends State<_SettingsPage> {
                 Checkbox(value: _myNotify, onChanged: (v) => _toggleMyNotify(v ?? false)),
               ],
             ),
-          ),
-          const SizedBox(height: 12),
-          _Card(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+            ),
+            const SizedBox(height: 12),
+            _Card(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(_t('Отзывы клиентов', 'Mijoz fikrlari'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(backgroundColor: const Color(0xFF059669)),
+                      onPressed: () async {
+                        await showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.white,
+                          shape: const RoundedRectangleBorder(
+                            borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+                          ),
+                          builder: (_) => _AdminFeedbackSheet(api: widget.api),
+                        );
+                      },
+                      child: Text(_t('Открыть отзывы', 'Fikrlarni ochish')),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            _Card(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                 Row(
                   children: [
                     const _WebIcon('language', size: 20),
@@ -6255,6 +6368,128 @@ class _AdminReportsSheetState extends State<_AdminReportsSheet> {
                           )),
                     ],
                   ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AdminFeedbackSheet extends StatefulWidget {
+  const _AdminFeedbackSheet({required this.api});
+  final _ApiClient api;
+
+  @override
+  State<_AdminFeedbackSheet> createState() => _AdminFeedbackSheetState();
+}
+
+class _AdminFeedbackSheetState extends State<_AdminFeedbackSheet> {
+  bool _loading = true;
+  String? _error;
+  List<Map<String, dynamic>> _rows = [];
+
+  String _t(String ru, String uz) => trPair(ru: ru, uz: uz, lang: appLang.value);
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final data = await widget.api.getJson('/feedback/admin', query: {'limit': '300'});
+      final list = (data as List).cast<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+      setState(() => _rows = list);
+    } catch (e) {
+      setState(() => _error = friendlyErrorText('$e', lang: appLang.value));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _mark(int id, String status) async {
+    try {
+      await widget.api.putQuery('/feedback/admin/$id', {
+        'status': status,
+        'is_read': 'true',
+      });
+      await _load();
+    } catch (e) {
+      showAppAlert(context, friendlyErrorText('$e', lang: appLang.value), error: true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(12, 12, 12, MediaQuery.of(context).viewInsets.bottom + 12),
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height * 0.85,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(_t('Отзывы клиентов', 'Mijoz fikrlari'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                  const Spacer(),
+                  IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
+                ],
+              ),
+              const SizedBox(height: 6),
+              if (_loading) const Expanded(child: Center(child: CircularProgressIndicator())),
+              if (!_loading && _error != null) Expanded(child: Center(child: Text(_error!, style: const TextStyle(color: Colors.red)))),
+              if (!_loading && _error == null)
+                Expanded(
+                  child: _rows.isEmpty
+                      ? Center(child: Text(_t('Нет отзывов', "Fikrlar yo'q")))
+                      : ListView.separated(
+                          itemCount: _rows.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: 8),
+                          itemBuilder: (_, i) {
+                            final r = _rows[i];
+                            final id = (r['id'] as num?)?.toInt() ?? 0;
+                            return _Card(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('${r['branch_id']} - ${r['branch_name'] ?? ''}', style: const TextStyle(fontWeight: FontWeight.w700)),
+                                  const SizedBox(height: 4),
+                                  Text('${_t('Клиент', 'Mijoz')}: ${r['user_name'] ?? r['contact'] ?? r['telegram_id'] ?? '—'}'),
+                                  Text('${_t('Статус', 'Holat')}: ${r['status'] ?? 'new'}'),
+                                  if (r['sentiment'] != null) Text('Sentiment: ${r['sentiment']}'),
+                                  const SizedBox(height: 4),
+                                  Text('${r['message'] ?? ''}'),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: OutlinedButton(
+                                          onPressed: id > 0 ? () => _mark(id, 'read') : null,
+                                          child: Text(_t('Прочитано', "O'qildi")),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: FilledButton(
+                                          onPressed: id > 0 ? () => _mark(id, 'resolved') : null,
+                                          child: Text(_t('Решено', 'Hal qilindi')),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
                 ),
             ],
           ),

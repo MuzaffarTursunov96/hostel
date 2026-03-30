@@ -1,6 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 from api.deps import get_current_user
-from db import change_password_db, set_lang_db,set_user_branch_db
+from db import (
+    change_password_db,
+    set_lang_db,
+    set_user_branch_db,
+    get_booking_prepayment_config_db,
+    set_booking_prepayment_config_db,
+)
 from security import create_token
 
 router = APIRouter(prefix="/settings", tags=["Settings"])
@@ -70,3 +76,27 @@ def me(user=Depends(get_current_user)):
         "branch_id": user.get("branch_id") or 1,
         "language": user.get("language") or "ru"
     }
+
+
+@router.get("/booking-prepayment")
+def get_booking_prepayment(user=Depends(get_current_user)):
+    if not user.get("is_admin"):
+        raise HTTPException(403, "Admin only")
+    return get_booking_prepayment_config_db()
+
+
+@router.post("/booking-prepayment")
+def set_booking_prepayment(data: dict, user=Depends(get_current_user)):
+    if not user.get("is_admin"):
+        raise HTTPException(403, "Admin only")
+
+    enabled = bool(data.get("enabled", False))
+    mode = str(data.get("mode", "percent"))
+    value = data.get("value", 0)
+
+    try:
+        set_booking_prepayment_config_db(enabled, mode, float(value))
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+    return {"ok": True, **get_booking_prepayment_config_db()}

@@ -2,8 +2,8 @@ from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer
 from jose import jwt, JWTError
 from security import SECRET_KEY, ALGORITHM
-from datetime import datetime
 from db import get_user_auth_state_db, get_app_expiry_db, sync_admin_active_by_expiry_db
+from time_utils import app_now_naive
 
 import os
 from dotenv import load_dotenv
@@ -78,7 +78,7 @@ def get_current_user(token=Depends(security)):
         if not expires_at:
             msg = "Срок доступа не настроен. Вход запрещен.\n\n" if lang == "ru" else "Muddat sozlanmagan. Kirish taqiqlangan.\n\n"
             raise HTTPException(status_code=403, detail=msg + _contact_block(lang))
-        if datetime.utcnow() > expires_at:
+        if app_now_naive() > expires_at:
             msg = (
                 f"Срок доступа истек: {expires_at.strftime('%Y-%m-%d %H:%M:%S')}.\n\n"
                 if lang == "ru"
@@ -88,7 +88,7 @@ def get_current_user(token=Depends(security)):
 
     # Admin expiry applies only to the admin account itself
     admin_expires_at = user_row.get("admin_expires_at")
-    if bool(user_row.get("is_admin")) and admin_expires_at and datetime.utcnow() > admin_expires_at and not _is_root(user_row):
+    if bool(user_row.get("is_admin")) and admin_expires_at and app_now_naive() > admin_expires_at and not _is_root(user_row):
         msg = (
             f"Срок действия учетной записи администратора истек: {admin_expires_at.strftime('%Y-%m-%d %H:%M:%S')}.\n\n"
             if lang == "ru"

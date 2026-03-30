@@ -1,7 +1,7 @@
-from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from api.deps import get_current_user, is_root_admin
 from db import get_admin_finance_report_db
+from time_utils import app_now_naive
 
 router = APIRouter(prefix="/admin-reports", tags=["Admin Reports"])
 
@@ -16,7 +16,7 @@ def admin_finance_report(
     if not user.get("is_admin"):
         raise HTTPException(403, "Admin only")
 
-    now = datetime.utcnow()
+    now = app_now_naive()
     scope_norm = (scope or "month").strip().lower()
     if scope_norm not in ("month", "year", "total"):
         raise HTTPException(400, "scope must be month, year or total")

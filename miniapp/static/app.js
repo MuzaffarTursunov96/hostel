@@ -75,6 +75,12 @@ function translateBackendError(msg) {
       : "Для брони в одну дату включите \"Почасовое бронирование\"",
   };
 
+  if (raw.toLowerCase().startsWith("prepayment required")) {
+    return isUz
+      ? "Oldindan to'lov talab qilinadi. Minimal summani kiriting."
+      : "Требуется предоплата. Укажите минимально необходимую сумму.";
+  }
+
   return byExact[raw] || raw;
 }
 

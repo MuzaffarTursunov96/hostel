@@ -1,4 +1,4 @@
-let BRANCHES = [];
+﻿let BRANCHES = [];
 let CURRENT_BRANCH = null;
 let CURRENT_LANG = "ru";
 let SELECTED_USER_ID = null;
@@ -16,7 +16,7 @@ $(document).ready(function () {
 
     // setActiveLangUI(CURRENT_LANG);
 
-    // 🔐 SAVE TO FLASK SESSION
+    // рџ”ђ SAVE TO FLASK SESSION
     fetch("/auth/save-context", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -32,6 +32,7 @@ $(document).ready(function () {
       loadUsers();     // already done
       loadBranches();  // new
       loadRootSystemExpiry();
+      loadPrepaymentSettings();
     } else {
       $(".admin-only").hide();
       $(".root-only").addClass("hidden");
@@ -51,14 +52,14 @@ $(document).ready(function () {
   });
 
 
-   // 2️⃣ USER PREFERENCES (🔥 NEW API)
+   // 2пёЏвѓЈ USER PREFERENCES (рџ”Ґ NEW API)
   apiGet("/users/me/preferences").done(function (prefs) {
 
     CURRENT_LANG = prefs.language || "ru";
     setActiveLangUI(CURRENT_LANG);
     const rootBtn = $("#openRootManagementBtn");
     if (rootBtn.length) {
-      rootBtn.text(CURRENT_LANG === "uz" ? "Root boshqaruvini ochish" : "Открыть Root управление");
+      rootBtn.text(CURRENT_LANG === "uz" ? "Root boshqaruvini ochish" : "РћС‚РєСЂС‹С‚СЊ Root СѓРїСЂР°РІР»РµРЅРёРµ");
     }
 
     if (prefs.notify_enabled !== undefined) {
@@ -163,27 +164,35 @@ function loadBranches() {
         `);
       });
 
-      // ✅ restore selected branch
+      // вњ… restore selected branch
       if (CURRENT_BRANCH) {
         $select.val(CURRENT_BRANCH);
       }
+      fillBranchContactInputs();
     });
 }
 
-/* ✅ SINGLE change handler (ONLY ONE) */
+function fillBranchContactInputs() {
+  const bid = Number($("#branchSelect").val() || 0);
+  const row = BRANCHES.find((b) => Number(b.id) === bid) || {};
+  $("#editBranchPhone").val(row.contact_phone || "");
+  $("#editBranchTelegram").val(row.contact_telegram || "");
+}
+
+/* вњ… SINGLE change handler (ONLY ONE) */
 $(document).on("change", "#branchSelect", function () {
   const branchId = Number($(this).val());
   if (!branchId) return;
 
-  // ✅ update frontend immediately
+  // вњ… update frontend immediately
   CURRENT_BRANCH = branchId;
 
   $("#branchSelect").val(branchId);
 
   localStorage.setItem("CURRENT_BRANCH", branchId);
+  fillBranchContactInputs();
 
-
-  // ✅ persist backend
+  // persist backend
   setCurrentBranch(branchId);
 });
 
@@ -192,6 +201,8 @@ function createBranch() {
   const address = $("#newBranchAddress").val().trim();
   const latitude = $("#newBranchLatitude").val().trim();
   const longitude = $("#newBranchLongitude").val().trim();
+  const contactPhone = $("#newBranchPhone").val().trim();
+  const contactTelegram = $("#newBranchTelegram").val().trim();
 
   if (!name) {
     alert(t("branch_name_required"));
@@ -202,12 +213,16 @@ function createBranch() {
       name: name,
       address: address || null,
       latitude: latitude ? parseFloat(latitude) : null,
-      longitude: longitude ? parseFloat(longitude) : null 
+      longitude: longitude ? parseFloat(longitude) : null,
+      contact_phone: contactPhone || null,
+      contact_telegram: contactTelegram || null
     }).done(function () {
       $("#newBranchName").val("");
       $("#newBranchAddress").val("");
       $("#newBranchLatitude").val("");
       $("#newBranchLongitude").val("");
+      $("#newBranchPhone").val("");
+      $("#newBranchTelegram").val("");
       alert(t("branch_created"));
       loadBranches();
     })
@@ -218,6 +233,29 @@ function createBranch() {
         alert(t("api_error"));
       }
     });
+}
+
+function saveBranchContacts() {
+  const branchId = Number($("#branchSelect").val() || 0);
+  if (!branchId) {
+    alert(t("select_branch"));
+    return;
+  }
+
+  const row = BRANCHES.find((b) => Number(b.id) === branchId);
+  if (!row) return;
+
+  apiPut(`/branches/admin/${branchId}`, {
+    name: row.name,
+    address: row.address || null,
+    latitude: row.latitude ?? null,
+    longitude: row.longitude ?? null,
+    contact_phone: ($("#editBranchPhone").val() || "").trim() || null,
+    contact_telegram: ($("#editBranchTelegram").val() || "").trim() || null
+  }).done(function () {
+    alert(t("branch_updated"));
+    loadBranches();
+  });
 }
 
 
@@ -287,14 +325,14 @@ function setLanguage(lang) {
 
   if (lang === CURRENT_LANG) return;
 
-  // 🔄 UI feedback
+  // рџ”„ UI feedback
   $(".lang-btn").prop("disabled", true);
   $("#lang-" + lang).text(t("lang_changing") + "...");
 
   apiPost("/settings/language", { language: lang })
     .done(function (res) {
 
-      // 🔥 replace JWT
+      // рџ”Ґ replace JWT
       fetch("/auth/replace-token", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -319,7 +357,7 @@ function setCurrentBranch(branchId) {
     branch_id: branchId
   }).done(function (res) {
 
-    // 🔥 replace JWT in Flask session
+    // рџ”Ґ replace JWT in Flask session
     fetch("/auth/replace-token", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -349,7 +387,7 @@ function createUser() {
   apiPost("/users", {
     username: username,
     password: password,
-    telegram_id: telegramId || null   // ✅ optional
+    telegram_id: telegramId || null   // вњ… optional
   }).done(function () {
 
     $("#newUsername").val("");
@@ -376,7 +414,7 @@ function deleteUser() {
     .done(function () {
       alert(t("user_deleted"));
 
-      // 🔄 reload users
+      // рџ”„ reload users
       loadUsers();
     });
 }
@@ -392,12 +430,12 @@ function openUserBranchModal() {
   SELECTED_USER_ID = Number(userId);
   $("#userBranchModal").removeClass("hidden");
 
-  // 1️⃣ load assigned branches FIRST
+  // 1пёЏвѓЈ load assigned branches FIRST
   apiGet(`/users/${SELECTED_USER_ID}/branches`).done(function (assigned) {
     const assignedIds = (assigned || []).map(b => Number(b.id));
     SELECTED_USER_ASSIGNED_BRANCH_IDS = assignedIds.slice();
 
-    // 2️⃣ load all branches
+    // 2пёЏвѓЈ load all branches
     apiGet("/branches").done(function (branches) {
       const box = $("#branchCheckboxList").empty();
 
@@ -464,6 +502,32 @@ function closeUserBranchModal() {
   $("#userBranchModal").addClass("hidden");
 }
 
+function loadPrepaymentSettings() {
+  apiGet("/settings/booking-prepayment")
+    .done(function (cfg) {
+      $("#prepayEnabled").prop("checked", !!cfg.enabled);
+      $("#prepayMode").val(cfg.mode || "percent");
+      $("#prepayValue").val(cfg.value ?? 0);
+    })
+    .fail(function () {
+      // silently ignore for non-admins or older backend
+    });
+}
+
+function savePrepaymentSettings() {
+  const enabled = $("#prepayEnabled").is(":checked");
+  const mode = $("#prepayMode").val() || "percent";
+  const value = Number($("#prepayValue").val() || 0);
+
+  apiPost("/settings/booking-prepayment", {
+    enabled: enabled,
+    mode: mode,
+    value: value
+  }).done(function () {
+    alert(t("settings_saved"));
+  });
+}
+
 
 function loadRootSystemExpiry() {
   // raw ajax to avoid noisy global errors for non-root admins
@@ -521,4 +585,5 @@ window.clearSystemExpiry = function () {
     loadRootSystemExpiry();
   });
 };
+
 

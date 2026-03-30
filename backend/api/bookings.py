@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+﻿from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 from datetime import date, timedelta
@@ -12,15 +12,11 @@ from db import (
     add_or_get_customer,
     update_future_booking_admin,
     cancel_future_booking,
-    add_booking_guest
+    add_booking_guest,
+    get_booking_prepayment_config_db,
 )
 
 router = APIRouter(prefix="/booking", tags=["Booking"])
-
-
-
-
-
 
 
 # ---------- ROOMS ----------
@@ -79,8 +75,20 @@ class BookingCreate(BaseModel):
 
 @router.post("/")
 async def create_booking(data: BookingCreate, user=Depends(get_current_user)):
+    cfg = get_booking_prepayment_config_db()
+    if cfg.get("enabled"):
+        mode = cfg.get("mode", "percent")
+        value = float(cfg.get("value", 0) or 0)
+        total = float(data.total or 0)
+        paid = float(data.paid or 0)
+        required = (total * value / 100.0) if mode == "percent" else value
+        if required > total:
+            required = total
+        if paid + 1e-9 < required:
+            if mode == "percent":
+                raise HTTPException(400, f"Prepayment required: minimum {value:.2f}% ({required:.2f})")
+            raise HTTPException(400, f"Prepayment required: minimum {required:.2f}")
 
-    # 1️⃣ create booking (same as before)
     booking_id = add_booking(
         data.branch_id,
         data.name,
@@ -93,32 +101,29 @@ async def create_booking(data: BookingCreate, user=Depends(get_current_user)):
         data.checkin,
         data.checkout,
         data.notify_date or data.checkout,
-        data.is_hourly
+        data.is_hourly,
     )
 
-    # 2️⃣ save primary guest
     add_or_get_customer(
         branch_id=data.branch_id,
         name=data.name,
         passport_id=data.passport_id,
-        contact=data.contact
+        contact=data.contact,
     )
 
-    # 3️⃣ save second guest (if exists)
     if data.second_guest:
-        customer_id  = add_or_get_customer(
+        customer_id = add_or_get_customer(
             branch_id=data.branch_id,
             name=data.second_guest.name,
             passport_id=data.second_guest.passport_id,
-            contact=data.second_guest.contact
+            contact=data.second_guest.contact,
         )
 
         add_booking_guest(
             booking_id=booking_id,
-            customer_id=customer_id
+            customer_id=customer_id,
         )
 
-    # 4️⃣ websocket updates
     await ws_manager.broadcast({
         "type": "beds_changed",
         "branch_id": data.branch_id,
@@ -138,9 +143,6 @@ async def create_booking(data: BookingCreate, user=Depends(get_current_user)):
     })
 
     return {"status": "ok"}
-
-
-
 
 
 class AdminBookingUpdateFuture(BaseModel):
@@ -151,37 +153,37 @@ class AdminBookingUpdateFuture(BaseModel):
     checkout_date: date
     total_amount: float
 
+
 @router.post("/update-future-booking")
-async def admin_update_booking( data: AdminBookingUpdateFuture, user=Depends(get_current_user)):
+async def admin_update_booking(data: AdminBookingUpdateFuture, user=Depends(get_current_user)):
     update_future_booking_admin(
         data.booking_id,
         data.room_id,
         data.bed_id,
         data.checkin_date,
         data.checkout_date,
-        data.total_amount
+        data.total_amount,
     )
-    
+
     await ws_manager.broadcast({
         "type": "beds_changed",
         "booking_id": data.booking_id,
-        "branch_id": user["branch_id"]
+        "branch_id": user["branch_id"],
     })
 
     await ws_manager.broadcast({
         "type": "booking_changed",
         "booking_id": data.booking_id,
-        "branch_id": user["branch_id"]
+        "branch_id": user["branch_id"],
     })
 
     await ws_manager.broadcast({
         "type": "dashboard_changed",
         "booking_id": data.booking_id,
-        "branch_id": user["branch_id"]
+        "branch_id": user["branch_id"],
     })
 
     return {"status": "ok"}
-
 
 
 class BookingCancelFuture(BaseModel):
@@ -189,36 +191,33 @@ class BookingCancelFuture(BaseModel):
     branch_id: int
     refund_amount: int
     refund_title: str
-    
+
 
 @router.post("/future-bookings/cancel")
-async def cancel_future_booking_api( data: BookingCancelFuture, user=Depends(get_current_user)):
+async def cancel_future_booking_api(data: BookingCancelFuture, user=Depends(get_current_user)):
     cancel_future_booking(
         booking_id=data.booking_id,
         branch_id=data.branch_id,
         refund_amount=float(data.refund_amount),
-        refund_title=data.refund_title
+        refund_title=data.refund_title,
     )
 
-    
     await ws_manager.broadcast({
         "type": "beds_changed",
         "booking_id": data.booking_id,
-        "branch_id": user["branch_id"]
+        "branch_id": user["branch_id"],
     })
 
     await ws_manager.broadcast({
         "type": "booking_changed",
         "booking_id": data.booking_id,
-        "branch_id": user["branch_id"]
+        "branch_id": user["branch_id"],
     })
 
     await ws_manager.broadcast({
         "type": "dashboard_changed",
         "booking_id": data.booking_id,
-        "branch_id": user["branch_id"]
+        "branch_id": user["branch_id"],
     })
 
     return {"status": "ok"}
-
-

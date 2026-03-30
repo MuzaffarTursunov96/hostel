@@ -1,9 +1,14 @@
-let CURRENT_ROOM = null;
+﻿let CURRENT_ROOM = null;
 let CURRENT_ROOM_ID = null;
-// let SELECTED_BED_ID = null;
 let CURRENT_BRANCH = null;
 let SELECTED_BED = null;
 
+function formatPrice(v) {
+  if (v === null || v === undefined || String(v).trim() === "") return t("price_by_agreement");
+  const n = Number(v);
+  if (Number.isNaN(n)) return t("price_by_agreement");
+  return `${n.toLocaleString()} ${t("currency_short")}`;
+}
 
 $(document).ready(function () {
   CURRENT_BRANCH = localStorage.getItem("CURRENT_BRANCH");
@@ -20,156 +25,206 @@ $(document).ready(function () {
 function loadRooms() {
   $("#roomsList").empty();
   $("#bedsList").empty();
+  $("#roomPhotosList").empty();
   $("#bedsTitle").text(t("beds"));
 
+  apiGet("/rooms", { branch_id: CURRENT_BRANCH }).done(function (rooms) {
+    if (!rooms.length) {
+      $("#roomPhotosList").html(`<div class="text-sm text-tgHint">${t("no_rooms_found")}</div>`);
+      return;
+    }
 
-  apiGet("/rooms", { branch_id: CURRENT_BRANCH })
-    .done(function (rooms) {
-      if (!rooms.length) return;
+    rooms.forEach((room) => {
+      const roomLabel = room.room_type
+        ? `${room.room_name || room.room_number} (${room.room_type})`
+        : `${room.room_name || room.room_number}`;
+      const btn = $(`
+        <button
+          class="room-item px-4 py-2 rounded-full border text-sm whitespace-nowrap bg-gray-100 text-gray-700"
+        >
+          ${roomLabel}
+        </button>
+      `);
 
-      rooms.forEach(room => {
-        const btn = $(`
-            <button
-              class="room-item px-4 py-2 rounded-full border text-sm whitespace-nowrap
-                    bg-gray-100 text-gray-700">
-              🏠 ${room.room_name || room.room_number}
-            </button>
-          `);
-
-
-        btn.on("click", function () {
-          $(".room-item").removeClass("bg-tgButton text-white");
-          btn.addClass("bg-tgButton text-white");
-
-          selectRoom(room);
-        });
-
-        $("#roomsList").append(btn);
+      btn.on("click", function () {
+        $(".room-item").removeClass("bg-tgButton text-white");
+        btn.addClass("bg-tgButton text-white");
+        selectRoom(room);
       });
 
-      // auto-select first room
-      $(".room-item").first().click();
+      $("#roomsList").append(btn);
     });
+
+    $(".room-item").first().click();
+  });
 }
 
 function selectRoom(room) {
   CURRENT_ROOM = room;
   CURRENT_ROOM_ID = room.id;
-  // SELECTED_BED_ID = null;
-
-  $("#bedsTitle").text(`${room.room_name || room.room_number} — ${t("beds")}`);
-
+  $("#bedsTitle").text(`${room.room_name || room.room_number} - ${t("beds")}`);
+  $("#roomFixedPriceInput").val(room.fixed_price ?? "");
+  $("#roomTypeInput").val(room.room_type ?? "");
   loadBeds(room.id);
+  loadRoomImages(room.id);
 }
 
 /* ================= BEDS ================= */
 
 const BED_TYPE_UI = {
   single: {
-    icon: "👤",
-    title: t("single_bed") || "Одноместная"
+    icon: "S",
+    title: t("single_bed") || "Single"
   },
   double: {
-    icon: "👥",
-    title: t("double_bed") || "Двухместная"
+    icon: "D",
+    title: t("double_bed") || "Double"
   },
   child: {
-    icon: "🧸",
-    title: t("child_bed") || "Детская"
+    icon: "C",
+    title: t("child_bed") || "Child"
   }
 };
-
-
-
-
-
 
 function loadBeds(roomId) {
   $("#bedsList").empty();
   SELECTED_BED = null;
 
-
-  // 1️⃣ get all beds
   apiGet("/beds", {
     branch_id: CURRENT_BRANCH,
     room_id: roomId
   }).done(function (beds) {
-
-    // 2️⃣ get busy beds ONCE
     apiGet("/beds/busy-now", {
       branch_id: CURRENT_BRANCH,
       room_id: roomId
     }).done(function (resp) {
+      const busyBeds = new Set(resp.busy_beds || []);
 
-      const busyBeds = new Set(resp.busy_beds);
-
-      beds.forEach(bed => {
+      beds.forEach((bed) => {
         const busy = busyBeds.has(bed.id);
-
         const ui = BED_TYPE_UI[bed.bed_type] || BED_TYPE_UI.single;
 
         const btn = $(`
-              <button
-                class="bed-item relative rounded-2xl p-4 border transition
-                  flex flex-col items-center text-center gap-2
-                  ${busy
-                    ? "border-red-300 bg-red-50"
-                    : "border-green-300 bg-green-50 hover:bg-green-100"}">
+          <button
+            class="bed-item relative rounded-2xl p-4 border transition flex flex-col items-center text-center gap-2 ${
+              busy ? "border-red-300 bg-red-50" : "border-green-300 bg-green-50 hover:bg-green-100"
+            }"
+          >
+            <span class="absolute -top-3 right-3 text-xs px-3 py-1 rounded-full font-medium shadow ${
+              busy ? "bg-red-500" : "bg-green-500"
+            } text-white">
+              ${busy ? t("busy") : t("free")}
+            </span>
 
-                <!-- STATUS BADGE -->
-                <span class="absolute -top-3 right-3
-                  text-xs px-3 py-1 rounded-full font-medium shadow
-                  ${busy ? "bg-red-500" : "bg-green-500"} text-white">
-                  ${busy ? t("busy") : t("free")}
-                </span>
-
-                <!-- ICON -->
-                <span class="text-3xl mt-2">
-                  ${ui.icon}
-                </span>
-
-                <!-- TYPE -->
-                <div class="font-semibold text-base leading-tight">
-                  ${ui.title}
-                </div>
-
-                <!-- BED NUMBER -->
-                <div class="text-sm text-gray-600">
-                  ${t("bed")} <span class="font-semibold">${bed.bed_number}</span>
-                </div>
-
-              </button>
-            `);
+            <span class="text-3xl mt-2">${ui.icon}</span>
+            <div class="font-semibold text-base leading-tight">${ui.title}</div>
+            <div class="text-sm text-gray-600">${t("bed")} <span class="font-semibold">${bed.bed_number}</span></div>
+            <div class="text-xs text-gray-600">${formatPrice(bed.fixed_price)}</div>
+          </button>
+        `);
 
         btn.on("click", function () {
-          $(".bed-item")
-            .removeClass("ring-2 ring-tgButton scale-[1.02]")
-            .addClass("scale-100");
-
-          btn
-            .addClass("ring-2 ring-tgButton scale-[1.02]");
-
+          $(".bed-item").removeClass("ring-2 ring-tgButton scale-[1.02]").addClass("scale-100");
+          btn.addClass("ring-2 ring-tgButton scale-[1.02]");
           SELECTED_BED = bed;
         });
 
-
         $("#bedsList").append(btn);
       });
-
     });
   });
 }
 
+/* ================= ROOM PHOTOS ================= */
+
+function loadRoomImages(roomId) {
+  const $list = $("#roomPhotosList");
+  if (!$list.length) return;
+
+  $list.html(`<div class="text-sm text-tgHint">${t("loading")}...</div>`);
+
+  apiGet(`/rooms/${roomId}/images`, { branch_id: CURRENT_BRANCH })
+    .done(function (resp) {
+      const images = (resp && resp.images) || [];
+      if (!images.length) {
+        $list.html(`<div class="text-sm text-tgHint">${t("no_room_photos")}</div>`);
+        return;
+      }
+
+      $list.empty();
+      images.forEach((img) => {
+        const item = $(`
+          <div class="room-photo-card">
+            <img class="room-photo-img" src="${img.image_path}" alt="room photo" loading="lazy" />
+            <div class="room-photo-actions">
+              <button class="room-photo-cover">${img.is_cover ? t("cover_photo") : t("set_as_cover")}</button>
+              <button class="room-photo-delete">${t("delete_photo")}</button>
+            </div>
+          </div>
+        `);
+
+        item.find(".room-photo-cover").on("click", function () {
+          if (img.is_cover) return;
+          apiPut(`/rooms/${roomId}/images/${img.id}/cover`, { branch_id: CURRENT_BRANCH }).done(function () {
+            loadRoomImages(roomId);
+          });
+        });
+
+        item.find(".room-photo-delete").on("click", function () {
+          if (!confirm(t("delete_photo_confirm"))) return;
+          apiDelete(`/rooms/${roomId}/images/${img.id}`, { branch_id: CURRENT_BRANCH }).done(function () {
+            loadRoomImages(roomId);
+          });
+        });
+
+        $list.append(item);
+      });
+    })
+    .fail(function () {
+      $list.html(`<div class="text-sm text-red-500">${t("upload_failed")}</div>`);
+    });
+}
+
+function uploadRoomPhotos() {
+  if (!CURRENT_ROOM_ID) {
+    alert(t("select_a_room_first"));
+    return;
+  }
+
+  const input = document.getElementById("roomPhotoInput");
+  if (!input || !input.files || !input.files.length) return;
+
+  const form = new FormData();
+  Array.from(input.files).forEach((file) => form.append("files", file));
+
+  fetch(`/api2/rooms/${CURRENT_ROOM_ID}/images?branch_id=${encodeURIComponent(CURRENT_BRANCH)}`, {
+    method: "POST",
+    body: form,
+    credentials: "include"
+  })
+    .then(async (res) => {
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = payload.detail || payload.error || t("upload_failed");
+        throw new Error(msg);
+      }
+      input.value = "";
+      loadRoomImages(CURRENT_ROOM_ID);
+    })
+    .catch((err) => {
+      const message = (window.translateBackendError ? window.translateBackendError(err.message || "") : (err.message || t("upload_failed")));
+      alert(message);
+    });
+}
 
 /* ================= ACTIONS ================= */
 
-
-
 function addRoom() {
   $("#roomNameInput").val("");
+  $("#roomTypeCreateInput").val("");
+  $("#roomPriceInput").val("");
   $("#roomModal").removeClass("hidden").addClass("flex");
 }
-
 
 function closeRoomModal() {
   $("#roomModal").addClass("hidden").removeClass("flex");
@@ -177,25 +232,27 @@ function closeRoomModal() {
 
 function submitRoom() {
   const roomName = $("#roomNameInput").val().trim();
+  const roomType = String($("#roomTypeCreateInput").val() || "").trim();
+  const roomPriceRaw = String($("#roomPriceInput").val() || "").trim();
 
   if (!roomName) {
     alert(t("room_name_required"));
     return;
   }
 
-  // disable button to prevent double submit
   const btn = $("#roomModal button.bg-tgButton");
   btn.prop("disabled", true).addClass("opacity-50");
 
-  apiGet("/rooms", { branch_id: CURRENT_BRANCH })
-    .done(function (rooms) {
-      const nextNumber = getNextRoomNumber(rooms || []);
+  apiGet("/rooms", { branch_id: CURRENT_BRANCH }).done(function (rooms) {
+    const nextNumber = getNextRoomNumber(rooms || []);
 
-      apiPost("/rooms", {
-        branch_id: CURRENT_BRANCH,
-        number: nextNumber,
-        room_name: roomName
-      })
+    apiPost("/rooms", {
+      branch_id: CURRENT_BRANCH,
+      number: nextNumber,
+      room_name: roomName,
+      fixed_price: roomPriceRaw ? Number(roomPriceRaw) : null,
+      room_type: roomType || null
+    })
       .done(function () {
         closeRoomModal();
         loadRooms();
@@ -203,10 +260,8 @@ function submitRoom() {
       .always(function () {
         btn.prop("disabled", false).removeClass("opacity-50");
       });
-    });
+  });
 }
-
-
 
 function deleteRoom() {
   if (!CURRENT_ROOM_ID) {
@@ -214,11 +269,9 @@ function deleteRoom() {
     return;
   }
 
-  // Check bookings first (desktop logic)
   apiGet(`/rooms/${CURRENT_ROOM_ID}/has-bookings`, {
     branch_id: CURRENT_BRANCH
   }).done(function (resp) {
-
     if (resp.has_booking) {
       alert(t("this_room_has_active_or_future_bookings"));
       return;
@@ -228,37 +281,30 @@ function deleteRoom() {
       return;
     }
 
-    apiDelete(`/rooms/${CURRENT_ROOM_ID}`, 
-        {
-            branch_id: CURRENT_BRANCH
-        }
-    ).done(function () {
-        CURRENT_ROOM_ID = null;
-        CURRENT_ROOM = null;
-        $("#bedsList").empty();
-        loadRooms();
-        });
-
+    apiDelete(`/rooms/${CURRENT_ROOM_ID}`, { branch_id: CURRENT_BRANCH }).done(function () {
+      CURRENT_ROOM_ID = null;
+      CURRENT_ROOM = null;
+      $("#bedsList").empty();
+      $("#roomPhotosList").empty();
+      loadRooms();
     });
+  });
 }
-
-
 
 function addBed() {
   if (!CURRENT_ROOM_ID) return;
 
   const $btn = $("#addBedBtn");
-
-  // ✅ disable button immediately
   $btn.prop("disabled", true).addClass("opacity-50 cursor-not-allowed");
 
   apiPost("/beds", {
     branch_id: CURRENT_BRANCH,
     room_id: CURRENT_ROOM_ID
-  }).done(() => loadBeds(CURRENT_ROOM_ID)).always(() => {
-    // ✅ re-enable after request finishes
-    $btn.prop("disabled", false).removeClass("opacity-50 cursor-not-allowed");
-  });;
+  })
+    .done(() => loadBeds(CURRENT_ROOM_ID))
+    .always(() => {
+      $btn.prop("disabled", false).removeClass("opacity-50 cursor-not-allowed");
+    });
 }
 
 function deleteBed() {
@@ -270,7 +316,6 @@ function deleteBed() {
   apiGet(`/beds/${SELECTED_BED.id}/busy`, {
     branch_id: CURRENT_BRANCH
   }).done(function (resp) {
-
     if (resp.busy) {
       alert(t("this_room_has_active_or_future_bookings"));
       return;
@@ -280,27 +325,54 @@ function deleteBed() {
       return;
     }
 
-    apiDelete(`/beds/${SELECTED_BED.id}`)
-      .done(function () {
-        SELECTED_BED = null;
-        loadBeds(CURRENT_ROOM_ID);
-      });
-
+    apiDelete(`/beds/${SELECTED_BED.id}`).done(function () {
+      SELECTED_BED = null;
+      loadBeds(CURRENT_ROOM_ID);
+    });
   });
 }
 
-
-
-
 function getNextRoomNumber(rooms) {
   let max = 0;
-  rooms.forEach(r => {
-    const n = parseInt(r.room_number);
+  rooms.forEach((r) => {
+    const n = parseInt(r.room_number, 10);
     if (!isNaN(n)) max = Math.max(max, n);
   });
   return String(max + 1);
 }
 
+function saveRoomPrice() {
+  if (!CURRENT_ROOM_ID) {
+    alert(t("select_a_room_first"));
+    return;
+  }
+  const raw = String($("#roomFixedPriceInput").val() || "").trim();
+  apiPut(`/rooms/${CURRENT_ROOM_ID}/price`, {
+    branch_id: CURRENT_BRANCH,
+    fixed_price: raw
+  }).done(function () {
+    loadRooms();
+  });
+}
+
+function clearRoomPrice() {
+  $("#roomFixedPriceInput").val("");
+  saveRoomPrice();
+}
+
+function saveRoomType() {
+  if (!CURRENT_ROOM_ID) {
+    alert(t("select_a_room_first"));
+    return;
+  }
+  const roomType = String($("#roomTypeInput").val() || "").trim();
+  apiPut(`/rooms/${CURRENT_ROOM_ID}/type`, {
+    branch_id: CURRENT_BRANCH,
+    room_type: roomType
+  }).done(function () {
+    loadRooms();
+  });
+}
 
 function openEditBed() {
   if (!SELECTED_BED) {
@@ -309,6 +381,7 @@ function openEditBed() {
   }
 
   $("#editBedType").val(SELECTED_BED.bed_type);
+  $("#editBedPrice").val(SELECTED_BED.fixed_price ?? "");
   $("#editBedModal").removeClass("hidden").addClass("flex");
 }
 
@@ -318,12 +391,16 @@ function closeEditBedModal() {
 
 function saveBedType() {
   const bedType = $("#editBedType").val();
+  const bedPrice = String($("#editBedPrice").val() || "").trim();
 
   apiPut(`/beds/${SELECTED_BED.id}`, {
     bed_number: SELECTED_BED.bed_number,
-    bed_type: bedType
+    bed_type: bedType,
+    fixed_price: bedPrice
   }).done(function () {
     closeEditBedModal();
     loadBeds(CURRENT_ROOM_ID);
   });
 }
+
+

@@ -24,6 +24,51 @@
   cursor: pointer;
 }
 
+.room-photos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  gap: 10px;
+}
+
+.room-photo-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.room-photo-img {
+  width: 100%;
+  height: 88px;
+  object-fit: cover;
+  background: #f3f4f6;
+}
+
+.room-photo-actions {
+  display: flex;
+  gap: 6px;
+  padding: 8px;
+}
+
+.room-photo-actions button {
+  flex: 1;
+  border: 0;
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.room-photo-cover {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.room-photo-delete {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
 @media (max-width: 768px) {
   .page-offset {
     padding-left: 0;

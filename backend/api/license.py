@@ -1,6 +1,7 @@
 from fastapi import Depends,APIRouter, HTTPException
 from datetime import datetime, timedelta
 from api.deps import get_current_user
+from time_utils import app_now_naive
 
 from db import (get_license_key, 
                 update_license_key, 
@@ -41,7 +42,7 @@ def verify_license(license_key: str, device_id: str):
     if not license["is_active"]:
         raise HTTPException(403, "License disabled")
 
-    now = datetime.utcnow()
+    now = app_now_naive()
 
     # 🔹 Trial activation (first run)
     if license["is_trial"] and not license["expires_at"]:

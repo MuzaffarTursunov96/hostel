@@ -16,6 +16,8 @@ from api.root_admin import router as root_admin_router
 from api.refunds import router as refund_router
 from api.users import router as users_router
 from api.admin_reports import router as admin_reports_router
+from api.public_catalog import router as public_catalog_router
+from api.feedback import router as feedback_router
 
 
 from aiogram.types import Update
@@ -102,3 +104,5 @@ app.include_router(root_admin_router)
 app.include_router(refund_router)
 app.include_router(users_router)
 app.include_router(admin_reports_router)
+app.include_router(public_catalog_router)
+app.include_router(feedback_router)

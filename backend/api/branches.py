@@ -75,6 +75,8 @@ def create_branch_admin(data: dict, current_user=Depends(get_current_user)):
     address = data.get("address", None)
     latitude = data.get("latitude", None)
     longitude = data.get("longitude", None)
+    contact_phone = data.get("contact_phone", None)
+    contact_telegram = data.get("contact_telegram", None)
 
     if not name:
         raise HTTPException(400, "name required")
@@ -84,6 +86,8 @@ def create_branch_admin(data: dict, current_user=Depends(get_current_user)):
         address=address,
         latitude=latitude,
         longitude=longitude,
+        contact_phone=contact_phone,
+        contact_telegram=contact_telegram,
         created_by=current_user["user_id"]
     )
 
@@ -145,6 +149,8 @@ def update_branch(
     address = data.get("address", None)
     latitude = data.get("latitude", None)
     longitude = data.get("longitude", None)
+    contact_phone = data.get("contact_phone", None)
+    contact_telegram = data.get("contact_telegram", None)
 
     if not name:
         raise HTTPException(400, "name required")
@@ -155,7 +161,9 @@ def update_branch(
         name=name,
         address=address,
         latitude=latitude,
-        longitude=longitude
+        longitude=longitude,
+        contact_phone=contact_phone,
+        contact_telegram=contact_telegram
     )
 
 
