@@ -166,6 +166,7 @@
   let rows = [];
   let userGeo = null;
   let currentTgUser = null;
+  const NO_PHOTO_SRC = "/static/icons/no_photo.png";
 
   const cardsEl = document.getElementById("cards");
   const filtersPanelEl = document.getElementById("filtersPanel");
@@ -578,8 +579,8 @@
       <article class="branch-card">
         ${
           photo
-            ? `<img class="branch-photo" src="${escapeHtml(photo)}" alt="${escapeHtml(r.name)}" loading="lazy" />`
-            : `<div class="branch-photo" style="display:grid;place-items:center;color:#64748b">${t("no_photo")}</div>`
+            ? `<img class="branch-photo" src="${escapeHtml(photo)}" alt="${escapeHtml(r.name)}" loading="lazy" onerror="this.onerror=null;this.src='${NO_PHOTO_SRC}'" />`
+            : `<img class="branch-photo" src="${NO_PHOTO_SRC}" alt="${t("no_photo")}" loading="lazy" />`
         }
         <div class="branch-body">
           <h3 class="branch-title">${escapeHtml(r.name)}</h3>
@@ -683,8 +684,8 @@
     const roomCards = visibleRooms.length
       ? visibleRooms.map((r) => {
           const img = r.cover_image
-            ? `<img src="${escapeHtml(r.cover_image)}" alt="${escapeHtml(r.room_name || "")}" loading="lazy" />`
-            : `<img alt="no photo" />`;
+            ? `<img src="${escapeHtml(r.cover_image)}" alt="${escapeHtml(r.room_name || "")}" loading="lazy" onerror="this.onerror=null;this.src='${NO_PHOTO_SRC}'" />`
+            : `<img src="${NO_PHOTO_SRC}" alt="${t("no_photo")}" loading="lazy" />`;
           const priceLine = fmtMinMaxPrice(r.min_effective_price, r.max_effective_price);
 
           return `
