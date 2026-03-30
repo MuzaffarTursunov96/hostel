@@ -459,11 +459,6 @@ function clearRoomPrice() {
   saveRoomPrice();
 }
 
-function clearRoomPriceFromModal() {
-  clearRoomPrice();
-  closeRoomPriceModal();
-}
-
 function applyPriceToAllBeds() {
   if (!CURRENT_ROOM_ID) {
     alert(t("select_a_room_first"));
