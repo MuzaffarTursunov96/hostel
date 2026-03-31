@@ -697,12 +697,14 @@
 
   function refreshCityOptions(regionSlug, selectedCity) {
     if (!cityEl) return;
-    const cities = String(regionSlug || "").trim() ? (REGION_CITY_OPTIONS[String(regionSlug || "").trim()] || []) : [];
+    const region = String(regionSlug || "").trim();
+    const cities = region ? (REGION_CITY_OPTIONS[region] || []) : [];
     cityEl.innerHTML =
       `<option value="">${lang === "ru" ? "Все города" : "Barcha shaharlar"}</option>` +
       cities.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
     const selected = String(selectedCity || "");
     cityEl.value = cities.includes(selected) ? selected : "";
+    cityEl.disabled = !region || !cities.length;
     refreshDistrictOptions(cityEl.value || "", "");
   }
 
@@ -715,6 +717,7 @@
       districts.map((d) => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join("");
     const selected = String(selectedDistrict || "");
     districtEl.value = districts.includes(selected) ? selected : "";
+    districtEl.disabled = !city || !districts.length;
   }
 
   async function loadBranches() {

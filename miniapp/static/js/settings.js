@@ -8,6 +8,7 @@ let BRANCH_MAP_MODE = "new";
 let BRANCH_MAP_OBJ = null;
 let BRANCH_MAP_MARKER = null;
 let BRANCH_MAP_POINT = null;
+let NEW_BRANCH_CREATED_ID = null;
 const REGION_OPTIONS = [
   { id: 6, name: "Андижанская область", normalized_name: "andizhanskaya-oblast" },
   { id: 27, name: "Бухарская область", normalized_name: "buharskaya-oblast" },
@@ -172,6 +173,12 @@ $(document).ready(function () {
     if (id.includes("City")) clearBranchFieldError("edit", "City");
     if (id.includes("Latitude") || id.includes("Longitude")) clearBranchFieldError("edit", "Location");
   });
+  $("#editBranchImageInput").on("change", function () {
+    uploadBranchImages("edit");
+  });
+  $("#newBranchImageInput").on("change", function () {
+    uploadBranchImages("new");
+  });
 
 
 });
@@ -285,7 +292,6 @@ function fillBranchContactInputs() {
   $("#editBranchLongitude").val(row.longitude ?? "");
   $("#editBranchPhone").val(row.contact_phone || "");
   $("#editBranchTelegram").val(row.contact_telegram || "");
-  $("#editBranchCoverImage").val(row.cover_image || "");
   const regionSlug = (row.region_slug || "").trim();
   const cityName = row.city_name || "";
   $("#editBranchRegion").val(regionSlug);
@@ -293,13 +299,165 @@ function fillBranchContactInputs() {
   renderDistrictSelect("edit", cityName, row.district_name || "");
 }
 
+function branchUiText(key) {
+  const uz = CURRENT_LANG === "uz";
+  const map = {
+    create_first: uz ? "Avval filial yarating." : "Сначала создайте филиал.",
+    upload_failed: uz ? "Rasm yuklashda xatolik." : "Ошибка загрузки фото.",
+    max_three: uz ? "Maksimal 3 ta rasm ruxsat etiladi." : "Максимум 3 фото.",
+    no_images: uz ? "Rasm yo'q." : "Нет фото.",
+    set_cover: uz ? "Asosiy qilish" : "Сделать основным",
+    cover: uz ? "Asosiy rasm" : "Основное",
+    delete: uz ? "O'chirish" : "Удалить",
+    delete_confirm: uz ? "Rasmni o'chirasizmi?" : "Удалить фото?",
+    created_upload: uz ? "Filial yaratildi. Endi rasmlarni yuklashingiz mumkin." : "Филиал создан. Теперь можно загрузить фото."
+  };
+  return map[key] || key;
+}
+
+function getModalBranchId(mode) {
+  if (mode === "edit") {
+    return Number($("#branchSelect").val() || 0);
+  }
+  return Number(NEW_BRANCH_CREATED_ID || 0);
+}
+
+function setBranchImageUploaderEnabled(mode, enabled) {
+  const inputId = mode === "edit" ? "#editBranchImageInput" : "#newBranchImageInput";
+  $(inputId).prop("disabled", !enabled);
+  if (mode === "new") {
+    $("#newBranchImagesHelp").text(
+      enabled
+        ? (CURRENT_LANG === "uz" ? "Maksimal 3 ta rasm. 1 tasi asosiy rasm bo'ladi." : "Максимум 3 фото. Одно фото будет основным.")
+        : branchUiText("create_first")
+    );
+  }
+}
+
+function renderBranchImages(mode, images) {
+  const listId = mode === "edit" ? "#editBranchImagesList" : "#newBranchImagesList";
+  const countId = mode === "edit" ? "#editBranchImagesCount" : "#newBranchImagesCount";
+  const $list = $(listId);
+  const arr = Array.isArray(images) ? images : [];
+  $(countId).text(`${arr.length}/3`);
+
+  if (!arr.length) {
+    $list.html(`<div class="branch-images-help">${branchUiText("no_images")}</div>`);
+    return;
+  }
+
+  $list.empty();
+  arr.forEach((img) => {
+    const coverLabel = img.is_cover ? branchUiText("cover") : branchUiText("set_cover");
+    const card = $(`
+      <div class="branch-image-card">
+        <img src="${img.image_path}" alt="branch image" loading="lazy">
+        <div class="branch-image-actions">
+          <button type="button" class="branch-image-cover ${img.is_cover ? "is-cover" : ""}">${coverLabel}</button>
+          <button type="button" class="branch-image-delete">${branchUiText("delete")}</button>
+        </div>
+      </div>
+    `);
+    card.find(".branch-image-cover").on("click", function () {
+      if (img.is_cover) return;
+      setBranchImageCover(mode, img.id);
+    });
+    card.find(".branch-image-delete").on("click", function () {
+      deleteBranchImage(mode, img.id);
+    });
+    $list.append(card);
+  });
+}
+
+function loadBranchImages(mode) {
+  const branchId = getModalBranchId(mode);
+  const listId = mode === "edit" ? "#editBranchImagesList" : "#newBranchImagesList";
+  if (!branchId) {
+    setBranchImageUploaderEnabled(mode, false);
+    renderBranchImages(mode, []);
+    return;
+  }
+  setBranchImageUploaderEnabled(mode, true);
+  $(listId).html(`<div class="branch-images-help">${t("loading")}...</div>`);
+  apiGet(`/branches/admin/${branchId}/images`)
+    .done(function (resp) {
+      const images = (resp && resp.images) || [];
+      renderBranchImages(mode, images);
+    })
+    .fail(function () {
+      renderBranchImages(mode, []);
+    });
+}
+
+function uploadBranchImages(mode) {
+  const branchId = getModalBranchId(mode);
+  if (!branchId) {
+    alert(branchUiText("create_first"));
+    return;
+  }
+  const input = document.getElementById(mode === "edit" ? "editBranchImageInput" : "newBranchImageInput");
+  if (!input || !input.files || !input.files.length) return;
+
+  const form = new FormData();
+  Array.from(input.files).forEach((file) => form.append("files", file));
+
+  fetch(`/api2/branches/admin/${branchId}/images`, {
+    method: "POST",
+    body: form,
+    credentials: "include"
+  })
+    .then(async (res) => {
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = payload.detail || payload.error || branchUiText("upload_failed");
+        throw new Error(msg);
+      }
+      input.value = "";
+      loadBranchImages(mode);
+      loadBranches();
+    })
+    .catch((err) => {
+      const msg = String((err && err.message) || "");
+      if (msg.toLowerCase().includes("maximum")) {
+        alert(branchUiText("max_three"));
+        return;
+      }
+      alert(window.translateBackendError ? window.translateBackendError(msg) : msg || branchUiText("upload_failed"));
+    });
+}
+
+function setBranchImageCover(mode, imageId) {
+  const branchId = getModalBranchId(mode);
+  if (!branchId || !imageId) return;
+  apiPut(`/branches/admin/${branchId}/images/${imageId}/cover`, {})
+    .done(function () {
+      loadBranchImages(mode);
+      loadBranches();
+    });
+}
+
+function deleteBranchImage(mode, imageId) {
+  const branchId = getModalBranchId(mode);
+  if (!branchId || !imageId) return;
+  if (!confirm(branchUiText("delete_confirm"))) return;
+  apiDelete(`/branches/admin/${branchId}/images/${imageId}`, {})
+    .done(function () {
+      loadBranchImages(mode);
+      loadBranches();
+    });
+}
+
 function openNewBranchModal() {
+  NEW_BRANCH_CREATED_ID = null;
   clearBranchValidation("new");
   clearBranchFieldErrors("new");
+  renderBranchImages("new", []);
+  setBranchImageUploaderEnabled("new", false);
   $("#newBranchModal").addClass("show");
 }
 
 function closeNewBranchModal() {
+  NEW_BRANCH_CREATED_ID = null;
   clearBranchValidation("new");
   clearBranchFieldErrors("new");
   $("#newBranchModal").removeClass("show");
@@ -314,6 +472,7 @@ function openEditBranchModal() {
   fillBranchContactInputs();
   clearBranchValidation("edit");
   clearBranchFieldErrors("edit");
+  loadBranchImages("edit");
   $("#editBranchModal").addClass("show");
 }
 
@@ -355,6 +514,7 @@ function renderCitySelect(mode, regionSlug, selectedCity) {
   } else {
     $(target).val("");
   }
+  $(target).prop("disabled", !region || !cities.length);
   renderDistrictSelect(mode, $(target).val() || "", "");
 }
 
@@ -372,6 +532,7 @@ function renderDistrictSelect(mode, cityName, selectedDistrict) {
   } else {
     $(target).val("");
   }
+  $(target).prop("disabled", !city || !districts.length);
 }
 
 function showBranchValidation(mode, message) {
@@ -527,10 +688,8 @@ function createBranch() {
   const regionObj = getRegionBySlug(regionSlug);
   const cityName = ($("#newBranchCity").val() || "").trim();
   const districtName = ($("#newBranchDistrict").val() || "").trim();
-  const requiredDistricts = CITY_DISTRICT_OPTIONS[cityName] || [];
   const contactPhone = $("#newBranchPhone").val().trim();
   const contactTelegram = $("#newBranchTelegram").val().trim();
-  const coverImage = $("#newBranchCoverImage").val().trim();
 
   if (!name) {
     showBranchFieldError("new", "Name", t("branch_name_required"));
@@ -542,10 +701,6 @@ function createBranch() {
   }
   if (!cityName) {
     showBranchFieldError("new", "City", CURRENT_LANG === "uz" ? "Shahar majburiy." : "Город обязателен.");
-    return;
-  }
-  if (requiredDistricts.length && !districtName) {
-    showBranchFieldError("new", "District", CURRENT_LANG === "uz" ? "Tuman majburiy." : "Район обязателен.");
     return;
   }
 
@@ -576,24 +731,18 @@ function createBranch() {
       district_name: districtName || null,
       district_slug: districtName ? (window.toCitySlug ? window.toCitySlug(districtName) : districtName.toLowerCase()) : null,
       contact_phone: contactPhone || null,
-      contact_telegram: contactTelegram || null,
-      cover_image: coverImage || null
+      contact_telegram: contactTelegram || null
     }).done(function () {
-      $("#newBranchName").val("");
-      $("#newBranchAddress").val("");
-      $("#newBranchLatitude").val("");
-      $("#newBranchLongitude").val("");
-      $("#newBranchRegion").val("");
-      $("#newBranchCity").val("");
-      $("#newBranchDistrict").val("");
-      $("#newBranchPhone").val("");
-      $("#newBranchTelegram").val("");
-      $("#newBranchCoverImage").val("");
+      NEW_BRANCH_CREATED_ID = Number((arguments[0] && arguments[0].branch_id) || 0) || null;
+      if (NEW_BRANCH_CREATED_ID) {
+        CURRENT_BRANCH = NEW_BRANCH_CREATED_ID;
+        $("#branchSelect").val(NEW_BRANCH_CREATED_ID);
+      }
       clearBranchValidation("new");
       clearBranchFieldErrors("new");
-      alert(t("branch_created"));
-      closeNewBranchModal();
       loadBranches();
+      loadBranchImages("new");
+      alert(branchUiText("created_upload"));
     }).fail(function (xhr) {
       const msg = (xhr && xhr.responseJSON && (xhr.responseJSON.detail || xhr.responseJSON.message)) || (CURRENT_LANG === "uz" ? "Saqlashda xato." : "Ошибка при сохранении.");
       showBranchValidation("new", msg);
@@ -615,7 +764,6 @@ function saveBranchContacts() {
   const regionObj = getRegionBySlug(regionSlug);
   const cityName = ($("#editBranchCity").val() || "").trim();
   const districtName = ($("#editBranchDistrict").val() || "").trim();
-  const requiredDistricts = CITY_DISTRICT_OPTIONS[cityName] || [];
   const latRaw = ($("#editBranchLatitude").val() || "").trim();
   const lonRaw = ($("#editBranchLongitude").val() || "").trim();
   if (!name) {
@@ -628,10 +776,6 @@ function saveBranchContacts() {
   }
   if (!cityName) {
     showBranchFieldError("edit", "City", CURRENT_LANG === "uz" ? "Shahar majburiy." : "Город обязателен.");
-    return;
-  }
-  if (requiredDistricts.length && !districtName) {
-    showBranchFieldError("edit", "District", CURRENT_LANG === "uz" ? "Tuman majburiy." : "Район обязателен.");
     return;
   }
   const latNum = parseFloat(latRaw);
@@ -655,8 +799,7 @@ function saveBranchContacts() {
     district_name: districtName || null,
     district_slug: districtName ? (window.toCitySlug ? window.toCitySlug(districtName) : districtName.toLowerCase()) : null,
     contact_phone: ($("#editBranchPhone").val() || "").trim() || null,
-    contact_telegram: ($("#editBranchTelegram").val() || "").trim() || null,
-    cover_image: ($("#editBranchCoverImage").val() || "").trim() || null
+    contact_telegram: ($("#editBranchTelegram").val() || "").trim() || null
   }).done(function () {
     clearBranchValidation("edit");
     clearBranchFieldErrors("edit");

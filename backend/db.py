@@ -14,6 +14,7 @@ _branch_region_columns_checked = False
 _branch_cover_image_column_checked = False
 _branch_city_columns_checked = False
 _branch_district_columns_checked = False
+_branch_images_table_checked = False
 
 def get_connection():
     return engine.begin()
@@ -157,6 +158,17 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE,
             FOREIGN KEY (branch_id) REFERENCES branches(id) ON DELETE CASCADE
+        )
+        """))
+
+        # ---------- BRANCH IMAGES ----------
+        conn.execute(text("""
+        CREATE TABLE IF NOT EXISTS branch_images (
+            id SERIAL PRIMARY KEY,
+            branch_id INTEGER NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+            image_path TEXT NOT NULL,
+            is_cover BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
         """))
 
@@ -2695,6 +2707,262 @@ def ensure_room_images_table():
         """))
 
 
+def ensure_branch_images_table():
+    global _branch_images_table_checked
+    if _branch_images_table_checked:
+        return
+    with get_connection() as conn:
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS branch_images (
+                id SERIAL PRIMARY KEY,
+                branch_id INTEGER NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+                image_path TEXT NOT NULL,
+                is_cover BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """))
+        conn.execute(text("""
+            CREATE INDEX IF NOT EXISTS idx_branch_images_branch_id
+            ON branch_images(branch_id)
+        """))
+    _branch_images_table_checked = True
+
+
+def list_branch_images_db(admin_id: int, branch_id: int, limit: int = 30):
+    ensure_branch_images_table()
+    ensure_branch_cover_image_column()
+    lim = int(limit or 30)
+    if lim < 1:
+        lim = 1
+    if lim > 100:
+        lim = 100
+    with get_connection() as conn:
+        branch_ok = conn.execute(text("""
+            SELECT 1
+            FROM branches
+            WHERE id = :bid
+              AND created_by = :aid
+            LIMIT 1
+        """), {"bid": int(branch_id), "aid": int(admin_id)}).fetchone()
+        if not branch_ok:
+            return None
+
+        rows = conn.execute(text("""
+            SELECT id, branch_id, image_path, is_cover, created_at
+            FROM branch_images
+            WHERE branch_id = :branch_id
+            ORDER BY is_cover DESC, created_at DESC, id DESC
+            LIMIT :lim
+        """), {
+            "branch_id": int(branch_id),
+            "lim": lim,
+        }).mappings().all()
+    return [dict(r) for r in rows]
+
+
+def add_branch_image_path_db(
+    admin_id: int,
+    branch_id: int,
+    filename: str,
+    is_cover: bool = False,
+    max_images: int = 3
+):
+    ensure_branch_images_table()
+    ensure_branch_cover_image_column()
+    with get_connection() as conn:
+        branch_ok = conn.execute(text("""
+            SELECT id
+            FROM branches
+            WHERE id = :bid
+              AND created_by = :aid
+            LIMIT 1
+        """), {"bid": int(branch_id), "aid": int(admin_id)}).fetchone()
+        if not branch_ok:
+            raise ValueError("Branch not found")
+
+        current_count = conn.execute(text("""
+            SELECT COUNT(*)
+            FROM branch_images
+            WHERE branch_id = :branch_id
+        """), {"branch_id": int(branch_id)}).scalar() or 0
+        if int(current_count) >= int(max_images):
+            raise ValueError(f"Maximum {max_images} branch images allowed")
+
+        branch_path = f"/static/branch_images/{filename}"
+        make_cover = bool(is_cover or int(current_count) == 0)
+        if make_cover:
+            conn.execute(text("""
+                UPDATE branch_images
+                SET is_cover = FALSE
+                WHERE branch_id = :branch_id
+            """), {"branch_id": int(branch_id)})
+
+        row = conn.execute(text("""
+            INSERT INTO branch_images (branch_id, image_path, is_cover)
+            VALUES (:branch_id, :image_path, :is_cover)
+            RETURNING id, branch_id, image_path, is_cover, created_at
+        """), {
+            "branch_id": int(branch_id),
+            "image_path": branch_path,
+            "is_cover": make_cover,
+        }).mappings().fetchone()
+
+        if make_cover:
+            conn.execute(text("""
+                UPDATE branches
+                SET cover_image = :cover_image
+                WHERE id = :branch_id
+            """), {
+                "cover_image": branch_path,
+                "branch_id": int(branch_id),
+            })
+
+    return dict(row)
+
+
+def set_branch_cover_image_db(admin_id: int, branch_id: int, image_id: int) -> bool:
+    ensure_branch_images_table()
+    ensure_branch_cover_image_column()
+    with get_connection() as conn:
+        branch_ok = conn.execute(text("""
+            SELECT 1
+            FROM branches
+            WHERE id = :bid
+              AND created_by = :aid
+            LIMIT 1
+        """), {"bid": int(branch_id), "aid": int(admin_id)}).fetchone()
+        if not branch_ok:
+            return False
+
+        row = conn.execute(text("""
+            SELECT id, image_path
+            FROM branch_images
+            WHERE id = :image_id
+              AND branch_id = :branch_id
+            LIMIT 1
+        """), {
+            "image_id": int(image_id),
+            "branch_id": int(branch_id),
+        }).mappings().fetchone()
+        if not row:
+            return False
+
+        conn.execute(text("""
+            UPDATE branch_images
+            SET is_cover = FALSE
+            WHERE branch_id = :branch_id
+        """), {"branch_id": int(branch_id)})
+
+        conn.execute(text("""
+            UPDATE branch_images
+            SET is_cover = TRUE
+            WHERE id = :image_id
+              AND branch_id = :branch_id
+        """), {
+            "image_id": int(image_id),
+            "branch_id": int(branch_id),
+        })
+
+        conn.execute(text("""
+            UPDATE branches
+            SET cover_image = :cover_image
+            WHERE id = :branch_id
+        """), {
+            "cover_image": row["image_path"],
+            "branch_id": int(branch_id),
+        })
+
+    return True
+
+
+def delete_branch_image_db(admin_id: int, branch_id: int, image_id: int):
+    ensure_branch_images_table()
+    ensure_branch_cover_image_column()
+    with get_connection() as conn:
+        branch_ok = conn.execute(text("""
+            SELECT 1
+            FROM branches
+            WHERE id = :bid
+              AND created_by = :aid
+            LIMIT 1
+        """), {"bid": int(branch_id), "aid": int(admin_id)}).fetchone()
+        if not branch_ok:
+            return None
+
+        row = conn.execute(text("""
+            SELECT id, image_path, is_cover
+            FROM branch_images
+            WHERE id = :image_id
+              AND branch_id = :branch_id
+            LIMIT 1
+        """), {
+            "image_id": int(image_id),
+            "branch_id": int(branch_id),
+        }).mappings().fetchone()
+        if not row:
+            return None
+
+        conn.execute(text("""
+            DELETE FROM branch_images
+            WHERE id = :image_id
+              AND branch_id = :branch_id
+        """), {
+            "image_id": int(image_id),
+            "branch_id": int(branch_id),
+        })
+
+        if bool(row["is_cover"]):
+            fallback = conn.execute(text("""
+                SELECT id, image_path
+                FROM branch_images
+                WHERE branch_id = :branch_id
+                ORDER BY created_at DESC, id DESC
+                LIMIT 1
+            """), {"branch_id": int(branch_id)}).mappings().fetchone()
+            if fallback:
+                conn.execute(text("""
+                    UPDATE branch_images
+                    SET is_cover = FALSE
+                    WHERE branch_id = :branch_id
+                """), {"branch_id": int(branch_id)})
+                conn.execute(text("""
+                    UPDATE branch_images
+                    SET is_cover = TRUE
+                    WHERE id = :cover_id
+                      AND branch_id = :branch_id
+                """), {
+                    "cover_id": int(fallback["id"]),
+                    "branch_id": int(branch_id),
+                })
+            conn.execute(text("""
+                UPDATE branches
+                SET cover_image = :cover_image
+                WHERE id = :branch_id
+            """), {
+                "cover_image": (fallback["image_path"] if fallback else None),
+                "branch_id": int(branch_id),
+            })
+        else:
+            current_cover = conn.execute(text("""
+                SELECT image_path
+                FROM branch_images
+                WHERE branch_id = :branch_id
+                  AND is_cover = TRUE
+                ORDER BY created_at DESC, id DESC
+                LIMIT 1
+            """), {"branch_id": int(branch_id)}).mappings().fetchone()
+            conn.execute(text("""
+                UPDATE branches
+                SET cover_image = :cover_image
+                WHERE id = :branch_id
+            """), {
+                "cover_image": (current_cover["image_path"] if current_cover else None),
+                "branch_id": int(branch_id),
+            })
+
+    return dict(row)
+
+
 def list_room_images_db(room_id: int, branch_id: int | None = None, limit: int = 30):
     ensure_room_images_table()
     lim = int(limit or 30)
@@ -3979,7 +4247,7 @@ def update_branch_by_admin_db(
         district_slug=None,
         contact_phone=None,
         contact_telegram=None,
-        cover_image=None
+        cover_image="__NO_CHANGE__"
     ):
     ensure_branch_contact_columns()
     ensure_branch_region_columns()
@@ -4001,7 +4269,10 @@ def update_branch_by_admin_db(
                 district_slug = :district_slug,
                 contact_phone = :contact_phone,
                 contact_telegram = :contact_telegram,
-                cover_image = :cover_image
+                cover_image = CASE
+                    WHEN :cover_image_provided THEN :cover_image
+                    ELSE cover_image
+                END
             WHERE id = :bid
               AND created_by = :aid
         """), {
@@ -4017,7 +4288,12 @@ def update_branch_by_admin_db(
             "district_slug": (district_slug or "").strip() or None,
             "contact_phone": (contact_phone or "").strip() or None,
             "contact_telegram": (contact_telegram or "").strip() or None,
-            "cover_image": (cover_image or "").strip() or None,
+            "cover_image_provided": str(cover_image) != "__NO_CHANGE__",
+            "cover_image": (
+                (str(cover_image or "").strip() or None)
+                if str(cover_image) != "__NO_CHANGE__"
+                else None
+            ),
             "bid": branch_id,
             "aid": admin_id
         })
