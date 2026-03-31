@@ -2,6 +2,7 @@
 {% block title %}{{t("settings")}}{% endblock %}
 
 {% block content %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
 
 <style>
   .lang-btn.active {
@@ -81,6 +82,46 @@
       min-height: 34px;
       font-size: 14px;
     }
+  }
+  .branch-map-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    z-index: 90;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  .branch-map-modal-backdrop.show {
+    display: flex;
+  }
+  .branch-map-modal-card {
+    width: min(720px, 100%);
+    background: #fff;
+    border-radius: 14px;
+    border: 1px solid #dbe3f1;
+    overflow: hidden;
+  }
+  #branchMapCanvas {
+    width: 100%;
+    height: 380px;
+  }
+  .branch-map-head {
+    padding: 10px 12px;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+  }
+  .branch-map-actions {
+    padding: 10px 12px;
+    border-top: 1px solid #e5e7eb;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
   }
 </style>
 
@@ -174,6 +215,11 @@
       <input id="newBranchLongitude"
             class="w-full px-3 py-2 rounded-lg border bg-transparent"
             placeholder="{{t('longitude_optional')}}">
+      <button id="pickNewBranchMapBtn"
+              type="button"
+              class="w-full py-2 rounded-xl border font-semibold">
+        {% if session.get('language', 'ru') == 'uz' %}Xaritadan joy tanlash (yangi filial){% else %}Выбрать точку на карте (новый филиал){% endif %}
+      </button>
       <input id="newBranchPhone"
             class="w-full px-3 py-2 rounded-lg border bg-transparent"
             placeholder="{{t('branch_phone_optional')}}">
@@ -191,6 +237,11 @@
       <button onclick="deleteBranch()"
               class="w-full py-3 rounded-xl bg-red-500 text-white font-semibold">
         {{t("delete")}}
+      </button>
+      <button id="pickSelectedBranchMapBtn"
+              type="button"
+              class="w-full py-2 rounded-xl border font-semibold">
+        {% if session.get('language', 'ru') == 'uz' %}Tanlangan filial joyini xaritadan o'rnatish{% else %}Установить точку выбранного филиала на карте{% endif %}
       </button>
 
     </div>
@@ -358,7 +409,23 @@
 </div>
 
 
+<div id="branchMapModal" class="branch-map-modal-backdrop">
+  <div class="branch-map-modal-card">
+    <div class="branch-map-head">
+      <span id="branchMapModalTitle">{% if session.get('language', 'ru') == 'uz' %}Xaritadan joy tanlash{% else %}Выбор точки на карте{% endif %}</span>
+      <button id="branchMapCloseBtn" type="button" class="px-3 py-1 rounded-lg border">X</button>
+    </div>
+    <div id="branchMapCanvas"></div>
+    <div class="branch-map-actions">
+      <button id="branchMapCancelBtn" type="button" class="py-2 rounded-xl border font-semibold">{% if session.get('language', 'ru') == 'uz' %}Bekor qilish{% else %}Отмена{% endif %}</button>
+      <button id="branchMapSaveBtn" type="button" class="py-2 rounded-xl bg-blue-600 text-white font-semibold">{% if session.get('language', 'ru') == 'uz' %}Saqlash{% else %}Сохранить{% endif %}</button>
+    </div>
+  </div>
+</div>
 
+
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script src="/static/js/settings.js?v={{version}}"></script>
 
 {% endblock %}

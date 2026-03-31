@@ -7,6 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
   <link rel="stylesheet" href="/static/css/catalog.css?v={{version}}">
 </head>
 <body>
@@ -83,6 +84,7 @@
           <option value="50">50 km</option>
         </select>
         <button id="findNearestBtn" class="ghost-btn" data-i18n="nearest_by_gps">Yaqinlarni GPS bo'yicha topish</button>
+        <button id="pickMapLocationBtn" class="ghost-btn" data-i18n="pick_location_on_map">Xaritadan joy tanlash</button>
       </div>
       <div class="price-range">
         <input id="priceMinInput" type="number" min="0" step="1000" data-ph="min_price_ph" placeholder="Min narx">
@@ -211,6 +213,35 @@
     </div>
   </div>
 
+  <div id="locationPickerModal" class="modal hidden">
+    <div class="modal-card location-picker-card">
+      <div class="modal-head">
+        <h3 id="locationPickerTitle" data-i18n="pick_location_on_map">Xaritadan joy tanlash</h3>
+        <button id="closeLocationPicker" class="ghost-btn">X</button>
+      </div>
+      <div class="location-picker-top">
+        <div class="location-picker-hint" data-i18n="map_hotels_hint">Xaritada hostel/hotellar ko'rsatiladi. Nuqtani bosing.</div>
+        <div class="location-picker-radius">
+          <label for="mapRadiusSelect" data-i18n="map_radius_label">Radius</label>
+          <select id="mapRadiusSelect">
+            <option value="" data-i18n="any_distance">Masofa: hammasi</option>
+            <option value="3">3 km</option>
+            <option value="5">5 km</option>
+            <option value="10">10 km</option>
+            <option value="20">20 km</option>
+            <option value="50">50 km</option>
+          </select>
+        </div>
+      </div>
+      <div id="clientLocationMap"></div>
+      <div class="location-picker-actions">
+        <button id="cancelLocationPickerBtn" class="ghost-btn" data-i18n="cancel_action">Bekor qilish</button>
+        <button id="saveLocationPickerBtn" class="solid-btn" data-i18n="save_location">Joylashuvni saqlash</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <script src="/static/js/catalog.js?v={{version}}"></script>
 </body>
 </html>

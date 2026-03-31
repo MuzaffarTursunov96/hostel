@@ -102,6 +102,11 @@
       call: "Qo'ng'iroq",
       telegram: "Telegram",
       nearest_by_gps: "GPS bo'yicha yaqinlarini topish",
+      pick_location_on_map: "Xaritadan joy tanlash",
+      save_location: "Joylashuvni saqlash",
+      cancel_action: "Bekor qilish",
+      map_hotels_hint: "Xaritada hostel/hotellar ko'rsatiladi. Nuqtani bosing.",
+      map_radius_label: "Radius",
       any_distance: "Masofa: hammasi",
       enable_gps_first: "Avval GPS ruxsatini yoqing",
       location_denied: "Joylashuvga ruxsat berilmadi",
@@ -210,6 +215,11 @@
       call: "Позвонить",
       telegram: "Telegram",
       nearest_by_gps: "Найти ближайшие по GPS",
+      pick_location_on_map: "Выбрать точку на карте",
+      save_location: "Сохранить локацию",
+      cancel_action: "Отмена",
+      map_hotels_hint: "На карте показаны отели/хостелы. Нажмите точку.",
+      map_radius_label: "Радиус",
       any_distance: "Расстояние: все",
       enable_gps_first: "Сначала разрешите GPS",
       location_denied: "Нет доступа к геолокации",
@@ -295,6 +305,18 @@
   const historyTitleEl = document.getElementById("historyTitle");
   const historyBodyEl = document.getElementById("historyBody");
   const closeHistoryEl = document.getElementById("closeHistory");
+  const pickMapLocationBtnEl = document.getElementById("pickMapLocationBtn");
+  const locationPickerModalEl = document.getElementById("locationPickerModal");
+  const closeLocationPickerEl = document.getElementById("closeLocationPicker");
+  const cancelLocationPickerBtnEl = document.getElementById("cancelLocationPickerBtn");
+  const saveLocationPickerBtnEl = document.getElementById("saveLocationPickerBtn");
+  const mapRadiusSelectEl = document.getElementById("mapRadiusSelect");
+
+  let clientMap = null;
+  let clientMapMarker = null;
+  let clientMapRadiusCircle = null;
+  let clientMapBranchesLayer = null;
+  let pendingClientGeo = null;
 
   function t(key) {
     return (tr[lang] && tr[lang][key]) || key;
@@ -665,6 +687,7 @@
     }
     syncInputToRange();
     refreshRoomTypeOptions(roomType);
+    refreshBranchMarkersOnMap();
     render();
   }
 
@@ -1066,6 +1089,101 @@
     );
   }
 
+  function setPendingClientGeo(lat, lon) {
+    pendingClientGeo = { lat: Number(lat), lon: Number(lon) };
+    if (!clientMap) return;
+    if (!clientMapMarker) {
+      clientMapMarker = L.marker([lat, lon]).addTo(clientMap);
+    } else {
+      clientMapMarker.setLatLng([lat, lon]);
+    }
+    updateClientMapRadius();
+  }
+
+  function selectedMapRadiusKm() {
+    const raw = mapRadiusSelectEl ? String(mapRadiusSelectEl.value || "").trim() : "";
+    const n = Number(raw);
+    if (!raw || !Number.isFinite(n) || n <= 0) return null;
+    return n;
+  }
+
+  function updateClientMapRadius() {
+    if (!clientMap || !pendingClientGeo) return;
+    const km = selectedMapRadiusKm();
+    if (!km) {
+      if (clientMapRadiusCircle) {
+        clientMap.removeLayer(clientMapRadiusCircle);
+        clientMapRadiusCircle = null;
+      }
+      return;
+    }
+    const radiusMeters = km * 1000;
+    if (!clientMapRadiusCircle) {
+      clientMapRadiusCircle = L.circle([pendingClientGeo.lat, pendingClientGeo.lon], {
+        radius: radiusMeters,
+        color: "#2563eb",
+        weight: 2,
+        fillColor: "#60a5fa",
+        fillOpacity: 0.14
+      }).addTo(clientMap);
+    } else {
+      clientMapRadiusCircle.setLatLng([pendingClientGeo.lat, pendingClientGeo.lon]);
+      clientMapRadiusCircle.setRadius(radiusMeters);
+    }
+  }
+
+  function refreshBranchMarkersOnMap() {
+    if (!clientMap || !window.L) return;
+    if (clientMapBranchesLayer) {
+      clientMap.removeLayer(clientMapBranchesLayer);
+    }
+    const markers = [];
+    rows.forEach((r) => {
+      const lat = toNum(r.latitude);
+      const lon = toNum(r.longitude);
+      if (lat === null || lon === null) return;
+      const name = escapeHtml(r.name || "Branch");
+      const addr = escapeHtml(r.address || "");
+      const popup = `<b>${name}</b>${addr ? `<br>${addr}` : ""}`;
+      markers.push(L.marker([lat, lon]).bindPopup(popup));
+    });
+    clientMapBranchesLayer = L.layerGroup(markers).addTo(clientMap);
+  }
+
+  function openClientLocationPicker() {
+    if (!window.L || !locationPickerModalEl) {
+      alert(t("location_unavailable"));
+      return;
+    }
+    locationPickerModalEl.classList.remove("hidden");
+    const start = userGeo || { lat: 41.3111, lon: 69.2797 };
+    pendingClientGeo = { lat: start.lat, lon: start.lon };
+    if (mapRadiusSelectEl) {
+      mapRadiusSelectEl.value = String(distanceFilterEl.value || "");
+    }
+
+    if (!clientMap) {
+      clientMap = L.map("clientLocationMap", { zoomControl: true }).setView([start.lat, start.lon], 13);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: "&copy; OpenStreetMap"
+      }).addTo(clientMap);
+      clientMap.on("click", function (e) {
+        setPendingClientGeo(e.latlng.lat, e.latlng.lng);
+      });
+    } else {
+      clientMap.setView([start.lat, start.lon], 13);
+      setTimeout(() => clientMap.invalidateSize(), 40);
+    }
+    refreshBranchMarkersOnMap();
+    setPendingClientGeo(start.lat, start.lon);
+  }
+
+  function closeClientLocationPicker() {
+    if (!locationPickerModalEl) return;
+    locationPickerModalEl.classList.add("hidden");
+  }
+
   document.querySelectorAll(".lang-switch .lang-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       lang = btn.dataset.lang === "ru" ? "ru" : "uz";
@@ -1133,6 +1251,9 @@
     loadBranches();
   });
   findNearestBtnEl.addEventListener("click", findNearest);
+  if (pickMapLocationBtnEl) {
+    pickMapLocationBtnEl.addEventListener("click", openClientLocationPicker);
+  }
   distanceFilterEl.addEventListener("change", () => {
     if (!userGeo) {
       distanceFilterEl.value = "";
@@ -1168,6 +1289,29 @@
   closeDetailsEl.addEventListener("click", () => detailsModalEl.classList.add("hidden"));
   closeBookingEl.addEventListener("click", () => bookingModalEl.classList.add("hidden"));
   closeHistoryEl.addEventListener("click", () => historyModalEl.classList.add("hidden"));
+  if (closeLocationPickerEl) {
+    closeLocationPickerEl.addEventListener("click", closeClientLocationPicker);
+  }
+  if (cancelLocationPickerBtnEl) {
+    cancelLocationPickerBtnEl.addEventListener("click", closeClientLocationPicker);
+  }
+  if (saveLocationPickerBtnEl) {
+    saveLocationPickerBtnEl.addEventListener("click", () => {
+      if (!pendingClientGeo) return;
+      userGeo = { lat: pendingClientGeo.lat, lon: pendingClientGeo.lon };
+      if (mapRadiusSelectEl && distanceFilterEl) {
+        distanceFilterEl.value = mapRadiusSelectEl.value || "";
+      }
+      updateDistanceFilterState();
+      closeClientLocationPicker();
+      render();
+    });
+  }
+  if (mapRadiusSelectEl) {
+    mapRadiusSelectEl.addEventListener("change", () => {
+      updateClientMapRadius();
+    });
+  }
   modalEl.addEventListener("click", (e) => {
     if (e.target === modalEl) modalEl.classList.add("hidden");
   });
@@ -1183,6 +1327,11 @@
   historyModalEl.addEventListener("click", (e) => {
     if (e.target === historyModalEl) historyModalEl.classList.add("hidden");
   });
+  if (locationPickerModalEl) {
+    locationPickerModalEl.addEventListener("click", (e) => {
+      if (e.target === locationPickerModalEl) closeClientLocationPicker();
+    });
+  }
 
   cardsEl.addEventListener("click", (e) => {
     const openBtn = e.target.closest("[data-open-photos]");

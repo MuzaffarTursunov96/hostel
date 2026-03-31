@@ -4,6 +4,10 @@ let CURRENT_LANG = "ru";
 let SELECTED_USER_ID = null;
 let SELECTED_USER_ASSIGNED_BRANCH_IDS = [];
 let IS_ROOT_ADMIN = false;
+let BRANCH_MAP_MODE = "new";
+let BRANCH_MAP_OBJ = null;
+let BRANCH_MAP_MARKER = null;
+let BRANCH_MAP_POINT = null;
 
 
 $(document).ready(function () {
@@ -75,6 +79,18 @@ $(document).ready(function () {
   });
 
   document.addEventListener("DOMContentLoaded", startWebSocket);
+
+  $("#pickNewBranchMapBtn").on("click", function () {
+    openBranchMapPicker("new");
+  });
+  $("#pickSelectedBranchMapBtn").on("click", function () {
+    openBranchMapPicker("selected");
+  });
+  $("#branchMapCloseBtn, #branchMapCancelBtn").on("click", closeBranchMapPicker);
+  $("#branchMapSaveBtn").on("click", saveBranchMapPoint);
+  $("#branchMapModal").on("click", function (e) {
+    if (e.target && e.target.id === "branchMapModal") closeBranchMapPicker();
+  });
 
 
 });
@@ -183,6 +199,112 @@ function fillBranchContactInputs() {
   const row = BRANCHES.find((b) => Number(b.id) === bid) || {};
   $("#editBranchPhone").val(row.contact_phone || "");
   $("#editBranchTelegram").val(row.contact_telegram || "");
+}
+
+function parseCoord(v) {
+  const n = parseFloat(String(v ?? "").trim());
+  return Number.isFinite(n) ? n : null;
+}
+
+function getMapStartPoint() {
+  if (BRANCH_MAP_MODE === "new") {
+    const lat = parseCoord($("#newBranchLatitude").val());
+    const lon = parseCoord($("#newBranchLongitude").val());
+    if (lat !== null && lon !== null) return { lat, lon };
+  } else {
+    const bid = Number($("#branchSelect").val() || 0);
+    const row = BRANCHES.find((b) => Number(b.id) === bid) || {};
+    const lat = parseCoord(row.latitude);
+    const lon = parseCoord(row.longitude);
+    if (lat !== null && lon !== null) return { lat, lon };
+  }
+  return { lat: 41.3111, lon: 69.2797 };
+}
+
+function setBranchMapPoint(lat, lon) {
+  BRANCH_MAP_POINT = { lat: Number(lat), lon: Number(lon) };
+  if (!BRANCH_MAP_OBJ) return;
+  if (!BRANCH_MAP_MARKER) {
+    BRANCH_MAP_MARKER = L.marker([lat, lon]).addTo(BRANCH_MAP_OBJ);
+  } else {
+    BRANCH_MAP_MARKER.setLatLng([lat, lon]);
+  }
+}
+
+function openBranchMapPicker(mode) {
+  if (!window.L) {
+    alert(CURRENT_LANG === "uz" ? "Xarita yuklanmadi" : "Карта не загрузилась");
+    return;
+  }
+  BRANCH_MAP_MODE = mode === "selected" ? "selected" : "new";
+  $("#branchMapModalTitle").text(
+    BRANCH_MAP_MODE === "new"
+      ? (CURRENT_LANG === "uz" ? "Yangi filial uchun joy tanlang" : "Выберите точку для нового филиала")
+      : (CURRENT_LANG === "uz" ? "Tanlangan filial uchun joy tanlang" : "Выберите точку для выбранного филиала")
+  );
+  $("#branchMapModal").addClass("show");
+
+  const start = getMapStartPoint();
+  BRANCH_MAP_POINT = { lat: start.lat, lon: start.lon };
+
+  if (!BRANCH_MAP_OBJ) {
+    BRANCH_MAP_OBJ = L.map("branchMapCanvas", { zoomControl: true }).setView([start.lat, start.lon], 13);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: "&copy; OpenStreetMap"
+    }).addTo(BRANCH_MAP_OBJ);
+    BRANCH_MAP_OBJ.on("click", function (e) {
+      setBranchMapPoint(e.latlng.lat, e.latlng.lng);
+    });
+  } else {
+    BRANCH_MAP_OBJ.setView([start.lat, start.lon], 13);
+    setTimeout(() => BRANCH_MAP_OBJ.invalidateSize(), 50);
+  }
+
+  setBranchMapPoint(start.lat, start.lon);
+}
+
+function closeBranchMapPicker() {
+  $("#branchMapModal").removeClass("show");
+}
+
+function saveBranchMapPoint() {
+  if (!BRANCH_MAP_POINT) {
+    alert(CURRENT_LANG === "uz" ? "Xaritada nuqta tanlang" : "Выберите точку на карте");
+    return;
+  }
+  const lat = Number(BRANCH_MAP_POINT.lat.toFixed(7));
+  const lon = Number(BRANCH_MAP_POINT.lon.toFixed(7));
+
+  if (BRANCH_MAP_MODE === "new") {
+    $("#newBranchLatitude").val(String(lat));
+    $("#newBranchLongitude").val(String(lon));
+    closeBranchMapPicker();
+    return;
+  }
+
+  const branchId = Number($("#branchSelect").val() || 0);
+  if (!branchId) {
+    alert(t("select_branch"));
+    return;
+  }
+  const row = BRANCHES.find((b) => Number(b.id) === branchId);
+  if (!row) return;
+
+  apiPut(`/branches/admin/${branchId}`, {
+    name: row.name,
+    address: row.address || null,
+    latitude: lat,
+    longitude: lon,
+    contact_phone: ($("#editBranchPhone").val() || "").trim() || null,
+    contact_telegram: ($("#editBranchTelegram").val() || "").trim() || null
+  }).done(function () {
+    closeBranchMapPicker();
+    alert(CURRENT_LANG === "uz" ? "Filial lokatsiyasi saqlandi" : "Локация филиала сохранена");
+    loadBranches();
+  }).fail(function () {
+    alert(t("api_error"));
+  });
 }
 
 /* вњ… SINGLE change handler (ONLY ONE) */
