@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 const String kLanguageKey = 'language';
@@ -268,12 +269,18 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _openClientGoogleLogin() async {
     final lang = _uiLang == 'ru' ? 'ru' : 'uz';
-    if (!mounted) return;
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ClientCatalogWebViewScreen(lang: lang),
-      ),
-    );
+    final uri = Uri.parse('https://hmsuz.com/auth/google/start?lang=$lang');
+    final ok = await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
+    if (!ok && mounted) {
+      showAppAlert(
+        context,
+        _tr(
+          ru: 'Не удалось открыть Google вход.',
+          uz: 'Google kirishni ochib bo‘lmadi.',
+        ),
+        error: true,
+      );
+    }
   }
 
   Future<bool> _validateToken(String token) async {
@@ -2716,12 +2723,15 @@ class _RoomsPage extends StatefulWidget {
 
 class _RoomsPageState extends State<_RoomsPage> {
   bool _loading = true;
+  bool _savingRoomSettings = false;
   String? _error;
   List<dynamic> _rooms = [];
   List<dynamic> _selectedRoomBeds = [];
   List<Map<String, dynamic>> _roomImages = [];
   int? _selectedRoomId;
   int? _selectedBedId;
+  String _selectedRoomType = 'bed';
+  String _selectedBookingMode = 'bed';
   bool _imagesLoading = false;
   bool _uploadingImage = false;
   final ImagePicker _imagePicker = ImagePicker();
@@ -2759,6 +2769,7 @@ class _RoomsPageState extends State<_RoomsPage> {
         }
         _selectedBedId = null;
         _selectedRoomBeds = [];
+        _syncSelectedRoomSettings();
       });
       await _loadBedsForSelectedRoom();
       await _loadImagesForSelectedRoom();
@@ -2775,6 +2786,44 @@ class _RoomsPageState extends State<_RoomsPage> {
       if (_toInt(r['id']) == _selectedRoomId) return r;
     }
     return null;
+  }
+
+  String _normalizeRoomType(dynamic value) {
+    final v = '${value ?? ''}'.trim().toLowerCase();
+    if (v == 'family' || v.contains('oilav') || v.contains('сем')) return 'family';
+    if (v == 'other' || v.contains('boshqa') || v.contains('друг')) return 'other';
+    return 'bed';
+  }
+
+  String _normalizeBookingMode(dynamic value) {
+    final v = '${value ?? ''}'.trim().toLowerCase();
+    return v == 'full' ? 'full' : 'bed';
+  }
+
+  void _syncSelectedRoomSettings() {
+    final room = _selectedRoom;
+    if (room == null) {
+      _selectedRoomType = 'bed';
+      _selectedBookingMode = 'bed';
+      return;
+    }
+    _selectedRoomType = _normalizeRoomType(room['room_type']);
+    _selectedBookingMode = _normalizeBookingMode(room['booking_mode']);
+  }
+
+  String _roomTypeUi(String v) {
+    switch (v) {
+      case 'family':
+        return _t('Семейный', 'Oilaviy');
+      case 'other':
+        return _t('Другое', 'Boshqa');
+      default:
+        return _t('Кровати', 'Kravat bo‘yicha');
+    }
+  }
+
+  String _bookingModeUi(String v) {
+    return v == 'full' ? _t('Полная комната', 'To‘liq xona') : _t('По кроватям', 'Kravat bo‘yicha');
   }
 
   Future<void> _loadBedsForSelectedRoom() async {
@@ -2900,21 +2949,105 @@ class _RoomsPageState extends State<_RoomsPage> {
 
   Future<void> _addRoomDialog() async {
     final c = TextEditingController();
+    final daily = TextEditingController();
+    final hourly = TextEditingController();
+    final monthly = TextEditingController();
+    String roomType = 'other';
+    String bookingMode = 'bed';
+
+    double? _toNullableNum(String raw) {
+      final s = raw.trim();
+      if (s.isEmpty) return null;
+      return double.tryParse(s);
+    }
+
     final ok = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: Text(_t('Добавить комнату', "Xona qo'shish")),
-        content: TextField(
-          controller: c,
-          decoration: InputDecoration(
-            labelText: _t('Название комнаты', 'Xona nomi'),
-            border: const OutlineInputBorder(),
+      builder: (_) => StatefulBuilder(
+        builder: (context, setStateDialog) => AlertDialog(
+          title: Text(_t('Добавить комнату', "Xona qo'shish")),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: c,
+                  decoration: InputDecoration(
+                    labelText: _t('Название комнаты', 'Xona nomi'),
+                    hintText: _t('Введите название комнаты', 'Xona nomini kiriting'),
+                    border: const OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                DropdownButtonFormField<String>(
+                  value: roomType,
+                  decoration: InputDecoration(
+                    labelText: _t('Тип комнаты', 'Xona turi'),
+                    border: const OutlineInputBorder(),
+                  ),
+                  items: [
+                    DropdownMenuItem(value: 'other', child: Text(_t('Другое', 'Boshqa'))),
+                    DropdownMenuItem(value: 'bed', child: Text(_t('Кровати', 'Kravat bo‘yicha'))),
+                    DropdownMenuItem(value: 'family', child: Text(_t('Семейная', 'Oilaviy'))),
+                  ],
+                  onChanged: (v) => setStateDialog(() => roomType = v ?? 'other'),
+                ),
+                const SizedBox(height: 10),
+                DropdownButtonFormField<String>(
+                  value: bookingMode,
+                  decoration: InputDecoration(
+                    labelText: _t('Режим бронирования', 'Bron rejimi'),
+                    border: const OutlineInputBorder(),
+                  ),
+                  items: [
+                    DropdownMenuItem(value: 'bed', child: Text(_t('Частично (по кроватям)', 'Qisman (kravat bo‘yicha)'))),
+                    DropdownMenuItem(value: 'full', child: Text(_t('Полная комната', 'To‘liq xona'))),
+                  ],
+                  onChanged: (v) => setStateDialog(() => bookingMode = v ?? 'bed'),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: daily,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: _t('За день (необязательно)', 'Kunlik / За день (ixtiyoriy)'),
+                    border: const OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: hourly,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: _t('За час', 'Soatlik / За час'),
+                          border: const OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextField(
+                        controller: monthly,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: _t('За месяц', 'Oylik / За месяц'),
+                          border: const OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: Text(_t('Отмена', 'Bekor'))),
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(_t('Создать', "Yaratish"))),
+          ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(_t('Отмена', 'Bekor'))),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(_t('Создать', "Qo'shish"))),
-        ],
       ),
     );
     if (ok != true) return;
@@ -2937,6 +3070,11 @@ class _RoomsPageState extends State<_RoomsPage> {
         'branch_id': widget.api.branchId,
         'number': nextNumber,
         'room_name': name,
+        'room_type': roomType,
+        'booking_mode': bookingMode,
+        'price_daily': _toNullableNum(daily.text),
+        'price_hourly': _toNullableNum(hourly.text),
+        'price_monthly': _toNullableNum(monthly.text),
       });
       await _loadRooms();
       widget.onDataChanged();
@@ -2980,6 +3118,111 @@ class _RoomsPageState extends State<_RoomsPage> {
       await _loadRooms();
       widget.onDataChanged();
       _showSnack(_t("Комната удалена.", "Xona o'chirildi."));
+    } catch (e) {
+      _showSnack('$e', error: true);
+    }
+  }
+
+  Future<void> _saveSelectedRoomSettings() async {
+    final room = _selectedRoom;
+    final roomId = room == null ? null : _toInt(room['id']);
+    if (roomId == null) return;
+    if (_savingRoomSettings) return;
+    setState(() => _savingRoomSettings = true);
+    try {
+      await widget.api.putQuery('/rooms/$roomId/type', {
+        'branch_id': widget.api.branchId.toString(),
+        'room_type': _selectedRoomType,
+      });
+      await widget.api.putQuery('/rooms/$roomId/booking-mode', {
+        'branch_id': widget.api.branchId.toString(),
+        'booking_mode': _selectedBookingMode,
+      });
+      await _loadRooms();
+      widget.onDataChanged();
+      _showSnack(_t('Настройки комнаты сохранены.', 'Xona sozlamalari saqlandi.'));
+    } catch (e) {
+      _showSnack('$e', error: true);
+    } finally {
+      if (mounted) setState(() => _savingRoomSettings = false);
+    }
+  }
+
+  Future<void> _bulkSetSelectedRoomBedsPrice() async {
+    final roomId = _selectedRoomId;
+    if (roomId == null) {
+      _showSnack(_t('Сначала выберите комнату.', 'Avval xona tanlang.'));
+      return;
+    }
+    final daily = TextEditingController();
+    final hourly = TextEditingController();
+    final monthly = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(_t('Цены для всех кроватей', 'Barcha kravat narxi')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: daily,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                labelText: _t('За день (необязательно)', 'Kunlik (ixtiyoriy)'),
+                border: const OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: hourly,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                labelText: _t('За час (необязательно)', 'Soatlik (ixtiyoriy)'),
+                border: const OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: monthly,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                labelText: _t('За месяц (необязательно)', 'Oylik (ixtiyoriy)'),
+                border: const OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _t(
+                'Будут применены только заполненные поля.',
+                "Faqat to'ldirilgan maydonlar qo'llanadi.",
+              ),
+              style: const TextStyle(fontSize: 12, color: Colors.black54),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(_t('Отмена', 'Bekor'))),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(_t('Применить', "Qo'llash"))),
+        ],
+      ),
+    );
+    if (ok != true) return;
+
+    final q = <String, String>{
+      'branch_id': widget.api.branchId.toString(),
+      'price_daily': daily.text.trim(),
+      'price_hourly': hourly.text.trim(),
+      'price_monthly': monthly.text.trim(),
+    };
+    if (q['price_daily']!.isEmpty && q['price_hourly']!.isEmpty && q['price_monthly']!.isEmpty) {
+      _showSnack(_t('Заполните хотя бы одно поле.', "Kamida bitta maydonni to'ldiring."));
+      return;
+    }
+    try {
+      await widget.api.putQuery('/beds/room/$roomId/bulk-price', q);
+      await _loadBedsForSelectedRoom();
+      widget.onDataChanged();
+      _showSnack(_t('Цены кроватей обновлены.', 'Kravat narxlari yangilandi.'));
     } catch (e) {
       _showSnack('$e', error: true);
     }
@@ -3043,20 +3286,68 @@ class _RoomsPageState extends State<_RoomsPage> {
 
   Future<void> _editBedType(Map<String, dynamic> bed) async {
     String type = '${bed['bed_type'] ?? 'single'}';
+    final daily = TextEditingController(text: '${bed['price_daily'] ?? ''}'.replaceAll('.0', ''));
+    final hourly = TextEditingController(text: '${bed['price_hourly'] ?? ''}'.replaceAll('.0', ''));
+    final monthly = TextEditingController(text: '${bed['price_monthly'] ?? ''}'.replaceAll('.0', ''));
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => StatefulBuilder(
         builder: (context, setStateDialog) => AlertDialog(
-          title: Text(_t('Изменить тип кровати', 'Krovat turini o‘zgartirish')),
-          content: DropdownButtonFormField<String>(
-            value: type,
-            items: [
-              DropdownMenuItem(value: 'single', child: Text(_t('Одноместная', 'Bir kishilik'))),
-              DropdownMenuItem(value: 'double', child: Text(_t('Двухместная', 'Ikki kishilik'))),
-              DropdownMenuItem(value: 'child', child: Text(_t('Детская', 'Bolalar'))),
-            ],
-            onChanged: (v) => setStateDialog(() => type = v ?? 'single'),
-            decoration: const InputDecoration(border: OutlineInputBorder()),
+          title: Text(_t('Редактировать кровать', 'Kravatni tahrirlash')),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  value: type,
+                  items: [
+                    DropdownMenuItem(value: 'single', child: Text(_t('Одноместная', 'Bir kishilik'))),
+                    DropdownMenuItem(value: 'double', child: Text(_t('Двухместная', 'Ikki kishilik'))),
+                    DropdownMenuItem(value: 'child', child: Text(_t('Детская', 'Bolalar'))),
+                  ],
+                  onChanged: (v) => setStateDialog(() => type = v ?? 'single'),
+                  decoration: InputDecoration(
+                    labelText: _t('Тип кровати', 'Kravat turi'),
+                    border: const OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: daily,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: _t('За день (необязательно)', 'Kunlik / За день (ixtiyoriy)'),
+                    border: const OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: hourly,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: _t('За час', 'Soatlik / За час'),
+                          border: const OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextField(
+                        controller: monthly,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: _t('За месяц', 'Oylik / За месяц'),
+                          border: const OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(context, false), child: Text(_t('Отмена', 'Bekor'))),
@@ -3071,10 +3362,13 @@ class _RoomsPageState extends State<_RoomsPage> {
       await widget.api.putQuery('/beds/${bed['id']}', {
         'bed_number': '${bed['bed_number']}',
         'bed_type': type,
+        'price_daily': daily.text.trim(),
+        'price_hourly': hourly.text.trim(),
+        'price_monthly': monthly.text.trim(),
       });
       await _loadBedsForSelectedRoom();
       widget.onDataChanged();
-      _showSnack(_t('Кровать обновлена.', 'Krovat yangilandi.'));
+      _showSnack(_t('Кровать обновлена.', 'Kravat yangilandi.'));
     } catch (e) {
       _showSnack('$e', error: true);
     }
@@ -3186,6 +3480,19 @@ class _RoomsPageState extends State<_RoomsPage> {
                     Text(_t('Комнаты', 'Honalar'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
                     const Spacer(),
                     Container(
+                      margin: const EdgeInsets.only(right: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE8F2FF),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: const Color(0xFFBFD6FB)),
+                      ),
+                      child: IconButton(
+                        onPressed: _selectedRoomId == null ? null : _bulkSetSelectedRoomBedsPrice,
+                        icon: const Text('💸', style: TextStyle(fontSize: 18)),
+                        tooltip: _t('Цены для всех кроватей', 'Barcha kravat narxi'),
+                      ),
+                    ),
+                    Container(
                       decoration: const BoxDecoration(
                         color: Color(0xFF3D8BDF),
                         shape: BoxShape.circle,
@@ -3214,6 +3521,7 @@ class _RoomsPageState extends State<_RoomsPage> {
                           _selectedRoomId = id;
                           _selectedBedId = null;
                           _selectedRoomBeds = [];
+                          _syncSelectedRoomSettings();
                         });
                         await _loadBedsForSelectedRoom();
                         await _loadImagesForSelectedRoom();
@@ -3222,15 +3530,74 @@ class _RoomsPageState extends State<_RoomsPage> {
                   }).toList(),
                 ),
                 const SizedBox(height: 10),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE53935)),
-                    onPressed: room == null ? null : _deleteSelectedRoom,
-                    icon: const Icon(Icons.delete),
-                    label: Text(_t("Удалить комнату", "Xonani o'chirish")),
+                if (room != null) ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          value: _selectedRoomType,
+                          decoration: const InputDecoration(
+                            border: OutlineInputBorder(),
+                          ),
+                          items: [
+                            DropdownMenuItem(value: 'bed', child: Text(_roomTypeUi('bed'))),
+                            DropdownMenuItem(value: 'family', child: Text(_roomTypeUi('family'))),
+                            DropdownMenuItem(value: 'other', child: Text(_roomTypeUi('other'))),
+                          ],
+                          onChanged: (v) {
+                            if (v == null) return;
+                            setState(() => _selectedRoomType = v);
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          value: _selectedBookingMode,
+                          decoration: const InputDecoration(
+                            border: OutlineInputBorder(),
+                          ),
+                          items: [
+                            DropdownMenuItem(value: 'bed', child: Text(_bookingModeUi('bed'))),
+                            DropdownMenuItem(value: 'full', child: Text(_bookingModeUi('full'))),
+                          ],
+                          onChanged: (v) {
+                            if (v == null) return;
+                            setState(() => _selectedBookingMode = v);
+                          },
+                        ),
+                      ),
+                    ],
                   ),
-                ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: FilledButton.icon(
+                          style: FilledButton.styleFrom(backgroundColor: const Color(0xFF2B7CCF)),
+                          onPressed: _savingRoomSettings ? null : _saveSelectedRoomSettings,
+                          icon: _savingRoomSettings
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
+                              : const Icon(Icons.save_outlined),
+                          label: Text(_t('Сохранить', 'Saqlash')),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: FilledButton.icon(
+                          style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE53935)),
+                          onPressed: _deleteSelectedRoom,
+                          icon: const Icon(Icons.delete),
+                          label: Text(_t("Удалить комнату", "Xonani o'chirish")),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
@@ -3376,6 +3743,19 @@ class _RoomsPageState extends State<_RoomsPage> {
                       Text('${room['room_number'] ?? room['room_name']} — ${_t("Кровати", "Kravatlar")}',
                           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
                       const Spacer(),
+                      Container(
+                        margin: const EdgeInsets.only(right: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE8F2FF),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: const Color(0xFFBFD6FB)),
+                        ),
+                        child: IconButton(
+                          onPressed: _bulkSetSelectedRoomBedsPrice,
+                          icon: const Text('💸', style: TextStyle(fontSize: 18)),
+                          tooltip: _t('Цены для всех кроватей', 'Barcha kravat narxi'),
+                        ),
+                      ),
                       Container(
                         decoration: const BoxDecoration(
                           color: Color(0xFF3D8BDF),
@@ -3701,6 +4081,20 @@ class _BookingsPageState extends State<_BookingsPage> {
     }
   }
 
+  dynamic get _selectedRoomRow {
+    if (_roomId == null) return null;
+    for (final r in _rooms) {
+      if (_toInt(r['id']) == _roomId) return r;
+    }
+    return null;
+  }
+
+  String get _selectedRoomBookingModeLabel {
+    final room = _selectedRoomRow;
+    final raw = '${room == null ? '' : (room['booking_mode'] ?? '')}'.trim().toLowerCase();
+    return raw == 'full' ? _t('Полная комната', 'To‘liq xona') : _t('По кроватям', 'Kravat bo‘yicha');
+  }
+
   Future<void> _submit() async {
     if (_selectedBed == null) {
       _snack(_t('Сначала выберите кровать', 'Avval krovat tanlang'));
@@ -3846,6 +4240,25 @@ class _BookingsPageState extends State<_BookingsPage> {
                   });
                   await _loadAvailableBeds();
                 },
+              ),
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE9F0FF),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: const Color(0xFFCFDAF8)),
+                  ),
+                  child: Text(
+                    '${_t("Режим брони", "Bron rejimi")}: $_selectedRoomBookingModeLabel',
+                    style: const TextStyle(
+                      color: Color(0xFF1D4ED8),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
