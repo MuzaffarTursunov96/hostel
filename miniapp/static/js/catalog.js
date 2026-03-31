@@ -484,6 +484,7 @@
     if (sessionLoggedIn) {
       authBtnEl.hidden = true;
       if (profileMenuWrapEl) profileMenuWrapEl.hidden = false;
+      closeProfileMenu();
       if (profileNameEl) {
         profileNameEl.textContent = sessionDisplayName || t("profile");
         profileNameEl.title = sessionDisplayName || t("profile");
@@ -1076,14 +1077,18 @@
       window.location.href = "/logout";
     });
   }
-  document.addEventListener("click", (e) => {
+  const outsideMenuHandler = (e) => {
     if (!profileMenuEl || !profileMenuWrapEl) return;
     if (profileMenuEl.hidden) return;
     if (!profileMenuWrapEl.contains(e.target)) {
       closeProfileMenu();
     }
-  });
+  };
+  document.addEventListener("click", outsideMenuHandler);
+  document.addEventListener("pointerdown", outsideMenuHandler);
+  document.addEventListener("touchstart", outsideMenuHandler, { passive: true });
   window.addEventListener("scroll", closeProfileMenu, { passive: true });
+  window.addEventListener("pageshow", closeProfileMenu);
 
   refreshEl.addEventListener("click", () => loadBranches());
   toggleFiltersBtnEl.addEventListener("click", () => {
