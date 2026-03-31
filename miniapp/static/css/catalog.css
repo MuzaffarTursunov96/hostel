@@ -586,6 +586,7 @@ body {
   grid-template-columns: 120px 1fr;
   gap: 10px;
   padding: 10px;
+  padding-bottom: 6px;
 }
 
 .details-room-top .details-room-photo {
@@ -601,6 +602,16 @@ body {
   display: grid;
   gap: 6px;
   font-size: 13px;
+}
+
+.details-room-bottom {
+  padding: 0 10px 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.details-room-bottom .room-book-btn {
+  width: 100%;
 }
 
 .details-room-meta .small-btn {
@@ -806,6 +817,19 @@ body {
 .booking-readonly-item b {
   font-size: 13px;
   color: #0f2b67;
+}
+
+.booking-prepay-note {
+  border: 2px solid #2563eb;
+  background: linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%);
+  color: #0b3b92;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.35;
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.18);
+  text-align: center;
 }
 
 @media (max-width: 760px) {

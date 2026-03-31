@@ -1564,6 +1564,7 @@ def pay_booking_debt(branch_id, booking_id, pay_amount):
 # ================= BRANCHES =================
 def get_branches(user_id):
     ensure_branch_contact_columns()
+    ensure_branch_region_columns()
     ensure_branch_cover_image_column()
     ensure_branch_city_columns()
     ensure_branch_district_columns()
@@ -1575,6 +1576,8 @@ def get_branches(user_id):
                 b.address,
                 b.latitude,
                 b.longitude,
+                b.region_name,
+                b.region_slug,
                 b.city_name,
                 b.city_slug,
                 b.district_name,

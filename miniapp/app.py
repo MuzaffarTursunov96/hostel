@@ -17,7 +17,7 @@ from email.mime.text import MIMEText
 
 
 API_URL = "http://backend:8000"
-VERSION ="2026-31-03-15-19"
+VERSION ="2026-31-03-15-40"
 load_dotenv()
 ROOT_ADMIN_TELEGRAM = os.getenv("ROOT_ADMIN_TELEGRAM", "muzaffar_developer")
 ROOT_ADMIN_PHONE = os.getenv("ROOT_ADMIN_PHONE", "+998991422110")
@@ -562,6 +562,15 @@ def public_api_booking_request():
     resp = requests.post(
         f"{API_URL}/feedback/public-booking-request",
         json=request.get_json(silent=True) or {},
+        timeout=(10, 20)
+    )
+    return jsonify(resp.json()), resp.status_code
+
+
+@app.get("/public-api/booking-prepayment")
+def public_api_booking_prepayment():
+    resp = requests.get(
+        f"{API_URL}/public/booking-prepayment",
         timeout=(10, 20)
     )
     return jsonify(resp.json()), resp.status_code

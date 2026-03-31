@@ -80,6 +80,8 @@
       full_name_optional: "Ism (ixtiyoriy)",
       phone_required: "Telefon raqam (majburiy)",
       room_or_bed: "Xona yoki yotoq raqami",
+      prepayment_required: "Oldindan to'lov talab qilinadi",
+      prepayment_not_required: "Oldindan to'lov talab qilinmaydi",
       room_type_label: "Xona turi",
       rent_type_label: "Ijara turi",
       not_selected: "Tanlanmagan",
@@ -194,6 +196,8 @@
       full_name_optional: "Имя (необязательно)",
       phone_required: "Телефон (обязательно)",
       room_or_bed: "Комната или номер кровати",
+      prepayment_required: "Требуется предоплата",
+      prepayment_not_required: "Предоплата не требуется",
       room_type_label: "Тип комнаты",
       rent_type_label: "Тип аренды",
       not_selected: "Не выбрано",
@@ -238,6 +242,7 @@
   let currentTgUser = null;
   let sessionLoggedIn = false;
   let sessionDisplayName = "";
+  let bookingPrepayCfg = null;
   const NO_PHOTO_SRC = "/static/icons/no_photo.png";
   const REGION_OPTIONS = [
     { id: 6, name: "Андижанская область", normalized_name: "andizhanskaya-oblast" },
@@ -323,6 +328,7 @@
   const bookingCheckinEl = document.getElementById("bookingCheckin");
   const bookingCheckoutEl = document.getElementById("bookingCheckout");
   const bookingMessageEl = document.getElementById("bookingMessage");
+  const bookingPrepaymentNoteEl = document.getElementById("bookingPrepaymentNote");
   const historyModalEl = document.getElementById("historyModal");
   const historyTitleEl = document.getElementById("historyTitle");
   const historyBodyEl = document.getElementById("historyBody");
@@ -359,6 +365,37 @@
   function fmtPrice(v) {
     if (v === null || v === undefined || String(v).trim() === "") return t("by_agreement");
     return `${Number(v).toLocaleString()} ${lang === "ru" ? "сум" : "so'm"}`;
+  }
+
+  function prepaymentText() {
+    const cfg = bookingPrepayCfg || {};
+    if (!cfg.enabled) return t("prepayment_not_required");
+    const mode = String(cfg.mode || "percent").toLowerCase();
+    const value = Number(cfg.value || 0);
+    if (mode === "fixed") {
+      return `${t("prepayment_required")}: ${fmtPrice(value)}`;
+    }
+    return `${t("prepayment_required")}: ${value.toLocaleString()}%`;
+  }
+
+  function renderBookingPrepaymentNote() {
+    if (!bookingPrepaymentNoteEl) return;
+    bookingPrepaymentNoteEl.textContent = prepaymentText();
+  }
+
+  async function loadPublicPrepaymentConfig() {
+    try {
+      const res = await fetch("/public-api/booking-prepayment", { cache: "no-store" });
+      if (!res.ok) return;
+      const payload = await res.json().catch(() => null);
+      if (!payload || typeof payload !== "object") return;
+      bookingPrepayCfg = {
+        enabled: !!payload.enabled,
+        mode: String(payload.mode || "percent"),
+        value: Number(payload.value || 0),
+      };
+      renderBookingPrepaymentNote();
+    } catch (_) {}
   }
 
   function currentPriceMode() {
@@ -526,6 +563,7 @@
     closeProfileMenu();
     updateDistanceFilterState();
     updateFiltersToggleUi();
+    renderBookingPrepaymentNote();
     render();
   }
 
@@ -975,8 +1013,6 @@
           const img = r.cover_image
             ? `<img class="details-room-photo" src="${escapeHtml(r.cover_image)}" alt="${escapeHtml(r.room_name || "")}" loading="lazy" onerror="this.onerror=null;this.src='${NO_PHOTO_SRC}'" />`
             : `<img class="details-room-photo" src="${NO_PHOTO_SRC}" alt="${t("no_photo")}" loading="lazy" />`;
-          const priceLine = fmtMinMaxPrice(r.min_effective_price, r.max_effective_price, "day");
-
           return `
             <div class="details-room">
               <div class="details-room-top">
@@ -998,21 +1034,22 @@
                     )}</b></div>
                     <div class="details-fact"><span>${t("available_beds_label")}</span><b>${Number(r.available_beds || 0)}</b></div>
                     <div class="details-fact"><span>${t("booking_mode")}</span><b><span class="meta-badge bookingmode-${String(r.booking_mode || "bed").toLowerCase() === "full" ? "full" : "bed"}">${bookingModeLabel(r.booking_mode)}</span></b></div>
-                    <div class="details-fact"><span>${t("details_price")}</span><b>${priceLine}</b></div>
                   </div>
-                  ${roomPriceTabsHtml(r)}
-                  <button
-                    type="button"
-                    class="solid-btn small-btn room-book-btn"
-                    data-book-room="${branchId}"
-                    data-book-room-name="${escapeHtml(branch.name || "")}"
-                    data-book-room-label="${escapeHtml(r.room_name || r.room_number || "")} (${escapeHtml(bookingModeLabel(r.booking_mode))})"
-                    data-book-room-type="${escapeHtml(r.room_type || "-")}"
-                    data-book-rent-type="${escapeHtml(bookingModeLabel(r.booking_mode))}"
-                  >
-                    <img class="btn-ico" src="/static/icons/booking_client.png" alt=""> <span>${t("booking")}</span>
-                  </button>
                 </div>
+              </div>
+              <div class="details-room-bottom">
+                ${roomPriceTabsHtml(r)}
+                <button
+                  type="button"
+                  class="solid-btn small-btn room-book-btn"
+                  data-book-room="${branchId}"
+                  data-book-room-name="${escapeHtml(branch.name || "")}"
+                  data-book-room-label="${escapeHtml(r.room_name || r.room_number || "")} (${escapeHtml(bookingModeLabel(r.booking_mode))})"
+                  data-book-room-type="${escapeHtml(r.room_type || "-")}"
+                  data-book-rent-type="${escapeHtml(bookingModeLabel(r.booking_mode))}"
+                >
+                  <img class="btn-ico" src="/static/icons/booking_client.png" alt=""> <span>${t("booking")}</span>
+                </button>
               </div>
             </div>
           `;
@@ -1122,6 +1159,7 @@
     bookingCheckinEl.value = "";
     bookingCheckoutEl.value = "";
     bookingMessageEl.value = "";
+    renderBookingPrepaymentNote();
     bookingModalEl.classList.remove("hidden");
   }
 
@@ -1501,6 +1539,7 @@
   });
 
   applyLang();
+  loadPublicPrepaymentConfig();
   initTelegramUser();
   initSessionStatus().then(() => {
     render();

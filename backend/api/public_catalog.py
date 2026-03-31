@@ -9,6 +9,7 @@ from db import (
     get_public_branch_details_db,
     has_completed_stay_for_contact_db,
     list_public_user_history_db,
+    get_booking_prepayment_config_db,
 )
 
 router = APIRouter(prefix="/public", tags=["Public Catalog"])
@@ -102,4 +103,14 @@ def public_user_history(contact: str | None = None, telegram_id: int | None = No
         raise HTTPException(400, "contact or telegram_id required")
     return {
         "items": list_public_user_history_db(contact=contact, telegram_id=telegram_id, limit=limit)
+    }
+
+
+@router.get("/booking-prepayment")
+def public_booking_prepayment():
+    cfg = get_booking_prepayment_config_db()
+    return {
+        "enabled": bool(cfg.get("enabled")),
+        "mode": str(cfg.get("mode") or "percent"),
+        "value": float(cfg.get("value") or 0),
     }
