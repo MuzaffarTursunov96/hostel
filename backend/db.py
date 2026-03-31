@@ -15,6 +15,7 @@ _branch_cover_image_column_checked = False
 _branch_city_columns_checked = False
 _branch_district_columns_checked = False
 _branch_images_table_checked = False
+_branch_publish_column_checked = False
 
 def get_connection():
     return engine.begin()
@@ -65,6 +66,7 @@ def init_db():
             address TEXT,
             latitude DOUBLE PRECISION,
             longitude DOUBLE PRECISION,
+            is_published BOOLEAN DEFAULT TRUE,
             region_name TEXT,
             region_slug TEXT,
             city_name TEXT,
@@ -684,6 +686,23 @@ def ensure_branch_district_columns():
             ADD COLUMN IF NOT EXISTS district_slug TEXT
         """))
     _branch_district_columns_checked = True
+
+
+def ensure_branch_publish_column():
+    global _branch_publish_column_checked
+    if _branch_publish_column_checked:
+        return
+    with get_connection() as conn:
+        conn.execute(text("""
+            ALTER TABLE branches
+            ADD COLUMN IF NOT EXISTS is_published BOOLEAN DEFAULT TRUE
+        """))
+        conn.execute(text("""
+            UPDATE branches
+            SET is_published = TRUE
+            WHERE is_published IS NULL
+        """))
+    _branch_publish_column_checked = True
 
 def get_rooms_with_beds(branch_id):
     ensure_pricing_columns()
@@ -3578,6 +3597,7 @@ def create_branch_db(
     ensure_branch_cover_image_column()
     ensure_branch_city_columns()
     ensure_branch_district_columns()
+    ensure_branch_publish_column()
     with get_connection() as conn:
         try:
             # 1️⃣ create branch
@@ -3726,23 +3746,39 @@ def delete_branch_db(branch_id: int):
 
 
 def list_branches_db_root():
+    ensure_branch_publish_column()
     with get_connection() as conn:
         return conn.execute(text("""
-            SELECT id, name
+            SELECT id, name, COALESCE(is_published, TRUE) AS is_published
             FROM branches
             ORDER BY id
         """)).mappings().all()
 
 
 def list_branches_db(user_id: int):
+    ensure_branch_publish_column()
     with get_connection() as conn:
         return conn.execute(text("""
-            SELECT b.id, b.name
+            SELECT b.id, b.name, COALESCE(b.is_published, TRUE) AS is_published
             FROM branches b
             JOIN user_branches ub ON ub.branch_id = b.id
             WHERE ub.user_id = :user_id
             ORDER BY b.id
         """), {"user_id": user_id}).mappings().all()
+
+
+def set_branch_published_db(branch_id: int, is_published: bool):
+    ensure_branch_publish_column()
+    with get_connection() as conn:
+        res = conn.execute(text("""
+            UPDATE branches
+            SET is_published = :pub
+            WHERE id = :bid
+        """), {
+            "pub": bool(is_published),
+            "bid": int(branch_id),
+        })
+    return res.rowcount > 0
 
 
 def change_password_db(user_id: int, old_password: str, new_password: str):
@@ -5170,6 +5206,7 @@ def list_public_branches_with_rating_db(
     ensure_room_images_table()
     ensure_pricing_columns()
     ensure_branch_contact_columns()
+    ensure_branch_publish_column()
     ensure_branch_region_columns()
     ensure_branch_cover_image_column()
     ensure_branch_city_columns()
@@ -5322,7 +5359,8 @@ def list_public_branches_with_rating_db(
                 ) AS room_types
             FROM branches b
             LEFT JOIN branch_ratings br ON br.branch_id = b.id
-            WHERE (
+            WHERE COALESCE(b.is_published, TRUE) = TRUE
+              AND (
                 :room_type IS NULL
                 OR EXISTS (
                     SELECT 1
@@ -5424,6 +5462,7 @@ def list_public_branches_with_rating_db(
 
 def list_public_branch_photos_db(branch_id: int, limit: int = 50):
     ensure_room_images_table()
+    ensure_branch_publish_column()
     lim = int(limit or 50)
     if lim < 1:
         lim = 1
@@ -5441,7 +5480,9 @@ def list_public_branch_photos_db(branch_id: int, limit: int = 50):
                 ri.created_at
             FROM room_images ri
             JOIN rooms r ON r.id = ri.room_id
+            JOIN branches b ON b.id = r.branch_id
             WHERE r.branch_id = :branch_id
+              AND COALESCE(b.is_published, TRUE) = TRUE
             ORDER BY ri.is_cover DESC, ri.created_at DESC, ri.id DESC
             LIMIT :lim
         """), {
@@ -5457,6 +5498,7 @@ def get_public_branch_details_db(branch_id: int):
     ensure_branch_ratings_table()
     ensure_room_images_table()
     ensure_branch_contact_columns()
+    ensure_branch_publish_column()
 
     bid = int(branch_id)
     today = app_today().isoformat()
@@ -5475,6 +5517,7 @@ def get_public_branch_details_db(branch_id: int):
             FROM branches b
             LEFT JOIN branch_ratings br ON br.branch_id = b.id
             WHERE b.id = :bid
+              AND COALESCE(b.is_published, TRUE) = TRUE
             GROUP BY b.id, b.name, b.address, b.latitude, b.longitude, b.contact_phone, b.contact_telegram
             LIMIT 1
         """), {"bid": bid}).mappings().fetchone()

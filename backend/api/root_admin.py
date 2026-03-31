@@ -20,6 +20,7 @@ from db import (
     set_admin_expiry_db,
     get_system_setting_db,
     set_system_setting_db,
+    set_branch_published_db,
 )
 
 
@@ -205,7 +206,26 @@ def list_branches(user=Depends(get_current_user)):
 
     
 
-    return [{"id": r["id"], "name": r["name"]} for r in rows]
+    return [{
+        "id": r["id"],
+        "name": r["name"],
+        "is_published": bool(r.get("is_published", True)),
+    } for r in rows]
+
+
+@router.post("/branches/{branch_id}/publish")
+def set_branch_publish(
+    branch_id: int,
+    data: dict,
+    current_user=Depends(get_current_user)
+):
+    if not is_root_admin(current_user):
+        raise HTTPException(403, "Root admin only")
+
+    ok = set_branch_published_db(branch_id, bool(data.get("is_published", True)))
+    if not ok:
+        raise HTTPException(404, "Branch not found")
+    return {"ok": True}
 
 
 @router.get("/system-expiry")

@@ -59,7 +59,12 @@ const RM_I18N = {
     leads_loading: 'Загрузка заявок...',
     leads_loaded: 'Заявки загружены',
     leads_empty: 'Пока нет заявок',
-    leads_error: 'Ошибка загрузки заявок'
+    leads_error: 'Ошибка загрузки заявок',
+    branch_publish_title: 'Публикация филиалов (клиент каталог)',
+    branch_label: 'Филиал',
+    published: 'Опубликован',
+    hidden: 'Скрыт',
+    publish_updated: 'Статус публикации обновлен'
   },
   uz: {
     title: 'Root Admin boshqaruvi',
@@ -116,7 +121,12 @@ const RM_I18N = {
     leads_loading: 'Arizalar yuklanmoqda...',
     leads_loaded: 'Arizalar yuklandi',
     leads_empty: 'Hozircha arizalar yo\'q',
-    leads_error: 'Arizalarni yuklashda xatolik'
+    leads_error: 'Arizalarni yuklashda xatolik',
+    branch_publish_title: 'Filial nashri (mijoz katalogi)',
+    branch_label: 'Filial',
+    published: 'E’lon qilingan',
+    hidden: 'Yashirilgan',
+    publish_updated: 'Nashr holati yangilandi'
   }
 };
 
@@ -172,6 +182,11 @@ function applyRootTexts() {
   $('#rmLeadRooms').text(rt('leads_rooms'));
   $('#rmLeadTime').text(rt('leads_time'));
   $('#rmLeadNote').text(rt('leads_note'));
+
+  $('#rmBranchPublishTitle').text(rt('branch_publish_title'));
+  $('#rmBrThId').text(rt('id'));
+  $('#rmBrThName').text(rt('branch_label'));
+  $('#rmBrThPublished').text(rt('published'));
 }
 
 function loadRootManagement() {
@@ -179,6 +194,7 @@ function loadRootManagement() {
     ROOT_ADMINS = adminsRes[0] || [];
     ROOT_BRANCHES = branchesRes[0] || [];
     renderAdminRows();
+    renderBranchPublishRows();
   });
 }
 
@@ -233,9 +249,33 @@ function renderAdminRows() {
   });
 }
 
+function renderBranchPublishRows() {
+  const $tb = $('#rootBranchPublishTable').empty();
+  const q = (CURRENT_SEARCH || '').trim().toLowerCase();
+  (ROOT_BRANCHES || []).forEach((b) => {
+    const searchable = `${b.id} ${b.name || ''}`.toLowerCase();
+    if (q && !searchable.includes(q)) return;
+    const isPublished = !!b.is_published;
+    const row = `
+      <tr class="border-b align-top">
+        <td class="py-2">${b.id}</td>
+        <td class="py-2">${b.name || ''}</td>
+        <td class="py-2">
+          <label class="inline-flex items-center gap-2">
+            <input type="checkbox" ${isPublished ? 'checked' : ''} onchange="toggleBranchPublish(${b.id}, this.checked)">
+            <span>${isPublished ? rt('published') : rt('hidden')}</span>
+          </label>
+        </td>
+      </tr>
+    `;
+    $tb.append(row);
+  });
+}
+
 function onRootSearch(value) {
   CURRENT_SEARCH = value || '';
   renderAdminRows();
+  renderBranchPublishRows();
 }
 
 function saveAdminExpiry(userId) {
@@ -259,6 +299,13 @@ function clearAdminExpiry(userId) {
 
 function toggleAdminActive(userId, active) {
   apiPost(`/root/admins/${userId}/set-active`, { is_active: !!active }).done(() => loadRootManagement());
+}
+
+function toggleBranchPublish(branchId, isPublished) {
+  apiPost(`/root/branches/${branchId}/publish`, { is_published: !!isPublished }).done(() => {
+    alert(rt('publish_updated'));
+    loadRootManagement();
+  });
 }
 
 function deleteAdmin(userId) {
