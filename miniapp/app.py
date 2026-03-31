@@ -1,4 +1,4 @@
-﻿from flask import Flask, render_template, request, jsonify, session, redirect, Response
+from flask import Flask, render_template, request, jsonify, session, redirect, Response
 import requests
 from functools import wraps
 import os
@@ -11,6 +11,7 @@ import re
 import random
 import hmac
 import smtplib
+import secrets
 from email.mime.text import MIMEText
 
 
@@ -39,6 +40,8 @@ SMTP_USERNAME = os.getenv("SMTP_USERNAME", "")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
 SMTP_FROM = os.getenv("SMTP_FROM", SMTP_USERNAME or "noreply@example.com")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
+GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", "")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 if not os.path.isabs(MARKETING_CONTENT_FILE):
     MARKETING_CONTENT_FILE = os.path.join(BASE_DIR, MARKETING_CONTENT_FILE)
@@ -182,6 +185,25 @@ def _post_backend_login(username, password):
     return last_response
 
 
+def _google_redirect_uri():
+    if GOOGLE_REDIRECT_URI:
+        return GOOGLE_REDIRECT_URI
+    return request.url_root.rstrip("/") + "/auth/google/callback"
+
+
+def _build_google_auth_url(state: str):
+    params = {
+        "client_id": GOOGLE_CLIENT_ID,
+        "redirect_uri": _google_redirect_uri(),
+        "response_type": "code",
+        "scope": "openid email profile",
+        "access_type": "online",
+        "prompt": "select_account",
+        "state": state,
+    }
+    return "https://accounts.google.com/o/oauth2/v2/auth?" + requests.compat.urlencode(params)
+
+
 def notify_new_lead(lead):
     if not BOT_TOKEN:
         return False
@@ -298,6 +320,85 @@ def marketing_page():
 @app.route("/login")
 def login_page():
     return render_template("login.html")
+
+
+@app.get("/auth/google/start")
+def google_start():
+    if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+        return redirect("/login?google=not_configured")
+    state = secrets.token_urlsafe(24)
+    session["google_oauth_state"] = state
+    return redirect(_build_google_auth_url(state))
+
+
+@app.get("/auth/google/callback")
+def google_callback():
+    if request.args.get("error"):
+        return redirect("/login?google=cancelled")
+
+    state = str(request.args.get("state") or "")
+    expected_state = str(session.get("google_oauth_state") or "")
+    session.pop("google_oauth_state", None)
+    if not state or not expected_state or state != expected_state:
+        return redirect("/login?google=invalid_state")
+
+    code = str(request.args.get("code") or "").strip()
+    if not code:
+        return redirect("/login?google=missing_code")
+
+    try:
+        token_resp = requests.post(
+            "https://oauth2.googleapis.com/token",
+            data={
+                "client_id": GOOGLE_CLIENT_ID,
+                "client_secret": GOOGLE_CLIENT_SECRET,
+                "code": code,
+                "grant_type": "authorization_code",
+                "redirect_uri": _google_redirect_uri(),
+            },
+            timeout=(10, 20),
+        )
+    except requests.RequestException:
+        return redirect("/login?google=token_failed")
+
+    if token_resp.status_code != 200:
+        return redirect("/login?google=token_failed")
+
+    token_payload = token_resp.json()
+    id_token = token_payload.get("id_token")
+    if not id_token:
+        return redirect("/login?google=id_token_missing")
+
+    try:
+        info_resp = requests.get(
+            "https://oauth2.googleapis.com/tokeninfo",
+            params={"id_token": id_token},
+            timeout=(10, 20),
+        )
+    except requests.RequestException:
+        return redirect("/login?google=tokeninfo_failed")
+
+    if info_resp.status_code != 200:
+        return redirect("/login?google=tokeninfo_failed")
+
+    info = info_resp.json()
+    if str(info.get("aud") or "") != GOOGLE_CLIENT_ID:
+        return redirect("/login?google=aud_mismatch")
+
+    email = _normalize_email(info.get("email"))
+    email_verified = str(info.get("email_verified") or "").lower() == "true"
+    if not email or not email_verified:
+        return redirect("/login?google=email_not_verified")
+    if not _is_valid_email(email):
+        return redirect("/login?google=invalid_email_domain")
+
+    now = datetime.now(timezone.utc)
+    session["verified_email"] = email
+    session["verified_email_at"] = now.isoformat()
+    session["google_verified_email"] = email
+
+    q = requests.compat.urlencode({"google": "ok", "email": email})
+    return redirect(f"/login?{q}")
 
 
 @app.get("/logout")

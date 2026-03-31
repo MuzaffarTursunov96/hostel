@@ -5,17 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Login</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
     :root {
-      --bg: #ececec;
-      --sheet: #ffffff;
-      --text: #101010;
-      --muted: #6f6f6f;
-      --line: #d8d8d8;
-      --btn: #f6f6f6;
-      --btn-border: #d3d3d3;
-      --ok: #0f8a43;
+      --bg: #ededed;
+      --sheet: #f8f8f8;
+      --text: #111111;
+      --muted: #5e5e5e;
+      --line: #cfcfcf;
+      --btn: #f4f4f4;
+      --ok: #0c8a46;
       --err: #b42318;
     }
 
@@ -24,83 +22,82 @@
     body {
       margin: 0;
       min-height: 100vh;
-      font-family: "Segoe UI", Tahoma, Arial, sans-serif;
-      background: radial-gradient(circle at 20% 20%, #f8f8f8 0%, #ececec 55%, #e3e3e3 100%);
+      background: var(--bg);
       color: var(--text);
+      font-family: "Segoe UI", Tahoma, Arial, sans-serif;
       display: grid;
       place-items: center;
-      padding: 14px;
+      padding: 12px;
     }
 
     .sheet {
-      width: min(610px, 100%);
+      width: min(560px, 100%);
       background: var(--sheet);
       border: 1px solid var(--line);
-      border-radius: 18px;
-      box-shadow: 0 26px 60px rgba(0, 0, 0, 0.14);
-      padding: 24px;
+      border-radius: 28px;
+      padding: 18px 14px 16px;
       position: relative;
     }
 
     .close {
       position: absolute;
-      top: 12px;
-      right: 14px;
+      top: 8px;
+      right: 10px;
       border: 0;
       background: transparent;
-      font-size: 30px;
-      color: #212121;
-      cursor: pointer;
+      color: #1a1a1a;
+      font-size: 40px;
       line-height: 1;
+      cursor: pointer;
     }
 
     h1 {
-      margin: 18px 0 0;
+      margin: 26px 0 0;
       text-align: center;
-      font-size: clamp(34px, 5.6vw, 54px);
-      font-weight: 500;
+      font-size: clamp(42px, 10vw, 70px);
+      font-weight: 700;
+      line-height: 1.12;
       letter-spacing: -0.02em;
     }
 
     .sub {
-      margin: 10px auto 0;
-      max-width: 470px;
+      margin: 12px auto 0;
+      max-width: 460px;
       text-align: center;
-      color: #4e4e4e;
-      font-size: 18px;
+      font-size: clamp(16px, 3.6vw, 22px);
+      color: var(--muted);
       line-height: 1.45;
     }
 
-    .social {
-      margin-top: 24px;
+    .stack {
+      margin-top: 18px;
       display: grid;
-      gap: 12px;
+      gap: 10px;
     }
 
     .social-btn {
-      width: 100%;
-      height: 64px;
+      height: 68px;
       border-radius: 999px;
-      border: 1px solid var(--btn-border);
+      border: 1px solid var(--line);
       background: var(--btn);
-      color: #161616;
-      font-size: 38px;
-      font-weight: 600;
+      color: #1a1a1a;
+      font-size: clamp(24px, 6vw, 44px);
+      font-weight: 700;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 10px;
+      gap: 12px;
       cursor: pointer;
+      text-decoration: none;
+      width: 100%;
     }
 
-    .social-btn:hover { background: #f2f2f2; }
-
     .social-icon {
-      width: 24px;
+      width: 28px;
       text-align: center;
-      color: #1f1f1f;
-      font-size: 23px;
-      line-height: 1;
+      font-size: clamp(22px, 4.8vw, 32px);
+      color: #202020;
+      flex: 0 0 28px;
     }
 
     .social-icon.google {
@@ -109,145 +106,129 @@
     }
 
     .or {
-      margin: 18px 0;
+      margin: 12px 0;
       display: grid;
       grid-template-columns: 1fr auto 1fr;
       align-items: center;
-      gap: 12px;
-      color: #5b5b5b;
-      font-size: 18px;
-      font-weight: 600;
+      gap: 10px;
+      color: #5e5e5e;
+      font-size: clamp(16px, 4vw, 34px);
+      font-weight: 700;
     }
 
     .or::before,
     .or::after {
       content: "";
       border-top: 1px solid var(--line);
-      display: block;
     }
 
-    .row {
-      display: grid;
-      gap: 10px;
-      margin-top: 10px;
-    }
-
-    .pill-input {
+    .field {
       width: 100%;
-      height: 66px;
+      height: 68px;
       border-radius: 999px;
-      border: 1px solid #3a3a3a;
-      padding: 0 22px;
-      font-size: 30px;
-      outline: none;
+      border: 1px solid #353535;
       background: #fff;
+      padding: 0 22px;
+      font-size: clamp(28px, 6vw, 52px);
+      outline: none;
     }
 
-    .pill-input::placeholder {
-      color: #8a8a8a;
-    }
+    .field::placeholder { color: #8a8a8a; }
 
-    .pill-input:focus {
+    .field:focus {
       border-color: #0f62fe;
       box-shadow: 0 0 0 4px rgba(15, 98, 254, 0.12);
     }
 
-    .controls {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 10px;
+    .row-right {
+      margin-top: 8px;
+      display: flex;
+      justify-content: flex-end;
     }
 
     .mini-btn {
-      height: 48px;
+      height: 54px;
       border-radius: 999px;
-      border: 1px solid #cfcfcf;
-      background: #f8f8f8;
-      padding: 0 18px;
-      font-size: 16px;
-      font-weight: 600;
+      border: 1px solid var(--line);
+      background: #f2f2f2;
+      padding: 0 28px;
+      font-size: clamp(18px, 4vw, 32px);
+      font-weight: 700;
       cursor: pointer;
     }
 
     .mini-btn:disabled {
-      opacity: 0.6;
+      opacity: 0.45;
       cursor: not-allowed;
     }
 
-    .otp-wrap {
-      display: none;
-      gap: 10px;
-    }
-
-    .otp-wrap.show {
-      display: grid;
-    }
-
-    .login-wrap {
-      margin-top: 14px;
-      padding-top: 12px;
-      border-top: 1px solid var(--line);
-      display: grid;
-      gap: 10px;
-    }
-
-    .msg {
+    .otp-block {
       display: none;
       margin-top: 10px;
-      border-radius: 12px;
-      border: 1px solid var(--line);
-      padding: 10px 12px;
-      font-size: 14px;
-      white-space: pre-line;
     }
 
-    .msg.ok {
-      display: block;
-      border-color: #9be0b5;
-      background: #eafdf1;
-      color: var(--ok);
-    }
+    .otp-block.show { display: block; }
 
-    .msg.err {
-      display: block;
-      border-color: #f4c7c3;
-      background: #fff0ef;
-      color: var(--err);
+    .split {
+      margin: 12px 0;
+      border-top: 1px solid var(--line);
     }
 
     .state {
-      color: var(--muted);
+      margin-top: 8px;
       font-size: 14px;
+      color: #666;
     }
 
     .state.ok {
       color: var(--ok);
-      font-weight: 600;
+      font-weight: 700;
     }
 
-    #googleSignInContainer {
+    .msg {
+      margin-top: 10px;
+      border-radius: 12px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
       display: none;
+      white-space: pre-line;
+      font-size: 14px;
     }
 
-    @media (max-width: 700px) {
-      .sheet { padding: 18px; }
-      h1 { font-size: 46px; }
-      .pill-input { height: 60px; font-size: 28px; }
-      .social-btn { height: 60px; font-size: 32px; }
+    .msg.ok {
+      display: block;
+      color: var(--ok);
+      border-color: #9ddfb8;
+      background: #eafdf1;
+    }
+
+    .msg.err {
+      display: block;
+      color: var(--err);
+      border-color: #f4c7c3;
+      background: #fff2f1;
+    }
+
+    @media (max-width: 620px) {
+      h1 { font-size: 64px; }
+      .field { font-size: 52px; }
+      .social-btn { font-size: 46px; }
+      .mini-btn { font-size: 36px; height: 58px; }
     }
   </style>
 </head>
 <body>
   <div class="sheet">
     <button class="close" type="button" onclick="window.location.href='/'">&times;</button>
+
     <h1>Log in or sign up</h1>
     <p class="sub">You'll get smarter responses and can upload files, images, and more.</p>
 
-    <div class="social">
-      <button id="googlePickBtn" class="social-btn" type="button">
+    <div class="stack">
+      <a id="googleStartBtn" class="social-btn" href="/auth/google/start">
         <span class="social-icon google">G</span>
         Continue with Google
-      </button>
+      </a>
       <button id="appleBtn" class="social-btn" type="button">
         <span class="social-icon">A</span>
         Continue with Apple
@@ -256,32 +237,30 @@
         <span class="social-icon">P</span>
         Continue with phone
       </button>
-      <div id="googleSignInContainer"></div>
     </div>
 
     <div class="or">OR</div>
 
-    <div class="row">
-      <input id="email" class="pill-input" type="email" placeholder="Email address" autocomplete="email">
-      <div class="controls">
-        <div></div>
-        <button id="sendCodeBtn" class="mini-btn" type="button">Send code</button>
-      </div>
-
-      <div id="otpWrap" class="otp-wrap">
-        <input id="otp" class="pill-input" type="text" placeholder="6-digit code" maxlength="6" inputmode="numeric">
-        <div class="controls">
-          <div id="stepState" class="state">Email verification required.</div>
-          <button id="verifyCodeBtn" class="mini-btn" type="button">Verify</button>
-        </div>
-      </div>
+    <input id="email" class="field" type="email" placeholder="Email address" autocomplete="email">
+    <div class="row-right">
+      <button id="sendCodeBtn" class="mini-btn" type="button">Send code</button>
     </div>
 
-    <form id="loginForm" class="login-wrap">
-      <input id="username" class="pill-input" type="text" placeholder="Username" autocomplete="username" required>
-      <input id="password" class="pill-input" type="password" placeholder="Password" autocomplete="current-password" required>
-      <div class="controls">
-        <div></div>
+    <div id="otpBlock" class="otp-block">
+      <input id="otp" class="field" type="text" placeholder="6-digit code" maxlength="6" inputmode="numeric">
+      <div class="row-right">
+        <button id="verifyCodeBtn" class="mini-btn" type="button">Verify</button>
+      </div>
+      <div id="stepState" class="state">Email verification required.</div>
+    </div>
+
+    <div class="split"></div>
+
+    <form id="loginForm">
+      <input id="username" class="field" type="text" placeholder="Username" autocomplete="username" required>
+      <div style="height:10px"></div>
+      <input id="password" class="field" type="password" placeholder="Password" autocomplete="current-password" required>
+      <div class="row-right" style="margin-top:12px;">
         <button id="loginBtn" class="mini-btn" type="submit" disabled>Log in</button>
       </div>
     </form>
@@ -295,17 +274,14 @@
     const stepState = document.getElementById("stepState");
     const emailInput = document.getElementById("email");
     const otpInput = document.getElementById("otp");
-    const otpWrap = document.getElementById("otpWrap");
+    const otpBlock = document.getElementById("otpBlock");
     const usernameInput = document.getElementById("username");
     const passwordInput = document.getElementById("password");
     const sendCodeBtn = document.getElementById("sendCodeBtn");
     const verifyCodeBtn = document.getElementById("verifyCodeBtn");
     const loginBtn = document.getElementById("loginBtn");
-    const googlePickBtn = document.getElementById("googlePickBtn");
     const appleBtn = document.getElementById("appleBtn");
     const phoneBtn = document.getElementById("phoneBtn");
-    const googleSignInContainer = document.getElementById("googleSignInContainer");
-    const GOOGLE_CLIENT_ID = "{{ GOOGLE_CLIENT_ID|default('', true)|e }}";
 
     let emailVerified = false;
 
@@ -344,62 +320,32 @@
       return { ok: r.ok, status: r.status, payload };
     }
 
-    function decodeJwtPayload(token) {
-      try {
-        const base64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
-        const json = decodeURIComponent(
-          atob(base64)
-            .split("")
-            .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
-            .join("")
-        );
-        return JSON.parse(json);
-      } catch (_) {
-        return null;
+    function applyGoogleQueryState() {
+      const q = new URLSearchParams(window.location.search);
+      const status = (q.get("google") || "").trim().toLowerCase();
+      const email = (q.get("email") || "").trim().toLowerCase();
+      if (status === "ok" && email) {
+        emailInput.value = email;
+        otpBlock.classList.add("show");
+        setVerifiedState(true, email);
+        showMsg("ok", "Google account selected and verified. Now enter username/password.");
+        if (window.history && window.history.replaceState) {
+          window.history.replaceState({}, document.title, "/login");
+        }
+      } else if (status && status !== "ok") {
+        showMsg("err", "Google sign-in failed: " + status.replaceAll("_", " "));
+        if (window.history && window.history.replaceState) {
+          window.history.replaceState({}, document.title, "/login");
+        }
       }
-    }
-
-    function initGooglePicker() {
-      if (!GOOGLE_CLIENT_ID || !window.google || !google.accounts || !google.accounts.id) {
-        googlePickBtn.style.display = "none";
-        return;
-      }
-
-      google.accounts.id.initialize({
-        client_id: GOOGLE_CLIENT_ID,
-        callback: (response) => {
-          const payload = decodeJwtPayload(response.credential || "");
-          const email = payload && payload.email ? String(payload.email).trim().toLowerCase() : "";
-          if (!email) {
-            showMsg("err", "Google account email was not received.");
-            return;
-          }
-          emailInput.value = email;
-          otpWrap.classList.add("show");
-          showMsg("ok", "Google account selected: " + email + "\nNow click Send code.");
-        },
-        auto_select: false,
-        cancel_on_tap_outside: true
-      });
-
-      google.accounts.id.renderButton(googleSignInContainer, {
-        theme: "outline",
-        size: "large",
-        text: "continue_with",
-        width: 360
-      });
-
-      googlePickBtn.addEventListener("click", () => {
-        google.accounts.id.prompt();
-      });
     }
 
     appleBtn.addEventListener("click", () => {
-      showMsg("err", "Continue with Apple will be added next.");
+      showMsg("err", "Apple login is not enabled. Use Google or email verification.");
     });
 
     phoneBtn.addEventListener("click", () => {
-      showMsg("ok", "Use Email address below and verify code to continue.");
+      showMsg("ok", "Use your email below and verify code to continue.");
       emailInput.focus();
     });
 
@@ -411,7 +357,7 @@
         return;
       }
 
-      otpWrap.classList.add("show");
+      otpBlock.classList.add("show");
       sendCodeBtn.disabled = true;
       try {
         const { ok, payload } = await postJson("/auth/email/send-code", { email });
@@ -482,7 +428,7 @@
       }
     });
 
-    initGooglePicker();
+    applyGoogleQueryState();
 
     if (tg && tg.initData) {
       tg.ready();
