@@ -17,7 +17,7 @@ from email.mime.text import MIMEText
 
 
 API_URL = "http://backend:8000"
-VERSION ="2026-31-03-12-08"
+VERSION ="2026-31-03-12-25"
 load_dotenv()
 ROOT_ADMIN_TELEGRAM = os.getenv("ROOT_ADMIN_TELEGRAM", "muzaffar_developer")
 ROOT_ADMIN_PHONE = os.getenv("ROOT_ADMIN_PHONE", "+998991422110")
@@ -327,7 +327,12 @@ def login_page():
         return redirect("/dashboard")
     if session.get("public_user_email"):
         return redirect("/catalog")
-    return render_template("login.html")
+    req_lang = str(request.args.get("lang") or "").strip().lower()
+    if req_lang not in ("uz", "ru"):
+        req_lang = str(session.get("language") or "ru").strip().lower()
+    if req_lang not in ("uz", "ru"):
+        req_lang = "ru"
+    return render_template("login.html", CURRENT_LANG=req_lang)
 
 
 @app.get("/auth/google/start")

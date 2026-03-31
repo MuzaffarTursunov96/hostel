@@ -215,10 +215,19 @@ body {
   gap: 8px;
 }
 
-.price-range {
+.distance-tools {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
+}
+
+.distance-tools .ghost-btn {
+  padding: 11px 12px;
+  font-weight: 600;
+}
+
+.price-range {
+  display: none;
 }
 
 .price-slider-wrap {
@@ -228,15 +237,14 @@ body {
 }
 
 .price-slider-wrap input[type="range"] {
-  width: 100%;
+  width: calc(100% - 22px);
   margin: 0;
   -webkit-appearance: none;
   appearance: none;
   background: transparent;
   position: absolute;
   top: 0;
-  left: 0;
-  right: 0;
+  left: 11px;
   pointer-events: none;
 }
 
@@ -766,6 +774,10 @@ body {
   }
 
   .geo-tools {
+    grid-template-columns: 1fr;
+  }
+
+  .distance-tools {
     grid-template-columns: 1fr;
   }
 

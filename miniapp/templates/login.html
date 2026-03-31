@@ -192,7 +192,10 @@
       }
     };
 
-    let lang = localStorage.getItem("hms_login_lang") || (CURRENT_LANG.startsWith("uz") ? "uz" : "ru");
+    const QUERY_LANG = (new URLSearchParams(window.location.search).get("lang") || "").toLowerCase();
+    let lang = (QUERY_LANG === "uz" || QUERY_LANG === "ru")
+      ? QUERY_LANG
+      : (localStorage.getItem("hms_login_lang") || localStorage.getItem("hms_lang") || (CURRENT_LANG.startsWith("uz") ? "uz" : "ru"));
     if (!I18N[lang]) lang = "ru";
     let emailVerified = false;
     let accountMode = "unknown";
@@ -204,6 +207,7 @@
     function applyLang(){
       document.documentElement.lang = lang;
       localStorage.setItem("hms_login_lang", lang);
+      localStorage.setItem("hms_lang", lang);
       langUzBtn.classList.toggle("active", lang === "uz");
       langRuBtn.classList.toggle("active", lang === "ru");
       document.getElementById("googleBtnText").textContent = tt("google");

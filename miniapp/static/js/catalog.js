@@ -103,6 +103,7 @@
       telegram: "Telegram",
       nearest_by_gps: "GPS bo'yicha yaqinlarini topish",
       any_distance: "Masofa: hammasi",
+      enable_gps_first: "Avval GPS ruxsatini yoqing",
       location_denied: "Joylashuvga ruxsat berilmadi",
       location_unavailable: "GPS ma'lumoti olinmadi",
       distance_km: "km"
@@ -210,6 +211,7 @@
       telegram: "Telegram",
       nearest_by_gps: "Найти ближайшие по GPS",
       any_distance: "Расстояние: все",
+      enable_gps_first: "Сначала разрешите GPS",
       location_denied: "Нет доступа к геолокации",
       location_unavailable: "Не удалось получить GPS",
       distance_km: "км"
@@ -296,6 +298,10 @@
 
   function t(key) {
     return (tr[lang] && tr[lang][key]) || key;
+  }
+
+  function buildLoginUrl() {
+    return `/login?lang=${encodeURIComponent(lang === "ru" ? "ru" : "uz")}`;
   }
 
   function escapeHtml(s) {
@@ -473,6 +479,7 @@
     });
     updateAuthButton();
     closeProfileMenu();
+    updateDistanceFilterState();
     updateFiltersToggleUi();
     render();
   }
@@ -500,6 +507,13 @@
 
   function closeProfileMenu() {
     if (profileMenuEl) profileMenuEl.hidden = true;
+  }
+
+  function updateDistanceFilterState() {
+    if (!distanceFilterEl) return;
+    const enabled = !!userGeo;
+    distanceFilterEl.disabled = !enabled;
+    if (!enabled) distanceFilterEl.value = "";
   }
 
   function updateFiltersToggleUi() {
@@ -552,7 +566,7 @@
   function requireLoginOrRedirect() {
     if (sessionLoggedIn) return true;
     alert(t("login_required_action"));
-    window.location.href = "/login";
+    window.location.href = buildLoginUrl();
     return false;
   }
 
@@ -691,7 +705,7 @@
         if (a > maxBound || b < minBound) return false;
       }
 
-      if (maxDistance === null) return true;
+      if (maxDistance === null || !userGeo) return true;
       const d = rowDistance(r);
       return d !== null && d <= maxDistance;
     });
@@ -972,7 +986,7 @@
       })
     });
     if (res.status === 401) {
-      window.location.href = "/login";
+      window.location.href = buildLoginUrl();
       return;
     }
     if (!res.ok) {
@@ -1034,10 +1048,13 @@
           lat: pos.coords.latitude,
           lon: pos.coords.longitude,
         };
+        updateDistanceFilterState();
         findNearestBtnEl.disabled = false;
         render();
       },
       () => {
+        userGeo = null;
+        updateDistanceFilterState();
         findNearestBtnEl.disabled = false;
         alert(t("location_denied"));
       },
@@ -1057,7 +1074,8 @@
   });
   if (authBtnEl) {
     authBtnEl.addEventListener("click", () => {
-      window.location.href = "/login";
+      localStorage.setItem("hms_login_lang", lang);
+      window.location.href = buildLoginUrl();
     });
   }
   if (profileBtnEl && profileMenuEl) {
@@ -1108,13 +1126,21 @@
     priceMinInputEl.value = "";
     priceMaxInputEl.value = "";
     userGeo = null;
+    updateDistanceFilterState();
     priceMinRangeEl.value = String(priceBounds.min);
     priceMaxRangeEl.value = String(priceBounds.max);
     syncPriceLabels();
     loadBranches();
   });
   findNearestBtnEl.addEventListener("click", findNearest);
-  distanceFilterEl.addEventListener("change", render);
+  distanceFilterEl.addEventListener("change", () => {
+    if (!userGeo) {
+      distanceFilterEl.value = "";
+      alert(t("enable_gps_first"));
+      return;
+    }
+    render();
+  });
   priceMinInputEl.addEventListener("input", () => {
     syncInputToRange();
     render();
@@ -1205,7 +1231,7 @@
       body: form
     });
     if (res.status === 401) {
-      window.location.href = "/login";
+      window.location.href = buildLoginUrl();
       return;
     }
     if (!res.ok) return;
@@ -1239,7 +1265,7 @@
       body: JSON.stringify(payload),
     });
     if (res.status === 401) {
-      window.location.href = "/login";
+      window.location.href = buildLoginUrl();
       return;
     }
     if (!res.ok) return;
