@@ -13,8 +13,9 @@
       show_filters: "Filterni ko'rsatish",
       hide_filters: "Filterni yopish",
       my_history: "Tarixim",
-      login_required_history: "Tarixni ko'rish uchun Telegram orqali kirish kerak",
-      login_required_rating: "Baholash uchun Telegram orqali kirish kerak",
+      login_required_history: "Tarixni ko'rish uchun tizimga kirish kerak",
+      login_required_rating: "Baholash uchun tizimga kirish kerak",
+      login_required_action: "Bu amal uchun avval tizimga kiring",
       enter_contact_history: "Tarix uchun bookingdagi telefon raqamingizni kiriting",
       history_empty: "Tarix topilmadi",
       history_load_error: "Tarixni yuklab bo'lmadi",
@@ -112,8 +113,9 @@
       show_filters: "Показать фильтры",
       hide_filters: "Скрыть фильтры",
       my_history: "Моя история",
-      login_required_history: "Для истории нужно войти через Telegram",
-      login_required_rating: "Для оценки нужно войти через Telegram",
+      login_required_history: "Для истории нужно войти в систему",
+      login_required_rating: "Для оценки нужно войти в систему",
+      login_required_action: "Для этого действия нужно войти в систему",
       enter_contact_history: "Введите номер телефона из брони для истории",
       history_empty: "История не найдена",
       history_load_error: "Не удалось загрузить историю",
@@ -204,6 +206,7 @@
   let rows = [];
   let userGeo = null;
   let currentTgUser = null;
+  let sessionLoggedIn = false;
   const NO_PHOTO_SRC = "/static/icons/no_photo.png";
 
   const cardsEl = document.getElementById("cards");
@@ -478,6 +481,23 @@
     }
   }
 
+  async function initSessionStatus() {
+    try {
+      const res = await fetch("/auth/session-status", { cache: "no-store" });
+      const payload = await res.json().catch(() => ({}));
+      sessionLoggedIn = !!(res.ok && payload && payload.logged_in);
+    } catch (_) {
+      sessionLoggedIn = false;
+    }
+  }
+
+  function requireLoginOrRedirect() {
+    if (sessionLoggedIn) return true;
+    alert(t("login_required_action"));
+    window.location.href = "/login";
+    return false;
+  }
+
   function historyTypeLabel(itemType) {
     const tpe = String(itemType || "").toLowerCase();
     if (tpe === "rating") return t("history_rating");
@@ -648,7 +668,7 @@
     const distanceHtml = distance === null
       ? ""
       : `<span class="distance-chip">📍 ${distance.toFixed(1)} ${t("distance_km")}</span>`;
-    const canSendMessage = Boolean(currentTgUser && currentTgUser.id);
+    const canSendMessage = Boolean(sessionLoggedIn);
     const reportButtonHtml = canSendMessage
       ? `<button class="ghost-btn small-btn" data-report="${r.id}">
               <img class="btn-ico" src="/static/icons/messages_client.png" alt=""> ${t("report")}
@@ -870,8 +890,7 @@
   }
 
   async function submitRating(branchId) {
-    if (!currentTgUser || !currentTgUser.id) {
-      alert(t("login_required_rating"));
+    if (!requireLoginOrRedirect()) {
       return;
     }
     const contact = (window.prompt(t("rate_phone_prompt"), "") || "").trim();
@@ -890,10 +909,14 @@
         comment: comment,
         contact: contact,
         source: "web_app",
-        telegram_id: currentTgUser.id,
-        user_name: currentTgUser.username || currentTgUser.name || null
+        telegram_id: currentTgUser && currentTgUser.id ? currentTgUser.id : null,
+        user_name: currentTgUser ? (currentTgUser.username || currentTgUser.name || null) : null
       })
     });
+    if (res.status === 401) {
+      window.location.href = "/login";
+      return;
+    }
     if (!res.ok) {
       let msg = t("rate_not_allowed");
       try {
@@ -908,6 +931,7 @@
   }
 
   function openReport(branchId, branchName) {
+    if (!requireLoginOrRedirect()) return;
     reportBranchIdEl.value = String(branchId);
     reportTitleEl.textContent = `${branchName} - ${t("report")}`;
     reportRoomLabelEl.value = "";
@@ -918,6 +942,7 @@
   }
 
   function openBooking(branchId, branchName, roomMeta = {}) {
+    if (!requireLoginOrRedirect()) return;
     bookingBranchIdEl.value = String(branchId);
     bookingTitleEl.textContent = `${branchName} - ${t("booking")}`;
     bookingNameEl.value = "";
@@ -1066,6 +1091,7 @@
 
   reportFormEl.addEventListener("submit", async (e) => {
     e.preventDefault();
+    if (!requireLoginOrRedirect()) return;
     const branchId = Number(reportBranchIdEl.value || 0);
     const message = String(reportMessageEl.value || "").trim();
     if (!branchId || !message) return;
@@ -1086,6 +1112,10 @@
       method: "POST",
       body: form
     });
+    if (res.status === 401) {
+      window.location.href = "/login";
+      return;
+    }
     if (!res.ok) return;
     reportModalEl.classList.add("hidden");
     alert(t("report_saved"));
@@ -1093,6 +1123,7 @@
 
   bookingFormEl.addEventListener("submit", async (e) => {
     e.preventDefault();
+    if (!requireLoginOrRedirect()) return;
     const branchId = Number(bookingBranchIdEl.value || 0);
     const phone = String(bookingPhoneEl.value || "").trim();
     if (!branchId || !phone) return;
@@ -1115,6 +1146,10 @@
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
+    if (res.status === 401) {
+      window.location.href = "/login";
+      return;
+    }
     if (!res.ok) return;
     bookingModalEl.classList.add("hidden");
     alert(t("booking_saved"));
@@ -1122,6 +1157,9 @@
 
   applyLang();
   initTelegramUser();
+  initSessionStatus().then(() => {
+    render();
+  });
   filtersPanelEl.hidden = !filtersOpen;
   filtersPanelEl.classList.toggle("collapsed", !filtersOpen);
   loadBranches();

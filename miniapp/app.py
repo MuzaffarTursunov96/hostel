@@ -1,12 +1,17 @@
-﻿from flask import Flask, render_template, request, jsonify, session, redirect, Response
+from flask import Flask, render_template, request, jsonify, session, redirect, Response
 import requests
 from functools import wraps
 import os
 from dotenv import load_dotenv
 from telegram_auth import verify_telegram_init_data
 import jwt
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import json
+import re
+import random
+import hmac
+import smtplib
+from email.mime.text import MIMEText
 
 
 
@@ -19,11 +24,28 @@ ROOT_TELEGRAM_ID = int(os.getenv("ROOT_TELEGRAM_ID", "1343842535"))
 BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 LEADS_FILE = os.getenv("LEADS_FILE", "tmp/hms_sales_leads.jsonl")
 MARKETING_CONTENT_FILE = os.getenv("MARKETING_CONTENT_FILE", "content/marketing_content.json")
+EMAIL_OTP_TTL_SECONDS = int(os.getenv("EMAIL_OTP_TTL_SECONDS", "300"))
+EMAIL_OTP_RESEND_SECONDS = int(os.getenv("EMAIL_OTP_RESEND_SECONDS", "60"))
+EMAIL_OTP_MAX_ATTEMPTS = int(os.getenv("EMAIL_OTP_MAX_ATTEMPTS", "5"))
+EMAIL_VERIFICATION_REQUIRED = str(os.getenv("EMAIL_VERIFICATION_REQUIRED", "1")).strip().lower() not in ("0", "false", "no")
+EMAIL_ALLOWED_DOMAINS = {
+    d.strip().lower()
+    for d in str(os.getenv("EMAIL_ALLOWED_DOMAINS", "gmail.com")).split(",")
+    if d.strip()
+}
+SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+SMTP_USERNAME = os.getenv("SMTP_USERNAME", "")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
+SMTP_FROM = os.getenv("SMTP_FROM", SMTP_USERNAME or "noreply@example.com")
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 if not os.path.isabs(MARKETING_CONTENT_FILE):
     MARKETING_CONTENT_FILE = os.path.join(BASE_DIR, MARKETING_CONTENT_FILE)
 if not os.path.isabs(LEADS_FILE):
     LEADS_FILE = os.path.join(BASE_DIR, LEADS_FILE)
+
+EMAIL_OTP_STORE = {}
 
 
 app = Flask(__name__,static_folder="static", static_url_path="/static")
@@ -64,6 +86,7 @@ def inject_globals():
         "CURRENT_LANG": lang,         # for JS
         "ROOT_ADMIN_TELEGRAM": ROOT_ADMIN_TELEGRAM,
         "ROOT_ADMIN_PHONE": ROOT_ADMIN_PHONE,
+        "GOOGLE_CLIENT_ID": GOOGLE_CLIENT_ID,
     }
 
 
@@ -79,8 +102,84 @@ def login_required(f):
     return wrapper
 
 
+def is_logged_in_session():
+    return "access_token" in session
+
+
+def require_login_json():
+    if is_logged_in_session():
+        return None
+    return jsonify({"ok": False, "error": "Login required"}), 401
+
+
 def is_root_admin_session():
     return bool(session.get("is_admin")) and int(session.get("telegram_id") or 0) == ROOT_TELEGRAM_ID
+
+
+def _normalize_email(value):
+    return str(value or "").strip().lower()
+
+
+def _is_valid_email(email):
+    if not re.fullmatch(r"^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$", email):
+        return False
+    if not EMAIL_ALLOWED_DOMAINS:
+        return True
+    domain = email.rsplit("@", 1)[-1]
+    return domain in EMAIL_ALLOWED_DOMAINS
+
+
+def _mask_email(email):
+    local, _, domain = email.partition("@")
+    if len(local) <= 2:
+        hidden_local = "*" * len(local)
+    else:
+        hidden_local = local[0] + ("*" * max(1, len(local) - 2)) + local[-1]
+    return f"{hidden_local}@{domain}"
+
+
+def _send_otp_email(email, code):
+    if not SMTP_USERNAME or not SMTP_PASSWORD:
+        return False, "SMTP is not configured"
+
+    body = (
+        "Your verification code\n\n"
+        f"Code: {code}\n"
+        f"Expires in: {EMAIL_OTP_TTL_SECONDS // 60} minutes\n\n"
+        "If you did not request this code, you can ignore this email."
+    )
+    msg = MIMEText(body, "plain", "utf-8")
+    msg["Subject"] = "Hostel login verification code"
+    msg["From"] = SMTP_FROM
+    msg["To"] = email
+
+    try:
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as server:
+            server.starttls()
+            server.login(SMTP_USERNAME, SMTP_PASSWORD)
+            server.sendmail(SMTP_FROM, [email], msg.as_string())
+        return True, None
+    except Exception:
+        return False, "Failed to send verification code"
+
+
+def _post_backend_login(username, password):
+    payload = {
+        "username": username,
+        "password": password,
+    }
+    urls = (f"{API_URL}/auth/login", f"{API_URL}/api/auth/login")
+    last_response = None
+    for url in urls:
+        try:
+            resp = requests.post(url, json=payload, timeout=(10, 20))
+        except requests.RequestException:
+            continue
+        if resp.status_code == 404:
+            last_response = resp
+            continue
+        return resp
+    return last_response
 
 
 def notify_new_lead(lead):
@@ -205,6 +304,16 @@ def public_catalog_page():
     return render_template("catalog.html")
 
 
+@app.get("/auth/session-status")
+def auth_session_status():
+    return jsonify({
+        "ok": True,
+        "logged_in": is_logged_in_session(),
+        "user_id": session.get("user_id"),
+        "is_admin": bool(session.get("is_admin")),
+    })
+
+
 @app.get("/public-api/branches")
 def public_api_branches():
     resp = requests.get(
@@ -247,6 +356,9 @@ def public_api_branch_ratings(branch_id: int):
 
 @app.post("/public-api/branches/<int:branch_id>/ratings")
 def public_api_add_rating(branch_id: int):
+    guard = require_login_json()
+    if guard:
+        return guard
     resp = requests.post(
         f"{API_URL}/public/branches/{branch_id}/ratings",
         json=request.get_json(silent=True) or {},
@@ -257,6 +369,9 @@ def public_api_add_rating(branch_id: int):
 
 @app.get("/public-api/user-history")
 def public_api_user_history():
+    guard = require_login_json()
+    if guard:
+        return guard
     resp = requests.get(
         f"{API_URL}/public/user-history",
         params=request.args,
@@ -267,6 +382,9 @@ def public_api_user_history():
 
 @app.post("/public-api/feedback/room-report")
 def public_api_room_report():
+    guard = require_login_json()
+    if guard:
+        return guard
     files = {}
     if "file" in request.files:
         f = request.files["file"]
@@ -284,6 +402,9 @@ def public_api_room_report():
 
 @app.post("/public-api/booking-request")
 def public_api_booking_request():
+    guard = require_login_json()
+    if guard:
+        return guard
     resp = requests.post(
         f"{API_URL}/feedback/public-booking-request",
         json=request.get_json(silent=True) or {},
@@ -410,19 +531,79 @@ def telegram_auth():
     return jsonify({"ok": True})
 
 
+@app.post("/auth/email/send-code")
+def send_email_code():
+    data = request.get_json(silent=True) or {}
+    email = _normalize_email(data.get("email"))
+    if not _is_valid_email(email):
+        return jsonify({"ok": False, "error": "Enter a valid Gmail address"}), 400
+
+    now = datetime.now(timezone.utc)
+    existing = EMAIL_OTP_STORE.get(email)
+    if existing:
+        last_sent_at = existing.get("last_sent_at")
+        if isinstance(last_sent_at, datetime):
+            wait_seconds = int((last_sent_at + timedelta(seconds=EMAIL_OTP_RESEND_SECONDS) - now).total_seconds())
+            if wait_seconds > 0:
+                return jsonify({
+                    "ok": False,
+                    "error": f"Please wait {wait_seconds}s before requesting a new code"
+                }), 429
+
+    code = f"{random.SystemRandom().randint(0, 999999):06d}"
+    sent_ok, sent_error = _send_otp_email(email, code)
+    if not sent_ok:
+        return jsonify({"ok": False, "error": sent_error}), 500
+
+    EMAIL_OTP_STORE[email] = {
+        "code": code,
+        "expires_at": now + timedelta(seconds=EMAIL_OTP_TTL_SECONDS),
+        "attempts": 0,
+        "verified": False,
+        "last_sent_at": now,
+    }
+    return jsonify({"ok": True, "email_masked": _mask_email(email)})
+
+
+@app.post("/auth/email/verify-code")
+def verify_email_code():
+    data = request.get_json(silent=True) or {}
+    email = _normalize_email(data.get("email"))
+    code = str(data.get("code") or "").strip()
+
+    record = EMAIL_OTP_STORE.get(email)
+    if not record:
+        return jsonify({"ok": False, "error": "Verification code is missing. Request a new code."}), 400
+
+    now = datetime.now(timezone.utc)
+    expires_at = record.get("expires_at")
+    if not isinstance(expires_at, datetime) or now > expires_at:
+        EMAIL_OTP_STORE.pop(email, None)
+        return jsonify({"ok": False, "error": "Code expired. Request a new one."}), 400
+
+    record["attempts"] = int(record.get("attempts", 0)) + 1
+    if record["attempts"] > EMAIL_OTP_MAX_ATTEMPTS:
+        EMAIL_OTP_STORE.pop(email, None)
+        return jsonify({"ok": False, "error": "Too many attempts. Request a new code."}), 429
+
+    if not hmac.compare_digest(str(record.get("code", "")), code):
+        return jsonify({"ok": False, "error": "Invalid verification code"}), 400
+
+    record["verified"] = True
+    session["verified_email"] = email
+    session["verified_email_at"] = now.isoformat()
+    return jsonify({"ok": True, "email": email})
+
 
 @app.post("/login")
 def do_login():
-    data = request.json
+    data = request.get_json(silent=True) or {}
+    if EMAIL_VERIFICATION_REQUIRED and not session.get("verified_email"):
+        return jsonify({"ok": False, "error": "Verify your Gmail first"}), 403
 
-    r = requests.post(
-        f"{API_URL}/api/auth/login",
-        json={
-            "username": data.get("username"),
-            "password": data.get("password")
-        },
-        timeout=(10,20)
-    )
+    r = _post_backend_login(data.get("username"), data.get("password"))
+    if r is None:
+        return jsonify({"ok": False, "error": "Authentication service is unavailable"}), 503
 
     if r.status_code == 200:
         payload = r.json()
@@ -436,6 +617,8 @@ def do_login():
         session["telegram_id"] = payload.get("telegram_id")
         session["branch_id"] = token_payload.get("branch_id", payload.get("branch_id"))
         session["language"] = token_payload.get("language", payload.get("language", "ru"))
+        session.pop("verified_email", None)
+        session.pop("verified_email_at", None)
 
     return jsonify(r.json()), r.status_code
 
@@ -461,6 +644,7 @@ def api2_ping():
 
 
 @app.route("/api2/<path:path>", methods=["GET", "POST", "PUT", "DELETE"])
+@login_required
 def api_proxy(path):
     with open("/tmp/api_proxy.log", "a") as f:
         f.write(f"HIT api_proxy: {path}\n")

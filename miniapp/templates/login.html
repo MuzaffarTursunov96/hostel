@@ -1,133 +1,500 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Загрузка...</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Login</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
-    .loading-screen {
-      position: fixed;
-      inset: 0;
+    :root {
+      --bg: #ececec;
+      --sheet: #ffffff;
+      --text: #101010;
+      --muted: #6f6f6f;
+      --line: #d8d8d8;
+      --btn: #f6f6f6;
+      --btn-border: #d3d3d3;
+      --ok: #0f8a43;
+      --err: #b42318;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+      background: radial-gradient(circle at 20% 20%, #f8f8f8 0%, #ececec 55%, #e3e3e3 100%);
+      color: var(--text);
+      display: grid;
+      place-items: center;
+      padding: 14px;
+    }
+
+    .sheet {
+      width: min(610px, 100%);
+      background: var(--sheet);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: 0 26px 60px rgba(0, 0, 0, 0.14);
+      padding: 24px;
+      position: relative;
+    }
+
+    .close {
+      position: absolute;
+      top: 12px;
+      right: 14px;
+      border: 0;
+      background: transparent;
+      font-size: 30px;
+      color: #212121;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    h1 {
+      margin: 18px 0 0;
+      text-align: center;
+      font-size: clamp(34px, 5.6vw, 54px);
+      font-weight: 500;
+      letter-spacing: -0.02em;
+    }
+
+    .sub {
+      margin: 10px auto 0;
+      max-width: 470px;
+      text-align: center;
+      color: #4e4e4e;
+      font-size: 18px;
+      line-height: 1.45;
+    }
+
+    .social {
+      margin-top: 24px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .social-btn {
+      width: 100%;
+      height: 64px;
+      border-radius: 999px;
+      border: 1px solid var(--btn-border);
+      background: var(--btn);
+      color: #161616;
+      font-size: 38px;
+      font-weight: 600;
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
-      background: var(--tg-theme-bg-color, #ffffff);
-      color: var(--tg-theme-text-color, #000000);
-      z-index: 9999;
-      transition: opacity 0.25s ease;
+      gap: 10px;
+      cursor: pointer;
     }
 
-    .spinner {
-      width: 42px;
-      height: 42px;
-      border: 4px solid rgba(0,0,0,0.1);
-      border-top-color: #2563eb;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
+    .social-btn:hover { background: #f2f2f2; }
 
-    .loading-text {
-      margin-top: 12px;
-      font-size: 15px;
-      opacity: 0.8;
-      white-space: pre-line;
+    .social-icon {
+      width: 24px;
       text-align: center;
-      max-width: 90vw;
+      color: #1f1f1f;
+      font-size: 23px;
+      line-height: 1;
     }
 
-    @keyframes spin {
-      to { transform: rotate(360deg); }
+    .social-icon.google {
+      color: #4285f4;
+      font-weight: 700;
+    }
+
+    .or {
+      margin: 18px 0;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 12px;
+      color: #5b5b5b;
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .or::before,
+    .or::after {
+      content: "";
+      border-top: 1px solid var(--line);
+      display: block;
+    }
+
+    .row {
+      display: grid;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .pill-input {
+      width: 100%;
+      height: 66px;
+      border-radius: 999px;
+      border: 1px solid #3a3a3a;
+      padding: 0 22px;
+      font-size: 30px;
+      outline: none;
+      background: #fff;
+    }
+
+    .pill-input::placeholder {
+      color: #8a8a8a;
+    }
+
+    .pill-input:focus {
+      border-color: #0f62fe;
+      box-shadow: 0 0 0 4px rgba(15, 98, 254, 0.12);
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+    }
+
+    .mini-btn {
+      height: 48px;
+      border-radius: 999px;
+      border: 1px solid #cfcfcf;
+      background: #f8f8f8;
+      padding: 0 18px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .mini-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .otp-wrap {
+      display: none;
+      gap: 10px;
+    }
+
+    .otp-wrap.show {
+      display: grid;
+    }
+
+    .login-wrap {
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid var(--line);
+      display: grid;
+      gap: 10px;
+    }
+
+    .msg {
+      display: none;
+      margin-top: 10px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      padding: 10px 12px;
+      font-size: 14px;
+      white-space: pre-line;
+    }
+
+    .msg.ok {
+      display: block;
+      border-color: #9be0b5;
+      background: #eafdf1;
+      color: var(--ok);
+    }
+
+    .msg.err {
+      display: block;
+      border-color: #f4c7c3;
+      background: #fff0ef;
+      color: var(--err);
+    }
+
+    .state {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .state.ok {
+      color: var(--ok);
+      font-weight: 600;
+    }
+
+    #googleSignInContainer {
+      display: none;
+    }
+
+    @media (max-width: 700px) {
+      .sheet { padding: 18px; }
+      h1 { font-size: 46px; }
+      .pill-input { height: 60px; font-size: 28px; }
+      .social-btn { height: 60px; font-size: 32px; }
     }
   </style>
 </head>
 <body>
+  <div class="sheet">
+    <button class="close" type="button" onclick="window.location.href='/'">&times;</button>
+    <h1>Log in or sign up</h1>
+    <p class="sub">You'll get smarter responses and can upload files, images, and more.</p>
 
-<div id="app-loading" class="loading-screen">
-  <div class="spinner"></div>
-  <div class="loading-text">Подключение к Telegram...</div>
-</div>
+    <div class="social">
+      <button id="googlePickBtn" class="social-btn" type="button">
+        <span class="social-icon google">G</span>
+        Continue with Google
+      </button>
+      <button id="appleBtn" class="social-btn" type="button">
+        <span class="social-icon">A</span>
+        Continue with Apple
+      </button>
+      <button id="phoneBtn" class="social-btn" type="button">
+        <span class="social-icon">P</span>
+        Continue with phone
+      </button>
+      <div id="googleSignInContainer"></div>
+    </div>
 
-<script>
-const tg = window.Telegram && window.Telegram.WebApp;
-const ROOT_ADMIN_TELEGRAM = "muzaffar_developer";
-const ROOT_ADMIN_PHONE = "+998991422110";
+    <div class="or">OR</div>
 
-if (!tg) {
-  window.location.replace("/");
-}
+    <div class="row">
+      <input id="email" class="pill-input" type="email" placeholder="Email address" autocomplete="email">
+      <div class="controls">
+        <div></div>
+        <button id="sendCodeBtn" class="mini-btn" type="button">Send code</button>
+      </div>
 
-// Telegram init
-tg.ready();
-tg.expand();
+      <div id="otpWrap" class="otp-wrap">
+        <input id="otp" class="pill-input" type="text" placeholder="6-digit code" maxlength="6" inputmode="numeric">
+        <div class="controls">
+          <div id="stepState" class="state">Email verification required.</div>
+          <button id="verifyCodeBtn" class="mini-btn" type="button">Verify</button>
+        </div>
+      </div>
+    </div>
 
-const loader = document.getElementById("app-loading");
-const text = loader.querySelector(".loading-text");
+    <form id="loginForm" class="login-wrap">
+      <input id="username" class="pill-input" type="text" placeholder="Username" autocomplete="username" required>
+      <input id="password" class="pill-input" type="password" placeholder="Password" autocomplete="current-password" required>
+      <div class="controls">
+        <div></div>
+        <button id="loginBtn" class="mini-btn" type="submit" disabled>Log in</button>
+      </div>
+    </form>
 
-function showError(message) {
-  text.innerText = message;
-}
+    <div id="msg" class="msg"></div>
+  </div>
 
-function isBrokenText(value) {
-  const s = String(value || "");
-  const badTokens = ["Рџ", "Р°", "СЃ", "вЂ", "Ð", "Ñ", "�"];
-  return badTokens.some((token) => s.includes(token));
-}
+  <script>
+    const tg = window.Telegram && window.Telegram.WebApp;
+    const msgEl = document.getElementById("msg");
+    const stepState = document.getElementById("stepState");
+    const emailInput = document.getElementById("email");
+    const otpInput = document.getElementById("otp");
+    const otpWrap = document.getElementById("otpWrap");
+    const usernameInput = document.getElementById("username");
+    const passwordInput = document.getElementById("password");
+    const sendCodeBtn = document.getElementById("sendCodeBtn");
+    const verifyCodeBtn = document.getElementById("verifyCodeBtn");
+    const loginBtn = document.getElementById("loginBtn");
+    const googlePickBtn = document.getElementById("googlePickBtn");
+    const appleBtn = document.getElementById("appleBtn");
+    const phoneBtn = document.getElementById("phoneBtn");
+    const googleSignInContainer = document.getElementById("googleSignInContainer");
+    const GOOGLE_CLIENT_ID = "{{ GOOGLE_CLIENT_ID|default('', true)|e }}";
 
-function normalizeErrorMessage(message) {
-  if (!isBrokenText(message)) return String(message || "");
-  return "Срок доступа временно ограничен. Попробуйте позже или свяжитесь с администратором.";
-}
+    let emailVerified = false;
 
-function withAdminContact(message) {
-  const m = normalizeErrorMessage(message);
-  if (
-    m.includes("Telegram: @") ||
-    m.includes("Телефон:") ||
-    m.includes("Свяжитесь с администратором")
-  ) {
-    return m;
-  }
-  return (
-    m +
-    "\n\nСвяжитесь с администратором:" +
-    "\nTelegram: @" + ROOT_ADMIN_TELEGRAM +
-    "\nТелефон: " + ROOT_ADMIN_PHONE
-  );
-}
-
-if (!tg.initData) {
-  window.location.replace("/");
-} else {
-  fetch("/auth/telegram", {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({ initData: tg.initData })
-  })
-  .then(async (r) => {
-    const data = await r.json().catch(() => ({}));
-    return { ok: r.ok, status: r.status, data };
-  })
-  .then(({ ok, data }) => {
-    if (ok && data.ok) {
-      loader.style.opacity = "0";
-      setTimeout(() => {
-        window.location.href = "/dashboard?v=" + Date.now();
-      }, 250);
-      return;
+    function showMsg(type, text) {
+      msgEl.className = "msg " + type;
+      msgEl.textContent = text;
     }
 
-    const msg = data.error || data.detail || "Ошибка авторизации через Telegram";
-    showError(withAdminContact(msg));
-  })
-  .catch(() => {
-    showError(withAdminContact("Ошибка сети. Попробуйте еще раз."));
-  });
-}
-</script>
+    function clearMsg() {
+      msgEl.className = "msg";
+      msgEl.textContent = "";
+    }
 
+    function setVerifiedState(verified, email) {
+      emailVerified = !!verified;
+      loginBtn.disabled = !emailVerified;
+      if (emailVerified) {
+        stepState.className = "state ok";
+        stepState.textContent = "Email verified: " + email;
+        if (!usernameInput.value && email.includes("@")) {
+          usernameInput.value = email.split("@")[0];
+        }
+      } else {
+        stepState.className = "state";
+        stepState.textContent = "Email verification required.";
+      }
+    }
+
+    async function postJson(url, body) {
+      const r = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      const payload = await r.json().catch(() => ({}));
+      return { ok: r.ok, status: r.status, payload };
+    }
+
+    function decodeJwtPayload(token) {
+      try {
+        const base64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+        const json = decodeURIComponent(
+          atob(base64)
+            .split("")
+            .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+            .join("")
+        );
+        return JSON.parse(json);
+      } catch (_) {
+        return null;
+      }
+    }
+
+    function initGooglePicker() {
+      if (!GOOGLE_CLIENT_ID || !window.google || !google.accounts || !google.accounts.id) {
+        googlePickBtn.style.display = "none";
+        return;
+      }
+
+      google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: (response) => {
+          const payload = decodeJwtPayload(response.credential || "");
+          const email = payload && payload.email ? String(payload.email).trim().toLowerCase() : "";
+          if (!email) {
+            showMsg("err", "Google account email was not received.");
+            return;
+          }
+          emailInput.value = email;
+          otpWrap.classList.add("show");
+          showMsg("ok", "Google account selected: " + email + "\nNow click Send code.");
+        },
+        auto_select: false,
+        cancel_on_tap_outside: true
+      });
+
+      google.accounts.id.renderButton(googleSignInContainer, {
+        theme: "outline",
+        size: "large",
+        text: "continue_with",
+        width: 360
+      });
+
+      googlePickBtn.addEventListener("click", () => {
+        google.accounts.id.prompt();
+      });
+    }
+
+    appleBtn.addEventListener("click", () => {
+      showMsg("err", "Continue with Apple will be added next.");
+    });
+
+    phoneBtn.addEventListener("click", () => {
+      showMsg("ok", "Use Email address below and verify code to continue.");
+      emailInput.focus();
+    });
+
+    sendCodeBtn.addEventListener("click", async () => {
+      clearMsg();
+      const email = emailInput.value.trim();
+      if (!email) {
+        showMsg("err", "Enter your Gmail first.");
+        return;
+      }
+
+      otpWrap.classList.add("show");
+      sendCodeBtn.disabled = true;
+      try {
+        const { ok, payload } = await postJson("/auth/email/send-code", { email });
+        if (!ok || !payload.ok) {
+          showMsg("err", payload.error || "Failed to send code.");
+          return;
+        }
+        showMsg("ok", "Code sent to " + (payload.email_masked || email));
+      } catch (_) {
+        showMsg("err", "Network error. Try again.");
+      } finally {
+        setTimeout(() => {
+          sendCodeBtn.disabled = false;
+        }, 1200);
+      }
+    });
+
+    verifyCodeBtn.addEventListener("click", async () => {
+      clearMsg();
+      const email = emailInput.value.trim();
+      const code = otpInput.value.trim();
+      if (!email || !code) {
+        showMsg("err", "Enter Gmail and code.");
+        return;
+      }
+
+      verifyCodeBtn.disabled = true;
+      try {
+        const { ok, payload } = await postJson("/auth/email/verify-code", { email, code });
+        if (!ok || !payload.ok) {
+          setVerifiedState(false, "");
+          showMsg("err", payload.error || "Invalid code.");
+          return;
+        }
+        setVerifiedState(true, payload.email || email);
+        showMsg("ok", "Verification successful. You can login now.");
+      } catch (_) {
+        showMsg("err", "Network error. Try again.");
+      } finally {
+        verifyCodeBtn.disabled = false;
+      }
+    });
+
+    document.getElementById("loginForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      clearMsg();
+
+      if (!emailVerified) {
+        showMsg("err", "Verify your Gmail before login.");
+        return;
+      }
+
+      loginBtn.disabled = true;
+      try {
+        const { ok, payload } = await postJson("/login", {
+          username: usernameInput.value.trim(),
+          password: passwordInput.value
+        });
+        if (!ok) {
+          showMsg("err", payload.detail || payload.error || "Login failed.");
+          return;
+        }
+        window.location.href = "/dashboard?v=" + Date.now();
+      } catch (_) {
+        showMsg("err", "Network error. Try again.");
+      } finally {
+        loginBtn.disabled = !emailVerified;
+      }
+    });
+
+    initGooglePicker();
+
+    if (tg && tg.initData) {
+      tg.ready();
+      tg.expand();
+      postJson("/auth/telegram", { initData: tg.initData })
+        .then(({ ok, payload }) => {
+          if (ok && payload.ok) {
+            window.location.href = "/dashboard?v=" + Date.now();
+          }
+        })
+        .catch(() => {});
+    }
+  </script>
 </body>
 </html>
-
-
