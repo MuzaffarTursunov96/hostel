@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="uz">
 <head>
   <meta charset="UTF-8">
@@ -14,8 +14,14 @@
   <header class="topbar">
     <a class="back-link" href="/">HMSUZ</a>
     <div class="topbar-right">
-      <span id="userBadge" class="user-badge" hidden></span>
       <button id="authBtn" type="button" class="lang-btn auth-btn" data-i18n="login">Login</button>
+      <div id="profileMenuWrap" class="profile-menu-wrap" hidden>
+        <button id="profileBtn" type="button" class="profile-btn" aria-label="Profile">👤</button>
+        <div id="profileMenu" class="profile-menu" hidden>
+          <div id="profileName" class="profile-name">User</div>
+          <button id="profileLogoutBtn" type="button" class="profile-logout" data-i18n="logout">Logout</button>
+        </div>
+      </div>
       <div class="lang-switch">
         <button type="button" class="lang-btn active" data-lang="uz">UZ</button>
         <button type="button" class="lang-btn" data-lang="ru">RU</button>

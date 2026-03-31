@@ -56,18 +56,53 @@ body {
   gap: 8px;
 }
 
-.user-badge {
-  max-width: 132px;
-  padding: 6px 10px;
-  border-radius: 999px;
+.profile-menu-wrap {
+  position: relative;
+}
+
+.profile-btn {
+  width: 36px;
+  height: 36px;
   border: 1px solid var(--line);
+  border-radius: 999px;
   background: #eef4ff;
-  color: #1d4ed8;
-  font-size: 12px;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.profile-menu {
+  position: absolute;
+  top: 44px;
+  right: 0;
+  min-width: 170px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 12px 24px rgba(2, 6, 23, 0.12);
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+  z-index: 35;
+}
+
+.profile-name {
+  font-size: 13px;
   font-weight: 700;
+  color: #1d4ed8;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.profile-logout {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #f8fafc;
+  padding: 7px 10px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 .auth-btn {

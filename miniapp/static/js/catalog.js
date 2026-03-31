@@ -1,4 +1,4 @@
-﻿(function () {
+(function () {
   const tr = {
     uz: {
       title: "Hotel va Hostel katalogi",
@@ -15,6 +15,7 @@
       my_history: "Tarixim",
       login: "Kirish",
       logout: "Chiqish",
+      profile: "Profil",
       login_required_history: "Tarixni ko'rish uchun tizimga kirish kerak",
       login_required_rating: "Baholash uchun tizimga kirish kerak",
       login_required_action: "Bu amal uchun avval tizimga kiring",
@@ -117,6 +118,7 @@
       my_history: "Моя история",
       login: "Войти",
       logout: "Выйти",
+      profile: "Профиль",
       login_required_history: "Для истории нужно войти в систему",
       login_required_rating: "Для оценки нужно войти в систему",
       login_required_action: "Для этого действия нужно войти в систему",
@@ -219,7 +221,11 @@
   const toggleFiltersBtnEl = document.getElementById("toggleFiltersBtn");
   const myHistoryBtnEl = document.getElementById("myHistoryBtn");
   const authBtnEl = document.getElementById("authBtn");
-  const userBadgeEl = document.getElementById("userBadge");
+  const profileMenuWrapEl = document.getElementById("profileMenuWrap");
+  const profileBtnEl = document.getElementById("profileBtn");
+  const profileMenuEl = document.getElementById("profileMenu");
+  const profileNameEl = document.getElementById("profileName");
+  const profileLogoutBtnEl = document.getElementById("profileLogoutBtn");
   const toggleFiltersTextEl = document.getElementById("toggleFiltersText");
   const toggleFiltersIconEl = toggleFiltersBtnEl ? toggleFiltersBtnEl.querySelector(".filter-toggle-icon") : null;
   const searchEl = document.getElementById("searchInput");
@@ -463,16 +469,21 @@
 
   function updateAuthButton() {
     if (!authBtnEl) return;
-    authBtnEl.textContent = sessionLoggedIn ? t("logout") : t("login");
-    if (!userBadgeEl) return;
-    if (sessionLoggedIn && sessionDisplayName) {
-      userBadgeEl.hidden = false;
-      userBadgeEl.textContent = sessionDisplayName;
-      userBadgeEl.title = sessionDisplayName;
+    authBtnEl.textContent = t("login");
+
+    if (sessionLoggedIn) {
+      authBtnEl.hidden = true;
+      if (profileMenuWrapEl) profileMenuWrapEl.hidden = false;
+      if (profileNameEl) {
+        profileNameEl.textContent = sessionDisplayName || t("profile");
+        profileNameEl.title = sessionDisplayName || t("profile");
+      }
+      if (profileBtnEl) profileBtnEl.title = t("profile");
+      if (profileLogoutBtnEl) profileLogoutBtnEl.textContent = t("logout");
     } else {
-      userBadgeEl.hidden = true;
-      userBadgeEl.textContent = "";
-      userBadgeEl.title = "";
+      authBtnEl.hidden = false;
+      if (profileMenuWrapEl) profileMenuWrapEl.hidden = true;
+      if (profileMenuEl) profileMenuEl.hidden = true;
     }
   }
 
@@ -1031,13 +1042,27 @@
   });
   if (authBtnEl) {
     authBtnEl.addEventListener("click", () => {
-      if (sessionLoggedIn) {
-        window.location.href = "/logout";
-      } else {
-        window.location.href = "/login";
-      }
+      window.location.href = "/login";
     });
   }
+  if (profileBtnEl && profileMenuEl) {
+    profileBtnEl.addEventListener("click", (e) => {
+      e.stopPropagation();
+      profileMenuEl.hidden = !profileMenuEl.hidden;
+    });
+  }
+  if (profileLogoutBtnEl) {
+    profileLogoutBtnEl.addEventListener("click", () => {
+      window.location.href = "/logout";
+    });
+  }
+  document.addEventListener("click", (e) => {
+    if (!profileMenuEl || !profileMenuWrapEl) return;
+    if (profileMenuEl.hidden) return;
+    if (!profileMenuWrapEl.contains(e.target)) {
+      profileMenuEl.hidden = true;
+    }
+  });
 
   refreshEl.addEventListener("click", () => loadBranches());
   toggleFiltersBtnEl.addEventListener("click", () => {
