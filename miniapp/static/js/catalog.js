@@ -6,6 +6,7 @@
       search_ph: "Nom yoki manzil bo'yicha qidirish...",
       city_ph: "Shahar bo'yicha",
       region_ph: "Hudud bo'yicha",
+      all_regions: "Barcha viloyatlar",
       all_room_types: "Barcha xona turlari",
       all_ratings: "Barcha reytinglar",
       refresh: "Yangilash",
@@ -119,6 +120,7 @@
       search_ph: "Поиск по названию или адресу...",
       city_ph: "По городу",
       region_ph: "По региону",
+      all_regions: "Все области",
       all_room_types: "Все типы комнат",
       all_ratings: "Все рейтинги",
       refresh: "Обновить",
@@ -235,6 +237,21 @@
   let sessionLoggedIn = false;
   let sessionDisplayName = "";
   const NO_PHOTO_SRC = "/static/icons/no_photo.png";
+  const REGION_OPTIONS = [
+    { id: 6, name: "Андижанская область", normalized_name: "andizhanskaya-oblast" },
+    { id: 27, name: "Бухарская область", normalized_name: "buharskaya-oblast" },
+    { id: 28, name: "Джизакская область", normalized_name: "dzhizakskaya-oblast" },
+    { id: 32, name: "Каракалпакстан", normalized_name: "karakalpakstan" },
+    { id: 29, name: "Кашкадарьинская область", normalized_name: "kashkadarinskaya-oblast" },
+    { id: 30, name: "Навоийская область", normalized_name: "navoijskaya-oblast" },
+    { id: 31, name: "Наманганская область", normalized_name: "namanganskaya-oblast" },
+    { id: 33, name: "Самаркандская область", normalized_name: "samarkandskaya-oblast" },
+    { id: 34, name: "Сурхандарьинская область", normalized_name: "surhandarinskaya-oblast" },
+    { id: 35, name: "Сырдарьинская область", normalized_name: "syrdarinskaya-oblast" },
+    { id: 5, name: "Ташкентская область", normalized_name: "toshkent-oblast" },
+    { id: 36, name: "Ферганская область", normalized_name: "ferganskaya-oblast" },
+    { id: 37, name: "Хорезмская область", normalized_name: "horezmskaya-oblast" }
+  ];
 
   const cardsEl = document.getElementById("cards");
   const filtersPanelEl = document.getElementById("filtersPanel");
@@ -251,7 +268,7 @@
   const toggleFiltersIconEl = toggleFiltersBtnEl ? toggleFiltersBtnEl.querySelector(".filter-toggle-icon") : null;
   const searchEl = document.getElementById("searchInput");
   const cityEl = document.getElementById("cityInput");
-  const regionEl = document.getElementById("regionInput");
+  const regionEl = document.getElementById("regionFilter");
   const priceModeEl = document.getElementById("priceModeFilter");
   const roomTypeEl = document.getElementById("roomTypeFilter");
   const ratingEl = document.getElementById("ratingFilter");
@@ -499,6 +516,7 @@
     document.querySelectorAll("[data-ph]").forEach((el) => {
       el.placeholder = t(el.dataset.ph);
     });
+    refreshRegionOptions();
     updateAuthButton();
     closeProfileMenu();
     updateDistanceFilterState();
@@ -661,13 +679,25 @@
       vals.map((v) => `<option value="${escapeHtml(v)}"${v === current ? " selected" : ""}>${escapeHtml(v)}</option>`).join("");
   }
 
+  function refreshRegionOptions() {
+    if (!regionEl) return;
+    const current = String(regionEl.value || "");
+    const options = [`<option value="" data-i18n="all_regions">${t("all_regions")}</option>`]
+      .concat(REGION_OPTIONS.map((r) => `<option value="${escapeHtml(r.normalized_name)}">${escapeHtml(r.name)}</option>`))
+      .join("");
+    regionEl.innerHTML = options;
+    regionEl.value = current;
+  }
+
   async function loadBranches() {
     const minRating = Number(ratingEl.value || 0);
     const roomType = String(roomTypeEl.value || "").trim();
+    const regionSlug = String((regionEl && regionEl.value) || "").trim();
     const priceMode = currentPriceMode();
     const q = new URLSearchParams();
     if (minRating > 0) q.set("min_rating", String(minRating));
     if (roomType) q.set("room_type", roomType);
+    if (regionSlug) q.set("region_slug", regionSlug);
     q.set("price_mode", priceMode);
     q.set("limit", "200");
     const res = await fetch(`/public-api/branches?${q.toString()}`, { cache: "no-store" });
@@ -715,7 +745,7 @@
       const textOk = !needle || name.includes(needle) || address.includes(needle);
       if (!textOk) return false;
       if (cityNeedle && !name.includes(cityNeedle) && !address.includes(cityNeedle)) return false;
-      if (regionNeedle && !address.includes(regionNeedle)) return false;
+      if (regionNeedle && String(r.region_slug || "").trim().toLowerCase() !== regionNeedle) return false;
 
       const rowMin = toNum(r.min_price);
       const rowMax = toNum(r.max_price);
@@ -1280,7 +1310,7 @@
   });
   searchEl.addEventListener("input", render);
   if (cityEl) cityEl.addEventListener("input", render);
-  if (regionEl) regionEl.addEventListener("input", render);
+  if (regionEl) regionEl.addEventListener("change", () => loadBranches());
   priceModeEl.addEventListener("change", () => loadBranches());
   roomTypeEl.addEventListener("change", () => loadBranches());
   ratingEl.addEventListener("change", () => loadBranches());

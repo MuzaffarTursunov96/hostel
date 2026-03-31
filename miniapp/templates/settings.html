@@ -123,6 +123,35 @@
     grid-template-columns: 1fr 1fr;
     gap: 8px;
   }
+  .branch-form-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    z-index: 85;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  .branch-form-modal-backdrop.show {
+    display: flex;
+  }
+  .branch-form-modal-card {
+    width: min(620px, 100%);
+    max-height: 86vh;
+    overflow: auto;
+    background: #fff;
+    border-radius: 14px;
+    border: 1px solid #dbe3f1;
+    padding: 12px;
+    display: grid;
+    gap: 10px;
+  }
+  .branch-form-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
 </style>
 
 
@@ -130,13 +159,13 @@
 <div class="p-4 space-y-5">
 
   <!-- TITLE -->
-  <h1 class="text-xl font-semibold">⚙ {{t("settings")}}</h1>
+  <h1 class="text-xl font-semibold">вљ™ {{t("settings")}}</h1>
 
   <div class="admin-only">
     <!-- ================= CREATE / DELETE USER ================= -->
     <div class="bg-card rounded-2xl shadow p-4 space-y-3 admin-only">
 
-      <h3 class="font-semibold">👤 {{t("users")}}</h3>
+      <h3 class="font-semibold">рџ‘¤ {{t("users")}}</h3>
 
       <!-- CREATE -->
       <input id="newUsername"
@@ -185,88 +214,83 @@
 
       <h3 class="font-semibold">🏢 {{t("branch_management")}}</h3>
 
-      <!-- SELECT BRANCH -->
       <select id="branchSelect"
               class="w-full px-3 py-2 rounded-lg border bg-transparent">
       </select>
-      <input id="editBranchPhone"
-            class="w-full px-3 py-2 rounded-lg border bg-transparent"
-            placeholder="{{t('branch_phone_optional')}}">
-      <input id="editBranchTelegram"
-            class="w-full px-3 py-2 rounded-lg border bg-transparent"
-            placeholder="{{t('branch_telegram_optional')}}">
-      <button onclick="saveBranchContacts()"
-              class="w-full py-2 rounded-xl border font-semibold">
-        {{t("save_branch_contacts")}}
-      </button>
 
-      <!-- CREATE -->
-      <input id="newBranchName"
-            class="w-full px-3 py-2 rounded-lg border bg-transparent"
-            placeholder="{{t('new_branch_name')}}">
-
-      <input id="newBranchAddress"
-            class="w-full px-3 py-2 rounded-lg border bg-transparent"
-            placeholder="{{t('address_optional')}}">
-
-      <input id="newBranchLatitude"
-            class="w-full px-3 py-2 rounded-lg border bg-transparent"
-            readonly
-            placeholder="{{t('latitude_optional')}}">
-      <input id="newBranchLongitude"
-            class="w-full px-3 py-2 rounded-lg border bg-transparent"
-            readonly
-            placeholder="{{t('longitude_optional')}}">
-      <button id="pickNewBranchMapBtn"
+      <button id="openEditBranchModalBtn"
               type="button"
-              class="w-full py-2 rounded-xl border font-semibold">
-        {% if session.get('language', 'ru') == 'uz' %}Xaritadan joy tanlash (yangi filial){% else %}Выбрать точку на карте (новый филиал){% endif %}
+              class="w-full py-3 rounded-xl border font-semibold">
+        {% if session.get('language', 'ru') == 'uz' %}Tanlangan filialni tahrirlash{% else %}Редактировать выбранный филиал{% endif %}
       </button>
-      <input id="newBranchPhone"
-            class="w-full px-3 py-2 rounded-lg border bg-transparent"
-            placeholder="{{t('branch_phone_optional')}}">
-      <input id="newBranchTelegram"
-            class="w-full px-3 py-2 rounded-lg border bg-transparent"
-            placeholder="{{t('branch_telegram_optional')}}">
 
-
-      <button onclick="createBranch()"
+      <button id="openNewBranchModalBtn"
+              type="button"
               class="w-full py-3 rounded-xl bg-blue-500 text-white font-semibold">
-        {{t("add")}}
-      </button>
-
-      <!-- DELETE -->
-      <button onclick="deleteBranch()"
-              class="w-full py-3 rounded-xl bg-red-500 text-white font-semibold">
-        {{t("delete")}}
-      </button>
-      <button id="pickSelectedBranchMapBtn"
-              type="button"
-              class="w-full py-2 rounded-xl border font-semibold">
-        {% if session.get('language', 'ru') == 'uz' %}Tanlangan filial joyini xaritadan o'rnatish{% else %}Установить точку выбранного филиала на карте{% endif %}
+        {% if session.get('language', 'ru') == 'uz' %}Yangi filial qo'shish{% else %}Добавить новый филиал{% endif %}
       </button>
 
     </div>
 
+    <div id="editBranchModal" class="branch-form-modal-backdrop admin-only">
+      <div class="branch-form-modal-card">
+        <h3 class="font-semibold text-lg">{% if session.get('language', 'ru') == 'uz' %}Filialni tahrirlash{% else %}Редактирование филиала{% endif %}</h3>
+        <input id="editBranchName" class="w-full px-3 py-2 rounded-lg border bg-transparent" placeholder="{% if session.get('language', 'ru') == 'uz' %}Filial nomi{% else %}Название филиала{% endif %}">
+        <input id="editBranchAddress" class="w-full px-3 py-2 rounded-lg border bg-transparent" placeholder="{{t('address_optional')}}">
+        <select id="editBranchRegion" class="w-full px-3 py-2 rounded-lg border bg-transparent"></select>
+        <input id="editBranchLatitude" class="w-full px-3 py-2 rounded-lg border bg-transparent" readonly placeholder="{{t('latitude_optional')}}">
+        <input id="editBranchLongitude" class="w-full px-3 py-2 rounded-lg border bg-transparent" readonly placeholder="{{t('longitude_optional')}}">
+        <button id="pickSelectedBranchMapBtn" type="button" class="w-full py-2 rounded-xl border font-semibold">
+          {% if session.get('language', 'ru') == 'uz' %}Xaritadan joy tanlash (tanlangan filial){% else %}Выбрать точку на карте (выбранный филиал){% endif %}
+        </button>
+        <input id="editBranchPhone" class="w-full px-3 py-2 rounded-lg border bg-transparent" placeholder="{{t('branch_phone_optional')}}">
+        <input id="editBranchTelegram" class="w-full px-3 py-2 rounded-lg border bg-transparent" placeholder="{{t('branch_telegram_optional')}}">
+        <div class="branch-form-actions">
+          <button id="closeEditBranchModalBtn" type="button" class="py-2 rounded-xl border font-semibold">{{t('cancel')}}</button>
+          <button onclick="saveBranchContacts()" type="button" class="py-2 rounded-xl bg-blue-500 text-white font-semibold">{{t('save')}}</button>
+        </div>
+        <button onclick="deleteBranch()" type="button" class="w-full py-3 rounded-xl bg-red-500 text-white font-semibold">{{t('delete')}}</button>
+      </div>
+    </div>
+
+    <div id="newBranchModal" class="branch-form-modal-backdrop admin-only">
+      <div class="branch-form-modal-card">
+        <h3 class="font-semibold text-lg">{% if session.get('language', 'ru') == 'uz' %}Yangi filial{% else %}Новый филиал{% endif %}</h3>
+        <input id="newBranchName" class="w-full px-3 py-2 rounded-lg border bg-transparent" placeholder="{{t('new_branch_name')}}">
+        <input id="newBranchAddress" class="w-full px-3 py-2 rounded-lg border bg-transparent" placeholder="{{t('address_optional')}}">
+        <select id="newBranchRegion" class="w-full px-3 py-2 rounded-lg border bg-transparent"></select>
+        <input id="newBranchLatitude" class="w-full px-3 py-2 rounded-lg border bg-transparent" readonly placeholder="{{t('latitude_optional')}}">
+        <input id="newBranchLongitude" class="w-full px-3 py-2 rounded-lg border bg-transparent" readonly placeholder="{{t('longitude_optional')}}">
+        <button id="pickNewBranchMapBtn" type="button" class="w-full py-2 rounded-xl border font-semibold">
+          {% if session.get('language', 'ru') == 'uz' %}Xaritadan joy tanlash (yangi filial){% else %}Выбрать точку на карте (новый филиал){% endif %}
+        </button>
+        <input id="newBranchPhone" class="w-full px-3 py-2 rounded-lg border bg-transparent" placeholder="{{t('branch_phone_optional')}}">
+        <input id="newBranchTelegram" class="w-full px-3 py-2 rounded-lg border bg-transparent" placeholder="{{t('branch_telegram_optional')}}">
+        <div class="branch-form-actions">
+          <button id="closeNewBranchModalBtn" type="button" class="py-2 rounded-xl border font-semibold">{{t('cancel')}}</button>
+          <button onclick="createBranch()" type="button" class="py-2 rounded-xl bg-blue-500 text-white font-semibold">{{t('add')}}</button>
+        </div>
+      </div>
+    </div>
     <div class="settings-compact-card admin-only space-y-2">
       <h3 class="settings-compact-title">
         <img src="/static/icons/payment.png" alt="payment" class="settings-compact-icon">
-        {% if session.get('language', 'ru') == 'uz' %}Oldindan to'lov sozlamasi{% else %}Настройка предоплаты{% endif %}
+        {% if session.get('language', 'ru') == 'uz' %}Oldindan to'lov sozlamasi{% else %}РќР°СЃС‚СЂРѕР№РєР° РїСЂРµРґРѕРїР»Р°С‚С‹{% endif %}
       </h3>
       <label class="settings-compact-row justify-between">
-        <span>{% if session.get('language', 'ru') == 'uz' %}Yoqilgan{% else %}Включено{% endif %}</span>
+        <span>{% if session.get('language', 'ru') == 'uz' %}Yoqilgan{% else %}Р’РєР»СЋС‡РµРЅРѕ{% endif %}</span>
         <input id="prepayEnabled" type="checkbox">
       </label>
       <select id="prepayMode" class="settings-compact-input px-3 py-2 border bg-transparent">
-        <option value="percent">{% if session.get('language', 'ru') == 'uz' %}Foiz{% else %}Процент{% endif %}</option>
-        <option value="fixed">{% if session.get('language', 'ru') == 'uz' %}Qat'iy summa{% else %}Фиксированная сумма{% endif %}</option>
+        <option value="percent">{% if session.get('language', 'ru') == 'uz' %}Foiz{% else %}РџСЂРѕС†РµРЅС‚{% endif %}</option>
+        <option value="fixed">{% if session.get('language', 'ru') == 'uz' %}Qat'iy summa{% else %}Р¤РёРєСЃРёСЂРѕРІР°РЅРЅР°СЏ СЃСѓРјРјР°{% endif %}</option>
       </select>
       <input id="prepayValue"
              type="number"
              step="0.01"
              min="0"
              class="settings-compact-input px-3 py-2 border bg-transparent"
-             placeholder="{% if session.get('language', 'ru') == 'uz' %}Qiymat{% else %}Значение{% endif %}">
+             placeholder="{% if session.get('language', 'ru') == 'uz' %}Qiymat{% else %}Р—РЅР°С‡РµРЅРёРµ{% endif %}">
       <button onclick="savePrepaymentSettings()"
               class="settings-compact-btn bg-blue-600 text-white">
         <img src="/static/icons/edit.png" alt="save" class="settings-compact-icon">
@@ -278,12 +302,12 @@
       <a href="/admin-reports"
          class="settings-compact-link bg-indigo-600 text-white">
         <img src="/static/icons/dashboard.png" alt="reports" class="settings-compact-icon">
-        <span>{% if session.get('language', 'ru') == 'uz' %}Filial hisobotlari{% else %}Отчеты по филиалам{% endif %}</span>
+        <span>{% if session.get('language', 'ru') == 'uz' %}Filial hisobotlari{% else %}РћС‚С‡РµС‚С‹ РїРѕ С„РёР»РёР°Р»Р°Рј{% endif %}</span>
       </a>
       <a href="/admin-feedback"
          class="settings-compact-link bg-emerald-600 text-white">
         <img src="/static/icons/messages_client.png" alt="feedback" class="settings-compact-icon">
-        <span>{% if session.get('language', 'ru') == 'uz' %}Mijoz fikrlari{% else %}Отзывы клиентов{% endif %}</span>
+        <span>{% if session.get('language', 'ru') == 'uz' %}Mijoz fikrlari{% else %}РћС‚Р·С‹РІС‹ РєР»РёРµРЅС‚РѕРІ{% endif %}</span>
       </a>
     </div>
 
@@ -305,7 +329,7 @@
 
   <!-- ADMIN: USER NOTIFICATIONS -->
   <div class="flex items-center justify-between admin-only">
-    <span class="text-sm">🔔 {{t("user_notifications")}}</span>
+    <span class="text-sm">рџ”” {{t("user_notifications")}}</span>
     <input type="checkbox"
           id="userNotifyToggle"
           onchange="toggleUserNotifications()">
@@ -316,7 +340,7 @@
   <!-- ================= PASSWORD ================= -->
   <div class="bg-card rounded-2xl shadow p-4 space-y-3">
 
-    <h3 class="font-semibold">🔐 {{t("change_password")}}</h3>
+    <h3 class="font-semibold">рџ”ђ {{t("change_password")}}</h3>
 
     <input id="oldPassword"
            type="password"
@@ -343,7 +367,7 @@
   <!-- ================= NOTIFICATIONS (USER) ================= -->
 <div class="bg-card rounded-2xl shadow p-4 space-y-3">
 
-  <h3 class="font-semibold">🔔 {{t("notifications")}}</h3>
+  <h3 class="font-semibold">рџ”” {{t("notifications")}}</h3>
 
   <label class="flex items-center justify-between cursor-pointer">
     <span class="text-sm">
@@ -361,19 +385,19 @@
   <!-- ================= LANGUAGE ================= -->
   <div class="bg-card rounded-2xl shadow p-4 space-y-3">
 
-    <h3 class="font-semibold">🌐 {{t("language")}}</h3>
+    <h3 class="font-semibold">рџЊђ {{t("language")}}</h3>
 
     <div class="flex gap-3">
       <button id="lang-ru"
               onclick="setLanguage('ru')"
               class="lang-btn flex-1 py-3 rounded-xl border font-medium">
-        🇷🇺 {{t("russian")}}
+        рџ‡·рџ‡є {{t("russian")}}
       </button>
 
       <button id="lang-uz"
               onclick="setLanguage('uz')"
               class="lang-btn flex-1 py-3 rounded-xl border font-medium">
-        🇺🇿 {{t("uzbek")}}
+        рџ‡єрџ‡ї {{t("uzbek")}}
       </button>
     </div>
 
@@ -383,14 +407,14 @@
 </div>
 
 
-<!-- ================= USER → BRANCH MODAL ================= -->
+<!-- ================= USER в†’ BRANCH MODAL ================= -->
 <div id="userBranchModal"
      class="fixed inset-0 bg-black/50 hidden z-50 flex items-center justify-center">
 
   <div class="bg-white rounded-2xl w-[90%] max-w-md p-4 space-y-3">
 
     <h3 class="font-semibold text-lg">
-      🔗 {{t("assign_branches")}}
+      рџ”— {{t("assign_branches")}}
     </h3>
 
     <div id="branchCheckboxList" class="space-y-2"></div>
@@ -414,13 +438,13 @@
 <div id="branchMapModal" class="branch-map-modal-backdrop">
   <div class="branch-map-modal-card">
     <div class="branch-map-head">
-      <span id="branchMapModalTitle">{% if session.get('language', 'ru') == 'uz' %}Xaritadan joy tanlash{% else %}Выбор точки на карте{% endif %}</span>
+      <span id="branchMapModalTitle">{% if session.get('language', 'ru') == 'uz' %}Xaritadan joy tanlash{% else %}Р’С‹Р±РѕСЂ С‚РѕС‡РєРё РЅР° РєР°СЂС‚Рµ{% endif %}</span>
       <button id="branchMapCloseBtn" type="button" class="px-3 py-1 rounded-lg border">X</button>
     </div>
     <div id="branchMapCanvas"></div>
     <div class="branch-map-actions">
-      <button id="branchMapCancelBtn" type="button" class="py-2 rounded-xl border font-semibold">{% if session.get('language', 'ru') == 'uz' %}Bekor qilish{% else %}Отмена{% endif %}</button>
-      <button id="branchMapSaveBtn" type="button" class="py-2 rounded-xl bg-blue-600 text-white font-semibold">{% if session.get('language', 'ru') == 'uz' %}Saqlash{% else %}Сохранить{% endif %}</button>
+      <button id="branchMapCancelBtn" type="button" class="py-2 rounded-xl border font-semibold">{% if session.get('language', 'ru') == 'uz' %}Bekor qilish{% else %}РћС‚РјРµРЅР°{% endif %}</button>
+      <button id="branchMapSaveBtn" type="button" class="py-2 rounded-xl bg-blue-600 text-white font-semibold">{% if session.get('language', 'ru') == 'uz' %}Saqlash{% else %}РЎРѕС…СЂР°РЅРёС‚СЊ{% endif %}</button>
     </div>
   </div>
 </div>

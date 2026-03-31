@@ -75,6 +75,8 @@ def create_branch_admin(data: dict, current_user=Depends(get_current_user)):
     address = data.get("address", None)
     latitude = data.get("latitude", None)
     longitude = data.get("longitude", None)
+    region_name = data.get("region_name", None)
+    region_slug = data.get("region_slug", None)
     contact_phone = data.get("contact_phone", None)
     contact_telegram = data.get("contact_telegram", None)
 
@@ -96,6 +98,8 @@ def create_branch_admin(data: dict, current_user=Depends(get_current_user)):
         address=address,
         latitude=latitude,
         longitude=longitude,
+        region_name=region_name,
+        region_slug=region_slug,
         contact_phone=contact_phone,
         contact_telegram=contact_telegram,
         created_by=current_user["user_id"]
@@ -159,6 +163,8 @@ def update_branch(
     address = data.get("address", None)
     latitude = data.get("latitude", None)
     longitude = data.get("longitude", None)
+    region_name = data.get("region_name", None)
+    region_slug = data.get("region_slug", None)
     contact_phone = data.get("contact_phone", None)
     contact_telegram = data.get("contact_telegram", None)
 
@@ -172,6 +178,8 @@ def update_branch(
         address=address,
         latitude=latitude,
         longitude=longitude,
+        region_name=region_name,
+        region_slug=region_slug,
         contact_phone=contact_phone,
         contact_telegram=contact_telegram
     )

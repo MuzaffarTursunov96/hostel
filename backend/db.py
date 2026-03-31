@@ -10,6 +10,7 @@ from time_utils import app_today, app_now_naive
 _hourly_column_checked = False
 _pricing_columns_checked = False
 _branch_contact_columns_checked = False
+_branch_region_columns_checked = False
 
 def get_connection():
     return engine.begin()
@@ -60,6 +61,8 @@ def init_db():
             address TEXT,
             latitude DOUBLE PRECISION,
             longitude DOUBLE PRECISION,
+            region_name TEXT,
+            region_slug TEXT,
             contact_phone TEXT,
             contact_telegram TEXT,
             created_by INTEGER
@@ -601,6 +604,22 @@ def ensure_branch_contact_columns():
             ADD COLUMN IF NOT EXISTS contact_telegram TEXT
         """))
     _branch_contact_columns_checked = True
+
+
+def ensure_branch_region_columns():
+    global _branch_region_columns_checked
+    if _branch_region_columns_checked:
+        return
+    with get_connection() as conn:
+        conn.execute(text("""
+            ALTER TABLE branches
+            ADD COLUMN IF NOT EXISTS region_name TEXT
+        """))
+        conn.execute(text("""
+            ALTER TABLE branches
+            ADD COLUMN IF NOT EXISTS region_slug TEXT
+        """))
+    _branch_region_columns_checked = True
 
 def get_rooms_with_beds(branch_id):
     ensure_pricing_columns()
@@ -3213,10 +3232,13 @@ def create_branch_db(
             address: str | None = None,
             latitude: float | None = None,
             longitude: float | None = None,
+            region_name: str | None = None,
+            region_slug: str | None = None,
             contact_phone: str | None = None,
             contact_telegram: str | None = None,
         ):
     ensure_branch_contact_columns()
+    ensure_branch_region_columns()
     with get_connection() as conn:
         try:
             # 1️⃣ create branch
@@ -3226,6 +3248,8 @@ def create_branch_db(
                     address,
                     latitude,
                     longitude,
+                    region_name,
+                    region_slug,
                     contact_phone,
                     contact_telegram,
                     created_by
@@ -3235,6 +3259,8 @@ def create_branch_db(
                     :address,
                     :latitude,
                     :longitude,
+                    :region_name,
+                    :region_slug,
                     :contact_phone,
                     :contact_telegram,
                     :created_by
@@ -3245,6 +3271,8 @@ def create_branch_db(
                 "address": address,
                 "latitude": latitude,
                 "longitude": longitude,
+                "region_name": (region_name or "").strip() or None,
+                "region_slug": (region_slug or "").strip() or None,
                 "contact_phone": (contact_phone or "").strip() or None,
                 "contact_telegram": (contact_telegram or "").strip() or None,
                 "created_by": created_by
@@ -3840,9 +3868,10 @@ def update_user_by_admin_db(admin_id, user_id, username, telegram_id, is_active)
 
 def list_branches_by_admin_db(admin_id):
     ensure_branch_contact_columns()
+    ensure_branch_region_columns()
     with get_connection() as conn:
         return conn.execute(text("""
-            SELECT id, name, address, latitude, longitude, contact_phone, contact_telegram
+            SELECT id, name, address, latitude, longitude, region_name, region_slug, contact_phone, contact_telegram
             FROM branches
             WHERE created_by = :aid
             ORDER BY id
@@ -3856,10 +3885,13 @@ def update_branch_by_admin_db(
         address=None,
         latitude=None,
         longitude=None,
+        region_name=None,
+        region_slug=None,
         contact_phone=None,
         contact_telegram=None
     ):
     ensure_branch_contact_columns()
+    ensure_branch_region_columns()
     with get_connection() as conn:
         res = conn.execute(text("""
             UPDATE branches
@@ -3867,6 +3899,8 @@ def update_branch_by_admin_db(
                 address = :address,
                 latitude = :latitude,
                 longitude = :longitude,
+                region_name = :region_name,
+                region_slug = :region_slug,
                 contact_phone = :contact_phone,
                 contact_telegram = :contact_telegram
             WHERE id = :bid
@@ -3876,6 +3910,8 @@ def update_branch_by_admin_db(
             "address": address,
             "latitude": latitude,
             "longitude": longitude,
+            "region_name": (region_name or "").strip() or None,
+            "region_slug": (region_slug or "").strip() or None,
             "contact_phone": (contact_phone or "").strip() or None,
             "contact_telegram": (contact_telegram or "").strip() or None,
             "bid": branch_id,
@@ -4738,6 +4774,7 @@ def _public_price_expr(price_mode: str, bed_alias: str, room_alias: str) -> str:
 def list_public_branches_with_rating_db(
     min_rating: float | None = None,
     room_type: str | None = None,
+    region_slug: str | None = None,
     price_mode: str | None = None,
     limit: int = 100
 ):
@@ -4745,6 +4782,7 @@ def list_public_branches_with_rating_db(
     ensure_room_images_table()
     ensure_pricing_columns()
     ensure_branch_contact_columns()
+    ensure_branch_region_columns()
     lim = int(limit or 100)
     if lim < 1:
         lim = 1
@@ -4752,6 +4790,7 @@ def list_public_branches_with_rating_db(
         lim = 500
 
     room_type_norm = (str(room_type or "").strip() or None)
+    region_slug_norm = (str(region_slug or "").strip() or None)
     mode = (price_mode or "day").strip().lower()
     if mode not in {"hour", "day", "month"}:
         mode = "day"
@@ -4765,6 +4804,8 @@ def list_public_branches_with_rating_db(
                 b.address,
                 b.latitude,
                 b.longitude,
+                b.region_name,
+                b.region_slug,
                 b.contact_phone,
                 b.contact_telegram,
                 COALESCE(AVG(br.rating), 0) AS avg_rating,
@@ -4890,6 +4931,10 @@ def list_public_branches_with_rating_db(
                       AND lower(coalesce(trim(rx.room_type), '')) = lower(:room_type)
                 )
             )
+              AND (
+                :region_slug IS NULL
+                OR lower(coalesce(b.region_slug, '')) = lower(:region_slug)
+              )
               AND EXISTS (
                   SELECT 1
                   FROM beds bb
@@ -4920,13 +4965,14 @@ def list_public_branches_with_rating_db(
                         )
                     )
               )
-            GROUP BY b.id, b.name, b.address, b.latitude, b.longitude, b.contact_phone, b.contact_telegram
+            GROUP BY b.id, b.name, b.address, b.latitude, b.longitude, b.region_name, b.region_slug, b.contact_phone, b.contact_telegram
             HAVING (:min_rating IS NULL OR COALESCE(AVG(br.rating), 0) >= :min_rating)
             ORDER BY avg_rating DESC, rating_count DESC, b.id ASC
             LIMIT :lim
         """), {
             "min_rating": min_rating,
             "room_type": room_type_norm,
+            "region_slug": region_slug_norm,
             "today": today,
             "lim": lim,
         }).mappings().all()
@@ -4938,6 +4984,8 @@ def list_public_branches_with_rating_db(
             "address": r["address"],
             "latitude": r["latitude"],
             "longitude": r["longitude"],
+            "region_name": r["region_name"],
+            "region_slug": r["region_slug"],
             "contact_phone": r["contact_phone"],
             "contact_telegram": r["contact_telegram"],
             "avg_rating": float(r["avg_rating"] or 0),

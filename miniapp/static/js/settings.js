@@ -8,6 +8,21 @@ let BRANCH_MAP_MODE = "new";
 let BRANCH_MAP_OBJ = null;
 let BRANCH_MAP_MARKER = null;
 let BRANCH_MAP_POINT = null;
+const REGION_OPTIONS = [
+  { id: 6, name: "Андижанская область", normalized_name: "andizhanskaya-oblast" },
+  { id: 27, name: "Бухарская область", normalized_name: "buharskaya-oblast" },
+  { id: 28, name: "Джизакская область", normalized_name: "dzhizakskaya-oblast" },
+  { id: 32, name: "Каракалпакстан", normalized_name: "karakalpakstan" },
+  { id: 29, name: "Кашкадарьинская область", normalized_name: "kashkadarinskaya-oblast" },
+  { id: 30, name: "Навоийская область", normalized_name: "navoijskaya-oblast" },
+  { id: 31, name: "Наманганская область", normalized_name: "namanganskaya-oblast" },
+  { id: 33, name: "Самаркандская область", normalized_name: "samarkandskaya-oblast" },
+  { id: 34, name: "Сурхандарьинская область", normalized_name: "surhandarinskaya-oblast" },
+  { id: 35, name: "Сырдарьинская область", normalized_name: "syrdarinskaya-oblast" },
+  { id: 5, name: "Ташкентская область", normalized_name: "toshkent-oblast" },
+  { id: 36, name: "Ферганская область", normalized_name: "ferganskaya-oblast" },
+  { id: 37, name: "Хорезмская область", normalized_name: "horezmskaya-oblast" }
+];
 
 
 $(document).ready(function () {
@@ -85,6 +100,24 @@ $(document).ready(function () {
   });
   $("#pickSelectedBranchMapBtn").on("click", function () {
     openBranchMapPicker("selected");
+  });
+  $("#openNewBranchModalBtn").on("click", function () {
+    openNewBranchModal();
+  });
+  $("#openEditBranchModalBtn").on("click", function () {
+    openEditBranchModal();
+  });
+  $("#closeNewBranchModalBtn").on("click", function () {
+    closeNewBranchModal();
+  });
+  $("#closeEditBranchModalBtn").on("click", function () {
+    closeEditBranchModal();
+  });
+  $("#newBranchModal").on("click", function (e) {
+    if (e.target && e.target.id === "newBranchModal") closeNewBranchModal();
+  });
+  $("#editBranchModal").on("click", function (e) {
+    if (e.target && e.target.id === "editBranchModal") closeEditBranchModal();
   });
   $("#branchMapCloseBtn, #branchMapCancelBtn").on("click", closeBranchMapPicker);
   $("#branchMapSaveBtn").on("click", saveBranchMapPoint);
@@ -165,6 +198,7 @@ function setActiveLangUI(lang) {
 /* ================= BRANCHES ================= */
 
 function loadBranches() {
+  renderRegionSelects();
   apiGet("/branches", {})
     .done(function (rows) {
 
@@ -197,8 +231,54 @@ function loadBranches() {
 function fillBranchContactInputs() {
   const bid = Number($("#branchSelect").val() || 0);
   const row = BRANCHES.find((b) => Number(b.id) === bid) || {};
+  $("#editBranchName").val(row.name || "");
+  $("#editBranchAddress").val(row.address || "");
+  $("#editBranchLatitude").val(row.latitude ?? "");
+  $("#editBranchLongitude").val(row.longitude ?? "");
   $("#editBranchPhone").val(row.contact_phone || "");
   $("#editBranchTelegram").val(row.contact_telegram || "");
+  $("#editBranchRegion").val((row.region_slug || "").trim());
+}
+
+function openNewBranchModal() {
+  $("#newBranchModal").addClass("show");
+}
+
+function closeNewBranchModal() {
+  $("#newBranchModal").removeClass("show");
+}
+
+function openEditBranchModal() {
+  const bid = Number($("#branchSelect").val() || 0);
+  if (!bid) {
+    alert(t("select_branch"));
+    return;
+  }
+  fillBranchContactInputs();
+  $("#editBranchModal").addClass("show");
+}
+
+function closeEditBranchModal() {
+  $("#editBranchModal").removeClass("show");
+}
+
+function renderRegionSelects() {
+  const allLabel = CURRENT_LANG === "uz" ? "Barcha viloyatlar" : "Все области";
+  const regionLabel = CURRENT_LANG === "uz" ? "Viloyatni tanlang" : "Выберите область";
+  const options = [`<option value="">${regionLabel}</option>`]
+    .concat(REGION_OPTIONS.map((r) => `<option value="${r.normalized_name}">${r.name}</option>`))
+    .join("");
+  $("#newBranchRegion").html(options);
+
+  const editOptions = [`<option value="">${allLabel}</option>`]
+    .concat(REGION_OPTIONS.map((r) => `<option value="${r.normalized_name}">${r.name}</option>`))
+    .join("");
+  $("#editBranchRegion").html(editOptions);
+}
+
+function getRegionBySlug(slug) {
+  const s = String(slug || "").trim().toLowerCase();
+  return REGION_OPTIONS.find((r) => r.normalized_name.toLowerCase() === s) || null;
 }
 
 function parseCoord(v) {
@@ -212,10 +292,8 @@ function getMapStartPoint() {
     const lon = parseCoord($("#newBranchLongitude").val());
     if (lat !== null && lon !== null) return { lat, lon };
   } else {
-    const bid = Number($("#branchSelect").val() || 0);
-    const row = BRANCHES.find((b) => Number(b.id) === bid) || {};
-    const lat = parseCoord(row.latitude);
-    const lon = parseCoord(row.longitude);
+    const lat = parseCoord($("#editBranchLatitude").val());
+    const lon = parseCoord($("#editBranchLongitude").val());
     if (lat !== null && lon !== null) return { lat, lon };
   }
   return { lat: 41.3111, lon: 69.2797 };
@@ -282,27 +360,9 @@ function saveBranchMapPoint() {
     closeBranchMapPicker();
     return;
   }
-
-  const branchId = Number($("#branchSelect").val() || 0);
-  if (!branchId) {
-    alert(t("select_branch"));
-    return;
-  }
-  const row = BRANCHES.find((b) => Number(b.id) === branchId);
-  if (!row) return;
-
-  apiPut(`/branches/admin/${branchId}`, {
-    name: row.name,
-    address: row.address || null,
-    latitude: lat,
-    longitude: lon,
-    contact_phone: ($("#editBranchPhone").val() || "").trim() || null,
-    contact_telegram: ($("#editBranchTelegram").val() || "").trim() || null
-  }).done(function () {
-    closeBranchMapPicker();
-    alert(CURRENT_LANG === "uz" ? "Filial lokatsiyasi saqlandi" : "Локация филиала сохранена");
-    loadBranches();
-  });
+  $("#editBranchLatitude").val(String(lat));
+  $("#editBranchLongitude").val(String(lon));
+  closeBranchMapPicker();
 }
 
 /* вњ… SINGLE change handler (ONLY ONE) */
@@ -327,6 +387,8 @@ function createBranch() {
   const address = $("#newBranchAddress").val().trim();
   const latitude = $("#newBranchLatitude").val().trim();
   const longitude = $("#newBranchLongitude").val().trim();
+  const regionSlug = ($("#newBranchRegion").val() || "").trim();
+  const regionObj = getRegionBySlug(regionSlug);
   const contactPhone = $("#newBranchPhone").val().trim();
   const contactTelegram = $("#newBranchTelegram").val().trim();
 
@@ -355,6 +417,8 @@ function createBranch() {
       address: address || null,
       latitude: latNum,
       longitude: lonNum,
+      region_slug: regionSlug || null,
+      region_name: regionObj ? regionObj.name : null,
       contact_phone: contactPhone || null,
       contact_telegram: contactTelegram || null
     }).done(function () {
@@ -362,9 +426,11 @@ function createBranch() {
       $("#newBranchAddress").val("");
       $("#newBranchLatitude").val("");
       $("#newBranchLongitude").val("");
+      $("#newBranchRegion").val("");
       $("#newBranchPhone").val("");
       $("#newBranchTelegram").val("");
       alert(t("branch_created"));
+      closeNewBranchModal();
       loadBranches();
     });
 }
@@ -376,18 +442,35 @@ function saveBranchContacts() {
     return;
   }
 
-  const row = BRANCHES.find((b) => Number(b.id) === branchId);
-  if (!row) return;
+  const name = ($("#editBranchName").val() || "").trim();
+  const address = ($("#editBranchAddress").val() || "").trim();
+  const latRaw = ($("#editBranchLatitude").val() || "").trim();
+  const lonRaw = ($("#editBranchLongitude").val() || "").trim();
+  if (!name) {
+    alert(t("branch_name_required"));
+    return;
+  }
+  const latNum = parseFloat(latRaw);
+  const lonNum = parseFloat(lonRaw);
+  if (!Number.isFinite(latNum) || !Number.isFinite(lonNum)) {
+    alert(CURRENT_LANG === "uz"
+      ? "Filial lokatsiyasi majburiy. Xaritadan joy tanlang."
+      : "Локация филиала обязательна. Выберите точку на карте.");
+    return;
+  }
 
   apiPut(`/branches/admin/${branchId}`, {
-    name: row.name,
-    address: row.address || null,
-    latitude: row.latitude ?? null,
-    longitude: row.longitude ?? null,
+    name: name,
+    address: address || null,
+    latitude: latNum,
+    longitude: lonNum,
+    region_slug: ($("#editBranchRegion").val() || "").trim() || null,
+    region_name: (getRegionBySlug(($("#editBranchRegion").val() || "").trim()) || {}).name || null,
     contact_phone: ($("#editBranchPhone").val() || "").trim() || null,
     contact_telegram: ($("#editBranchTelegram").val() || "").trim() || null
   }).done(function () {
     alert(t("branch_updated"));
+    closeEditBranchModal();
     loadBranches();
   });
 }
@@ -419,6 +502,7 @@ function deleteBranch() {
 
   apiDelete(`/branches/admin/${branchId}`)
     .done(function () {
+      closeEditBranchModal();
       loadBranches();
       alert(t("branch_deleted"));
     });
