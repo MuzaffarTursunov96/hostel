@@ -13,6 +13,8 @@
       show_filters: "Filterni ko'rsatish",
       hide_filters: "Filterni yopish",
       my_history: "Tarixim",
+      login: "Kirish",
+      logout: "Chiqish",
       login_required_history: "Tarixni ko'rish uchun tizimga kirish kerak",
       login_required_rating: "Baholash uchun tizimga kirish kerak",
       login_required_action: "Bu amal uchun avval tizimga kiring",
@@ -113,6 +115,8 @@
       show_filters: "Показать фильтры",
       hide_filters: "Скрыть фильтры",
       my_history: "Моя история",
+      login: "Войти",
+      logout: "Выйти",
       login_required_history: "Для истории нужно войти в систему",
       login_required_rating: "Для оценки нужно войти в систему",
       login_required_action: "Для этого действия нужно войти в систему",
@@ -213,6 +217,7 @@
   const filtersPanelEl = document.getElementById("filtersPanel");
   const toggleFiltersBtnEl = document.getElementById("toggleFiltersBtn");
   const myHistoryBtnEl = document.getElementById("myHistoryBtn");
+  const authBtnEl = document.getElementById("authBtn");
   const toggleFiltersTextEl = document.getElementById("toggleFiltersText");
   const toggleFiltersIconEl = toggleFiltersBtnEl ? toggleFiltersBtnEl.querySelector(".filter-toggle-icon") : null;
   const searchEl = document.getElementById("searchInput");
@@ -449,8 +454,14 @@
     document.querySelectorAll("[data-ph]").forEach((el) => {
       el.placeholder = t(el.dataset.ph);
     });
+    updateAuthButton();
     updateFiltersToggleUi();
     render();
+  }
+
+  function updateAuthButton() {
+    if (!authBtnEl) return;
+    authBtnEl.textContent = sessionLoggedIn ? t("logout") : t("login");
   }
 
   function updateFiltersToggleUi() {
@@ -489,6 +500,7 @@
     } catch (_) {
       sessionLoggedIn = false;
     }
+    updateAuthButton();
   }
 
   function requireLoginOrRedirect() {
@@ -991,12 +1003,21 @@
     );
   }
 
-  document.querySelectorAll(".lang-btn").forEach((btn) => {
+  document.querySelectorAll(".lang-switch .lang-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       lang = btn.dataset.lang === "ru" ? "ru" : "uz";
       applyLang();
     });
   });
+  if (authBtnEl) {
+    authBtnEl.addEventListener("click", () => {
+      if (sessionLoggedIn) {
+        window.location.href = "/logout";
+      } else {
+        window.location.href = "/login";
+      }
+    });
+  }
 
   refreshEl.addEventListener("click", () => loadBranches());
   toggleFiltersBtnEl.addEventListener("click", () => {

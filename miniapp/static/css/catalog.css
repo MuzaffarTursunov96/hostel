@@ -50,6 +50,17 @@ body {
   gap: 6px;
 }
 
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.auth-btn {
+  padding-inline: 14px;
+  font-weight: 700;
+}
+
 .lang-btn {
   border: 1px solid var(--line);
   background: #fff;

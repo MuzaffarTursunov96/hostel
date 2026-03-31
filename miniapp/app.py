@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, session, redirect, Response
+﻿from flask import Flask, render_template, request, jsonify, session, redirect, Response
 import requests
 from functools import wraps
 import os
@@ -16,7 +16,7 @@ from email.mime.text import MIMEText
 
 
 API_URL = "http://backend:8000"
-VERSION ="2026-31-03-02-20"
+VERSION ="2026-31-03-02-11"
 load_dotenv()
 ROOT_ADMIN_TELEGRAM = os.getenv("ROOT_ADMIN_TELEGRAM", "muzaffar_developer")
 ROOT_ADMIN_PHONE = os.getenv("ROOT_ADMIN_PHONE", "+998991422110")
@@ -299,9 +299,15 @@ def marketing_page():
 def login_page():
     return render_template("login.html")
 
+
+@app.get("/logout")
+def logout_page():
+    session.clear()
+    return redirect("/catalog")
+
 @app.route("/catalog")
 def public_catalog_page():
-    return render_template("catalog.html")
+    return render_template("catalog.html", version=VERSION)
 
 
 @app.get("/auth/session-status")

@@ -7,15 +7,18 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/css/catalog.css?v=20260331d">
+  <link rel="stylesheet" href="/static/css/catalog.css?v={{version}}">
 </head>
 <body>
   <div class="bg-glow"></div>
   <header class="topbar">
     <a class="back-link" href="/">HMSUZ</a>
-    <div class="lang-switch">
-      <button type="button" class="lang-btn active" data-lang="uz">UZ</button>
-      <button type="button" class="lang-btn" data-lang="ru">RU</button>
+    <div class="topbar-right">
+      <button id="authBtn" type="button" class="lang-btn auth-btn" data-i18n="login">Login</button>
+      <div class="lang-switch">
+        <button type="button" class="lang-btn active" data-lang="uz">UZ</button>
+        <button type="button" class="lang-btn" data-lang="ru">RU</button>
+      </div>
     </div>
   </header>
 
