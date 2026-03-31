@@ -42,6 +42,7 @@ SMTP_FROM = os.getenv("SMTP_FROM", SMTP_USERNAME or "noreply@example.com")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
 GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", "")
+MINI_APP_URL = os.getenv("MINI_APP_URL", "")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 if not os.path.isabs(MARKETING_CONTENT_FILE):
     MARKETING_CONTENT_FILE = os.path.join(BASE_DIR, MARKETING_CONTENT_FILE)
@@ -189,6 +190,8 @@ def _post_backend_login(username, password):
 def _google_redirect_uri():
     if GOOGLE_REDIRECT_URI:
         return GOOGLE_REDIRECT_URI
+    if MINI_APP_URL:
+        return MINI_APP_URL.rstrip("/") + "/auth/google/callback"
     return request.url_root.rstrip("/") + "/auth/google/callback"
 
 
