@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
 const String kLanguageKey = 'language';
 final ValueNotifier<String> appLang = ValueNotifier<String>('uz');
@@ -268,18 +268,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _openClientGoogleLogin() async {
     final lang = _uiLang == 'ru' ? 'ru' : 'uz';
-    final uri = Uri.parse('https://hmsuz.com/auth/google/start?lang=$lang');
-    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
-    if (!ok && mounted) {
-      showAppAlert(
-        context,
-        _tr(
-          ru: 'Не удалось открыть Google вход. Откройте вручную: https://hmsuz.com/login',
-          uz: 'Google kirishni ochib bo‘lmadi. Qo‘lda oching: https://hmsuz.com/login',
-        ),
-        error: true,
-      );
-    }
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ClientCatalogWebViewScreen(lang: lang),
+      ),
+    );
   }
 
   Future<bool> _validateToken(String token) async {
@@ -614,6 +608,155 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Container(
                 color: Colors.black.withOpacity(0.18),
                 child: const Center(child: CircularProgressIndicator()),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class ClientCatalogWebViewScreen extends StatefulWidget {
+  const ClientCatalogWebViewScreen({super.key, required this.lang});
+
+  final String lang;
+
+  @override
+  State<ClientCatalogWebViewScreen> createState() => _ClientCatalogWebViewScreenState();
+}
+
+class _ClientCatalogWebViewScreenState extends State<ClientCatalogWebViewScreen> {
+  late final WebViewController _controller;
+  bool _loading = true;
+  String _currentUrl = '';
+
+  String _t({
+    required String ru,
+    required String uz,
+  }) {
+    return widget.lang == 'ru' ? ru : uz;
+  }
+
+  Future<void> _goToCatalogPath(String path) async {
+    final clean = path.startsWith('/') ? path : '/$path';
+    await _controller.loadRequest(Uri.parse('https://hmsuz.com$clean?lang=${widget.lang}'));
+  }
+
+  Future<void> _logoutPublicUser() async {
+    await _controller.loadRequest(Uri.parse('https://hmsuz.com/logout'));
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    await _goToCatalogPath('/catalog');
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageStarted: (_) {
+            if (!mounted) return;
+            setState(() => _loading = true);
+          },
+          onPageFinished: (_) {
+            if (!mounted) return;
+            _controller.currentUrl().then((v) {
+              if (!mounted) return;
+              setState(() => _currentUrl = v ?? '');
+            });
+            setState(() => _loading = false);
+          },
+        ),
+      )
+      ..loadRequest(Uri.parse('https://hmsuz.com/auth/google/start?lang=${widget.lang}'));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ru = widget.lang == 'ru';
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(ru ? 'Клиент' : 'Mijoz'),
+        actions: [
+          IconButton(
+            tooltip: _t(ru: 'Каталог', uz: 'Katalog'),
+            onPressed: () => _goToCatalogPath('/catalog'),
+            icon: const Icon(Icons.home_outlined),
+          ),
+          PopupMenuButton<String>(
+            tooltip: _t(ru: 'Профиль', uz: 'Profil'),
+            onSelected: (value) {
+              switch (value) {
+                case 'bookings':
+                  _goToCatalogPath('/catalog/booking-history');
+                  break;
+                case 'feedbacks':
+                  _goToCatalogPath('/catalog/feedbacks');
+                  break;
+                case 'account':
+                  _goToCatalogPath('/catalog/my-account');
+                  break;
+                case 'settings':
+                  _goToCatalogPath('/catalog/settings');
+                  break;
+                case 'logout':
+                  _logoutPublicUser();
+                  break;
+              }
+            },
+            itemBuilder: (_) => [
+              PopupMenuItem(
+                value: 'bookings',
+                child: Text(_t(ru: 'Мои брони', uz: 'Mening bronlarim')),
+              ),
+              PopupMenuItem(
+                value: 'feedbacks',
+                child: Text(_t(ru: 'Мои отзывы', uz: 'Fikrlarim')),
+              ),
+              PopupMenuItem(
+                value: 'account',
+                child: Text(_t(ru: 'Мой аккаунт', uz: 'Mening akkauntim')),
+              ),
+              PopupMenuItem(
+                value: 'settings',
+                child: Text(_t(ru: 'Настройки', uz: 'Sozlamalar')),
+              ),
+              PopupMenuItem(
+                value: 'logout',
+                child: Text(_t(ru: 'Выйти', uz: 'Chiqish')),
+              ),
+            ],
+            icon: const Icon(Icons.account_circle_outlined),
+          ),
+        ],
+      ),
+      body: Stack(
+        children: [
+          WebViewWidget(controller: _controller),
+          if (_currentUrl.isNotEmpty)
+            Positioned(
+              right: 10,
+              bottom: 10,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.55),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  child: Text(
+                    _currentUrl.replaceFirst('https://hmsuz.com', ''),
+                    style: const TextStyle(color: Colors.white, fontSize: 11),
+                  ),
+                ),
+              ),
+            ),
+          if (_loading)
+            const Positioned.fill(
+              child: ColoredBox(
+                color: Color(0x22000000),
+                child: Center(child: CircularProgressIndicator()),
               ),
             ),
         ],

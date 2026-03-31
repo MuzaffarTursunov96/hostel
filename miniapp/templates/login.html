@@ -29,7 +29,11 @@
     .field:focus { border-color:#0f62fe; box-shadow:0 0 0 4px rgba(15,98,254,.12); }
     .row-right { margin-top:8px; display:flex; justify-content:flex-end; }
     .mini-btn { height:48px; border-radius:999px; border:1px solid var(--line); background:#f2f2f2; padding:0 28px; font-size:clamp(16px,4vw,22px); font-weight:700; cursor:pointer; }
+    .mini-btn.primary { background:#0f62fe; border-color:#0f62fe; color:#fff; box-shadow:0 8px 16px rgba(15,98,254,.24); }
+    .mini-btn.primary:hover { background:#0a54db; border-color:#0a54db; }
     .mini-btn:disabled { opacity:.45; cursor:not-allowed; }
+    .actions-row { margin-top:10px; display:grid; grid-template-columns:1fr auto; gap:10px; align-items:center; }
+    .actions-row .mini-btn { width:100%; }
     .otp-block { display:none; margin-top:10px; }
     .otp-block.show { display:block; }
     .split { margin:12px 0; border-top:1px solid var(--line); }
@@ -40,7 +44,7 @@
     .msg.err { display:block; color:var(--err); border-color:#f4c7c3; background:#fff2f1; }
     .verified-chip { margin-top:10px; padding:10px 12px; border:1px solid #9ddfb8; border-radius:12px; background:#eafdf1; color:#0c8a46; font-weight:700; font-size:14px; text-align:center; }
     .hidden { display:none !important; }
-    @media (max-width:620px){ h1{font-size:32px;} .field{font-size:17px;} .social-btn{font-size:19px;} .mini-btn{font-size:18px;height:48px;} }
+    @media (max-width:620px){ h1{font-size:32px;} .field{font-size:17px;} .social-btn{font-size:19px;} .mini-btn{font-size:18px;height:48px;} .actions-row{grid-template-columns:1fr;} }
   </style>
 </head>
 <body>
@@ -82,10 +86,10 @@
         <div style="height:10px" id="passwordConfirmWrap" hidden></div>
         <input id="passwordConfirm" class="field" type="password" autocomplete="new-password" placeholder="Confirm password" hidden>
         <div id="accountHint" class="state"></div>
-        <div class="row-right" style="margin-top:8px;">
+        <div class="actions-row">
           <button id="forgotPasswordBtn" class="mini-btn" type="button" hidden>Forgot password</button>
+          <button id="loginBtn" class="mini-btn primary" type="submit" disabled>Log in</button>
         </div>
-        <div class="row-right" style="margin-top:12px;"><button id="loginBtn" class="mini-btn" type="submit" disabled>Log in</button></div>
       </form>
     </div>
 

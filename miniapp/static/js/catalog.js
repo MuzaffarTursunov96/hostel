@@ -116,6 +116,8 @@
       enable_gps_first: "Avval GPS ruxsatini yoqing",
       location_denied: "Joylashuvga ruxsat berilmadi",
       location_unavailable: "GPS ma'lumoti olinmadi",
+      location_timeout: "GPS javobi kechikdi, qayta urinib ko'ring",
+      gps_filter_applied: "GPS olindi, masofa filtri qo'llandi",
       distance_km: "km"
     },
     ru: {
@@ -232,6 +234,8 @@
       enable_gps_first: "Сначала разрешите GPS",
       location_denied: "Нет доступа к геолокации",
       location_unavailable: "Не удалось получить GPS",
+      location_timeout: "Время ожидания GPS истекло",
+      gps_filter_applied: "GPS получен, фильтр по расстоянию применен",
       distance_km: "км"
     }
   };
@@ -1169,29 +1173,60 @@
       return;
     }
 
+    const getCurrentLocation = (opts) =>
+      new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, opts);
+      });
+
+    const errorMessage = (err) => {
+      if (!err || typeof err.code !== "number") return t("location_unavailable");
+      if (err.code === 1) return t("location_denied");
+      if (err.code === 3) return t("location_timeout");
+      return t("location_unavailable");
+    };
+
     findNearestBtnEl.disabled = true;
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
+    const originalText = findNearestBtnEl.textContent;
+    findNearestBtnEl.textContent = lang === "ru" ? "Поиск..." : "Qidirilmoqda...";
+
+    (async () => {
+      try {
+        let pos;
+        try {
+          pos = await getCurrentLocation({
+            enableHighAccuracy: true,
+            timeout: 12000,
+            maximumAge: 120000,
+          });
+        } catch (_) {
+          pos = await getCurrentLocation({
+            enableHighAccuracy: false,
+            timeout: 10000,
+            maximumAge: 300000,
+          });
+        }
         userGeo = {
           lat: pos.coords.latitude,
           lon: pos.coords.longitude,
         };
         updateDistanceFilterState();
-        findNearestBtnEl.disabled = false;
+        if (distanceFilterEl && !distanceFilterEl.value) {
+          const fallback = Array.from(distanceFilterEl.options || []).find((o) => String(o.value) === "5");
+          if (fallback) distanceFilterEl.value = "5";
+        }
         render();
-      },
-      () => {
+        if (distanceFilterEl && distanceFilterEl.value) {
+          alert(t("gps_filter_applied"));
+        }
+      } catch (err) {
         userGeo = null;
         updateDistanceFilterState();
+        alert(errorMessage(err));
+      } finally {
         findNearestBtnEl.disabled = false;
-        alert(t("location_denied"));
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 12000,
-        maximumAge: 300000,
+        findNearestBtnEl.textContent = originalText || t("nearest_by_gps");
       }
-    );
+    })();
   }
 
   function setPendingClientGeo(lat, lon) {
@@ -1255,13 +1290,26 @@
     clientMapBranchesLayer = L.layerGroup(markers).addTo(clientMap);
   }
 
-  function openClientLocationPicker() {
+  async function openClientLocationPicker() {
     if (!window.L || !locationPickerModalEl) {
       alert(t("location_unavailable"));
       return;
     }
+    let start = userGeo;
+    if (!start && navigator.geolocation) {
+      try {
+        const pos = await new Promise((resolve, reject) =>
+          navigator.geolocation.getCurrentPosition(
+            resolve,
+            reject,
+            { enableHighAccuracy: false, timeout: 7000, maximumAge: 300000 }
+          )
+        );
+        start = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+      } catch (_) {}
+    }
     locationPickerModalEl.classList.remove("hidden");
-    const start = userGeo || { lat: 41.3111, lon: 69.2797 };
+    start = start || { lat: 41.3111, lon: 69.2797 };
     pendingClientGeo = { lat: start.lat, lon: start.lon };
     if (mapRadiusSelectEl) {
       mapRadiusSelectEl.value = String(distanceFilterEl.value || "");
