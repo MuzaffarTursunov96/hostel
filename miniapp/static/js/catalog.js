@@ -5,6 +5,8 @@
       subtitle: "Rasm, reyting va joylashuv bo'yicha mos variantni tanlang.",
       search_ph: "Nom yoki manzil bo'yicha qidirish...",
       city_ph: "Shahar bo'yicha",
+      all_cities: "Barcha shaharlar",
+      all_districts: "Barcha tumanlar",
       region_ph: "Hudud bo'yicha",
       all_regions: "Barcha viloyatlar",
       all_room_types: "Barcha xona turlari",
@@ -253,6 +255,7 @@
     { id: 37, name: "Хорезмская область", normalized_name: "horezmskaya-oblast" }
   ];
   const REGION_CITY_OPTIONS = window.UZ_REGIONS_CITIES || {};
+  const CITY_DISTRICT_OPTIONS = window.UZ_CITY_DISTRICTS || {};
 
   const cardsEl = document.getElementById("cards");
   const filtersPanelEl = document.getElementById("filtersPanel");
@@ -270,6 +273,7 @@
   const searchEl = document.getElementById("searchInput");
   const cityEl = document.getElementById("cityFilter");
   const regionEl = document.getElementById("regionFilter");
+  const districtEl = document.getElementById("districtFilter");
   const priceModeEl = document.getElementById("priceModeFilter");
   const roomTypeEl = document.getElementById("roomTypeFilter");
   const ratingEl = document.getElementById("ratingFilter");
@@ -699,6 +703,18 @@
       cities.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
     const selected = String(selectedCity || "");
     cityEl.value = cities.includes(selected) ? selected : "";
+    refreshDistrictOptions(cityEl.value || "", "");
+  }
+
+  function refreshDistrictOptions(cityName, selectedDistrict) {
+    if (!districtEl) return;
+    const city = String(cityName || "").trim();
+    const districts = city ? (CITY_DISTRICT_OPTIONS[city] || []) : [];
+    districtEl.innerHTML =
+      `<option value="">${lang === "ru" ? "Все районы" : "Barcha tumanlar"}</option>` +
+      districts.map((d) => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join("");
+    const selected = String(selectedDistrict || "");
+    districtEl.value = districts.includes(selected) ? selected : "";
   }
 
   async function loadBranches() {
@@ -706,12 +722,14 @@
     const roomType = String(roomTypeEl.value || "").trim();
     const regionSlug = String((regionEl && regionEl.value) || "").trim();
     const cityName = String((cityEl && cityEl.value) || "").trim();
+    const districtName = String((districtEl && districtEl.value) || "").trim();
     const priceMode = currentPriceMode();
     const q = new URLSearchParams();
     if (minRating > 0) q.set("min_rating", String(minRating));
     if (roomType) q.set("room_type", roomType);
     if (regionSlug) q.set("region_slug", regionSlug);
     if (cityName) q.set("city_name", cityName);
+    if (districtName) q.set("district_name", districtName);
     q.set("price_mode", priceMode);
     q.set("limit", "200");
     const res = await fetch(`/public-api/branches?${q.toString()}`, { cache: "no-store" });
@@ -738,6 +756,7 @@
   function filteredRows() {
     const needle = String(searchEl.value || "").trim().toLowerCase();
     const cityNeedle = String((cityEl && cityEl.value) || "").trim().toLowerCase();
+    const districtNeedle = String((districtEl && districtEl.value) || "").trim().toLowerCase();
     const regionNeedle = String((regionEl && regionEl.value) || "").trim().toLowerCase();
     const maxDistance = toNum(distanceFilterEl.value || "");
     const typedMin = String(priceMinInputEl.value || "").trim();
@@ -759,6 +778,7 @@
       const textOk = !needle || name.includes(needle) || address.includes(needle);
       if (!textOk) return false;
       if (cityNeedle && String(r.city_name || "").trim().toLowerCase() !== cityNeedle) return false;
+      if (districtNeedle && String(r.district_name || "").trim().toLowerCase() !== districtNeedle) return false;
       if (regionNeedle && String(r.region_slug || "").trim().toLowerCase() !== regionNeedle) return false;
 
       const rowMin = toNum(r.min_price);
@@ -1280,8 +1300,10 @@
   clearFiltersBtnEl.addEventListener("click", () => {
     searchEl.value = "";
     if (cityEl) cityEl.value = "";
+    if (districtEl) districtEl.value = "";
     if (regionEl) regionEl.value = "";
     refreshCityOptions("", "");
+    refreshDistrictOptions("", "");
     priceModeEl.value = "day";
     roomTypeEl.value = "";
     ratingEl.value = "0";
@@ -1324,9 +1346,14 @@
     render();
   });
   searchEl.addEventListener("input", render);
-  if (cityEl) cityEl.addEventListener("change", () => loadBranches());
+  if (cityEl) cityEl.addEventListener("change", () => {
+    refreshDistrictOptions(cityEl.value || "", "");
+    loadBranches();
+  });
+  if (districtEl) districtEl.addEventListener("change", () => loadBranches());
   if (regionEl) regionEl.addEventListener("change", () => {
     refreshCityOptions(regionEl.value || "", "");
+    refreshDistrictOptions("", "");
     loadBranches();
   });
   priceModeEl.addEventListener("change", () => loadBranches());

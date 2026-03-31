@@ -24,6 +24,7 @@ const REGION_OPTIONS = [
   { id: 37, name: "Хорезмская область", normalized_name: "horezmskaya-oblast" }
 ];
 const REGION_CITY_OPTIONS = window.UZ_REGIONS_CITIES || {};
+const CITY_DISTRICT_OPTIONS = window.UZ_CITY_DISTRICTS || {};
 
 
 $(document).ready(function () {
@@ -130,12 +131,32 @@ $(document).ready(function () {
     clearBranchValidation("new");
     clearBranchFieldError("new", "Region");
     clearBranchFieldError("new", "City");
+    clearBranchFieldError("new", "District");
   });
   $("#editBranchRegion").on("change", function () {
     renderCitySelect("edit", $(this).val() || "");
     clearBranchValidation("edit");
     clearBranchFieldError("edit", "Region");
     clearBranchFieldError("edit", "City");
+    clearBranchFieldError("edit", "District");
+  });
+  $("#newBranchCity").on("change", function () {
+    renderDistrictSelect("new", $(this).val() || "");
+    clearBranchFieldError("new", "City");
+    clearBranchFieldError("new", "District");
+  });
+  $("#editBranchCity").on("change", function () {
+    renderDistrictSelect("edit", $(this).val() || "");
+    clearBranchFieldError("edit", "City");
+    clearBranchFieldError("edit", "District");
+  });
+  $("#newBranchDistrict").on("change", function () {
+    clearBranchValidation("new");
+    clearBranchFieldError("new", "District");
+  });
+  $("#editBranchDistrict").on("change", function () {
+    clearBranchValidation("edit");
+    clearBranchFieldError("edit", "District");
   });
   $("#newBranchCity, #newBranchName, #newBranchLatitude, #newBranchLongitude").on("input change", function () {
     clearBranchValidation("new");
@@ -266,8 +287,10 @@ function fillBranchContactInputs() {
   $("#editBranchTelegram").val(row.contact_telegram || "");
   $("#editBranchCoverImage").val(row.cover_image || "");
   const regionSlug = (row.region_slug || "").trim();
+  const cityName = row.city_name || "";
   $("#editBranchRegion").val(regionSlug);
-  renderCitySelect("edit", regionSlug, row.city_name || "");
+  renderCitySelect("edit", regionSlug, cityName);
+  renderDistrictSelect("edit", cityName, row.district_name || "");
 }
 
 function openNewBranchModal() {
@@ -308,12 +331,14 @@ function renderRegionSelects() {
     .join("");
   $("#newBranchRegion").html(options);
   renderCitySelect("new", ($("#newBranchRegion").val() || "").trim(), "");
+  renderDistrictSelect("new", "", "");
 
   const editOptions = [`<option value="">${allLabel}</option>`]
     .concat(REGION_OPTIONS.map((r) => `<option value="${r.normalized_name}">${r.name}</option>`))
     .join("");
   $("#editBranchRegion").html(editOptions);
   renderCitySelect("edit", ($("#editBranchRegion").val() || "").trim(), "");
+  renderDistrictSelect("edit", "", "");
 }
 
 function renderCitySelect(mode, regionSlug, selectedCity) {
@@ -327,6 +352,23 @@ function renderCitySelect(mode, regionSlug, selectedCity) {
   $(target).html(options);
   if (selectedCity && cities.includes(selectedCity)) {
     $(target).val(selectedCity);
+  } else {
+    $(target).val("");
+  }
+  renderDistrictSelect(mode, $(target).val() || "", "");
+}
+
+function renderDistrictSelect(mode, cityName, selectedDistrict) {
+  const target = mode === "edit" ? "#editBranchDistrict" : "#newBranchDistrict";
+  const city = String(cityName || "").trim();
+  const districts = city ? (CITY_DISTRICT_OPTIONS[city] || []) : [];
+  const labelAny = CURRENT_LANG === "uz" ? "Barcha tumanlar" : "Все районы";
+  const labelPick = CURRENT_LANG === "uz" ? "Tumanni tanlang" : "Выберите район";
+  const base = mode === "edit" ? [`<option value="">${labelAny}</option>`] : [`<option value="">${labelPick}</option>`];
+  const options = base.concat(districts.map((d) => `<option value="${d}">${d}</option>`)).join("");
+  $(target).html(options);
+  if (selectedDistrict && districts.includes(selectedDistrict)) {
+    $(target).val(selectedDistrict);
   } else {
     $(target).val("");
   }
@@ -364,6 +406,7 @@ function clearBranchFieldErrors(mode) {
   $(`#${mode}BranchNameError`).text("").addClass("hidden");
   $(`#${mode}BranchRegionError`).text("").addClass("hidden");
   $(`#${mode}BranchCityError`).text("").addClass("hidden");
+  $(`#${mode}BranchDistrictError`).text("").addClass("hidden");
   $(`#${mode}BranchLocationError`).text("").addClass("hidden");
 }
 
@@ -483,6 +526,8 @@ function createBranch() {
   const regionSlug = ($("#newBranchRegion").val() || "").trim();
   const regionObj = getRegionBySlug(regionSlug);
   const cityName = ($("#newBranchCity").val() || "").trim();
+  const districtName = ($("#newBranchDistrict").val() || "").trim();
+  const requiredDistricts = CITY_DISTRICT_OPTIONS[cityName] || [];
   const contactPhone = $("#newBranchPhone").val().trim();
   const contactTelegram = $("#newBranchTelegram").val().trim();
   const coverImage = $("#newBranchCoverImage").val().trim();
@@ -497,6 +542,10 @@ function createBranch() {
   }
   if (!cityName) {
     showBranchFieldError("new", "City", CURRENT_LANG === "uz" ? "Shahar majburiy." : "Город обязателен.");
+    return;
+  }
+  if (requiredDistricts.length && !districtName) {
+    showBranchFieldError("new", "District", CURRENT_LANG === "uz" ? "Tuman majburiy." : "Район обязателен.");
     return;
   }
 
@@ -524,6 +573,8 @@ function createBranch() {
       region_name: regionObj ? regionObj.name : null,
       city_name: cityName || null,
       city_slug: cityName ? (window.toCitySlug ? window.toCitySlug(cityName) : cityName.toLowerCase()) : null,
+      district_name: districtName || null,
+      district_slug: districtName ? (window.toCitySlug ? window.toCitySlug(districtName) : districtName.toLowerCase()) : null,
       contact_phone: contactPhone || null,
       contact_telegram: contactTelegram || null,
       cover_image: coverImage || null
@@ -534,6 +585,7 @@ function createBranch() {
       $("#newBranchLongitude").val("");
       $("#newBranchRegion").val("");
       $("#newBranchCity").val("");
+      $("#newBranchDistrict").val("");
       $("#newBranchPhone").val("");
       $("#newBranchTelegram").val("");
       $("#newBranchCoverImage").val("");
@@ -562,6 +614,8 @@ function saveBranchContacts() {
   const regionSlug = ($("#editBranchRegion").val() || "").trim();
   const regionObj = getRegionBySlug(regionSlug);
   const cityName = ($("#editBranchCity").val() || "").trim();
+  const districtName = ($("#editBranchDistrict").val() || "").trim();
+  const requiredDistricts = CITY_DISTRICT_OPTIONS[cityName] || [];
   const latRaw = ($("#editBranchLatitude").val() || "").trim();
   const lonRaw = ($("#editBranchLongitude").val() || "").trim();
   if (!name) {
@@ -574,6 +628,10 @@ function saveBranchContacts() {
   }
   if (!cityName) {
     showBranchFieldError("edit", "City", CURRENT_LANG === "uz" ? "Shahar majburiy." : "Город обязателен.");
+    return;
+  }
+  if (requiredDistricts.length && !districtName) {
+    showBranchFieldError("edit", "District", CURRENT_LANG === "uz" ? "Tuman majburiy." : "Район обязателен.");
     return;
   }
   const latNum = parseFloat(latRaw);
@@ -594,6 +652,8 @@ function saveBranchContacts() {
     region_name: regionObj.name,
     city_name: cityName,
     city_slug: window.toCitySlug ? window.toCitySlug(cityName) : cityName.toLowerCase(),
+    district_name: districtName || null,
+    district_slug: districtName ? (window.toCitySlug ? window.toCitySlug(districtName) : districtName.toLowerCase()) : null,
     contact_phone: ($("#editBranchPhone").val() || "").trim() || null,
     contact_telegram: ($("#editBranchTelegram").val() || "").trim() || null,
     cover_image: ($("#editBranchCoverImage").val() || "").trim() || null

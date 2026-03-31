@@ -13,6 +13,7 @@ _branch_contact_columns_checked = False
 _branch_region_columns_checked = False
 _branch_cover_image_column_checked = False
 _branch_city_columns_checked = False
+_branch_district_columns_checked = False
 
 def get_connection():
     return engine.begin()
@@ -67,6 +68,8 @@ def init_db():
             region_slug TEXT,
             city_name TEXT,
             city_slug TEXT,
+            district_name TEXT,
+            district_slug TEXT,
             contact_phone TEXT,
             contact_telegram TEXT,
             cover_image TEXT,
@@ -653,6 +656,22 @@ def ensure_branch_city_columns():
             ADD COLUMN IF NOT EXISTS city_slug TEXT
         """))
     _branch_city_columns_checked = True
+
+
+def ensure_branch_district_columns():
+    global _branch_district_columns_checked
+    if _branch_district_columns_checked:
+        return
+    with get_connection() as conn:
+        conn.execute(text("""
+            ALTER TABLE branches
+            ADD COLUMN IF NOT EXISTS district_name TEXT
+        """))
+        conn.execute(text("""
+            ALTER TABLE branches
+            ADD COLUMN IF NOT EXISTS district_slug TEXT
+        """))
+    _branch_district_columns_checked = True
 
 def get_rooms_with_beds(branch_id):
     ensure_pricing_columns()
@@ -1535,6 +1554,7 @@ def get_branches(user_id):
     ensure_branch_contact_columns()
     ensure_branch_cover_image_column()
     ensure_branch_city_columns()
+    ensure_branch_district_columns()
     with get_connection() as conn:
         result = conn.execute(text("""
             SELECT
@@ -1545,6 +1565,8 @@ def get_branches(user_id):
                 b.longitude,
                 b.city_name,
                 b.city_slug,
+                b.district_name,
+                b.district_slug,
                 b.contact_phone,
                 b.contact_telegram,
                 b.cover_image
@@ -3274,6 +3296,8 @@ def create_branch_db(
             region_slug: str | None = None,
             city_name: str | None = None,
             city_slug: str | None = None,
+            district_name: str | None = None,
+            district_slug: str | None = None,
             contact_phone: str | None = None,
             contact_telegram: str | None = None,
             cover_image: str | None = None,
@@ -3282,6 +3306,7 @@ def create_branch_db(
     ensure_branch_region_columns()
     ensure_branch_cover_image_column()
     ensure_branch_city_columns()
+    ensure_branch_district_columns()
     with get_connection() as conn:
         try:
             # 1️⃣ create branch
@@ -3295,6 +3320,8 @@ def create_branch_db(
                     region_slug,
                     city_name,
                     city_slug,
+                    district_name,
+                    district_slug,
                     contact_phone,
                     contact_telegram,
                     cover_image,
@@ -3309,6 +3336,8 @@ def create_branch_db(
                     :region_slug,
                     :city_name,
                     :city_slug,
+                    :district_name,
+                    :district_slug,
                     :contact_phone,
                     :contact_telegram,
                     :cover_image,
@@ -3324,6 +3353,8 @@ def create_branch_db(
                 "region_slug": (region_slug or "").strip() or None,
                 "city_name": (city_name or "").strip() or None,
                 "city_slug": (city_slug or "").strip() or None,
+                "district_name": (district_name or "").strip() or None,
+                "district_slug": (district_slug or "").strip() or None,
                 "contact_phone": (contact_phone or "").strip() or None,
                 "contact_telegram": (contact_telegram or "").strip() or None,
                 "cover_image": (cover_image or "").strip() or None,
@@ -3923,9 +3954,10 @@ def list_branches_by_admin_db(admin_id):
     ensure_branch_region_columns()
     ensure_branch_cover_image_column()
     ensure_branch_city_columns()
+    ensure_branch_district_columns()
     with get_connection() as conn:
         return conn.execute(text("""
-            SELECT id, name, address, latitude, longitude, region_name, region_slug, city_name, city_slug, contact_phone, contact_telegram, cover_image
+            SELECT id, name, address, latitude, longitude, region_name, region_slug, city_name, city_slug, district_name, district_slug, contact_phone, contact_telegram, cover_image
             FROM branches
             WHERE created_by = :aid
             ORDER BY id
@@ -3943,6 +3975,8 @@ def update_branch_by_admin_db(
         region_slug=None,
         city_name=None,
         city_slug=None,
+        district_name=None,
+        district_slug=None,
         contact_phone=None,
         contact_telegram=None,
         cover_image=None
@@ -3951,6 +3985,7 @@ def update_branch_by_admin_db(
     ensure_branch_region_columns()
     ensure_branch_cover_image_column()
     ensure_branch_city_columns()
+    ensure_branch_district_columns()
     with get_connection() as conn:
         res = conn.execute(text("""
             UPDATE branches
@@ -3962,6 +3997,8 @@ def update_branch_by_admin_db(
                 region_slug = :region_slug,
                 city_name = :city_name,
                 city_slug = :city_slug,
+                district_name = :district_name,
+                district_slug = :district_slug,
                 contact_phone = :contact_phone,
                 contact_telegram = :contact_telegram,
                 cover_image = :cover_image
@@ -3976,6 +4013,8 @@ def update_branch_by_admin_db(
             "region_slug": (region_slug or "").strip() or None,
             "city_name": (city_name or "").strip() or None,
             "city_slug": (city_slug or "").strip() or None,
+            "district_name": (district_name or "").strip() or None,
+            "district_slug": (district_slug or "").strip() or None,
             "contact_phone": (contact_phone or "").strip() or None,
             "contact_telegram": (contact_telegram or "").strip() or None,
             "cover_image": (cover_image or "").strip() or None,
@@ -4841,6 +4880,7 @@ def list_public_branches_with_rating_db(
     room_type: str | None = None,
     region_slug: str | None = None,
     city_name: str | None = None,
+    district_name: str | None = None,
     price_mode: str | None = None,
     limit: int = 100
 ):
@@ -4851,6 +4891,7 @@ def list_public_branches_with_rating_db(
     ensure_branch_region_columns()
     ensure_branch_cover_image_column()
     ensure_branch_city_columns()
+    ensure_branch_district_columns()
     lim = int(limit or 100)
     if lim < 1:
         lim = 1
@@ -4860,6 +4901,7 @@ def list_public_branches_with_rating_db(
     room_type_norm = (str(room_type or "").strip() or None)
     region_slug_norm = (str(region_slug or "").strip() or None)
     city_name_norm = (str(city_name or "").strip() or None)
+    district_name_norm = (str(district_name or "").strip() or None)
     mode = (price_mode or "day").strip().lower()
     if mode not in {"hour", "day", "month"}:
         mode = "day"
@@ -4877,6 +4919,8 @@ def list_public_branches_with_rating_db(
                 b.region_slug,
                 b.city_name,
                 b.city_slug,
+                b.district_name,
+                b.district_slug,
                 b.contact_phone,
                 b.contact_telegram,
                 COALESCE(AVG(br.rating), 0) AS avg_rating,
@@ -5013,6 +5057,10 @@ def list_public_branches_with_rating_db(
                 :city_name IS NULL
                 OR lower(coalesce(b.city_name, '')) = lower(:city_name)
               )
+              AND (
+                :district_name IS NULL
+                OR lower(coalesce(b.district_name, '')) = lower(:district_name)
+              )
               AND EXISTS (
                   SELECT 1
                   FROM beds bb
@@ -5043,7 +5091,7 @@ def list_public_branches_with_rating_db(
                         )
                     )
               )
-            GROUP BY b.id, b.name, b.address, b.latitude, b.longitude, b.region_name, b.region_slug, b.city_name, b.city_slug, b.contact_phone, b.contact_telegram, b.cover_image
+            GROUP BY b.id, b.name, b.address, b.latitude, b.longitude, b.region_name, b.region_slug, b.city_name, b.city_slug, b.district_name, b.district_slug, b.contact_phone, b.contact_telegram, b.cover_image
             HAVING (:min_rating IS NULL OR COALESCE(AVG(br.rating), 0) >= :min_rating)
             ORDER BY avg_rating DESC, rating_count DESC, b.id ASC
             LIMIT :lim
@@ -5052,6 +5100,7 @@ def list_public_branches_with_rating_db(
             "room_type": room_type_norm,
             "region_slug": region_slug_norm,
             "city_name": city_name_norm,
+            "district_name": district_name_norm,
             "today": today,
             "lim": lim,
         }).mappings().all()
@@ -5067,6 +5116,8 @@ def list_public_branches_with_rating_db(
             "region_slug": r["region_slug"],
             "city_name": r["city_name"],
             "city_slug": r["city_slug"],
+            "district_name": r["district_name"],
+            "district_slug": r["district_slug"],
             "contact_phone": r["contact_phone"],
             "contact_telegram": r["contact_telegram"],
             "avg_rating": float(r["avg_rating"] or 0),

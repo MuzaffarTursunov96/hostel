@@ -20,6 +20,7 @@ def public_branches(
     room_type: str | None = None,
     region_slug: str | None = None,
     city_name: str | None = None,
+    district_name: str | None = None,
     price_mode: str | None = None,
     limit: int = 100
 ):
@@ -30,6 +31,7 @@ def public_branches(
         room_type=room_type,
         region_slug=region_slug,
         city_name=city_name,
+        district_name=district_name,
         price_mode=price_mode,
         limit=limit
     )
