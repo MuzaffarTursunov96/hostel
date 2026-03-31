@@ -6,268 +6,70 @@
   <title>Login</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
-    :root {
-      --bg: #ededed;
-      --sheet: #f8f8f8;
-      --text: #111111;
-      --muted: #5e5e5e;
-      --line: #cfcfcf;
-      --btn: #f4f4f4;
-      --ok: #0c8a46;
-      --err: #b42318;
-    }
-
-    * { box-sizing: border-box; }
-
-    body {
-      margin: 0;
-      min-height: 100vh;
-      background: var(--bg);
-      color: var(--text);
-      font-family: "Segoe UI", Tahoma, Arial, sans-serif;
-      display: grid;
-      place-items: center;
-      padding: 12px;
-    }
-
-    .sheet {
-      width: min(560px, 100%);
-      background: var(--sheet);
-      border: 1px solid var(--line);
-      border-radius: 28px;
-      padding: 18px 14px 16px;
-      position: relative;
-    }
-
-    .close {
-      position: absolute;
-      top: 8px;
-      right: 10px;
-      border: 0;
-      background: transparent;
-      color: #1a1a1a;
-      font-size: 40px;
-      line-height: 1;
-      cursor: pointer;
-    }
-
-    h1 {
-      margin: 26px 0 0;
-      text-align: center;
-      font-size: clamp(30px, 7vw, 44px);
-      font-weight: 700;
-      line-height: 1.12;
-      letter-spacing: -0.02em;
-    }
-
-    .sub {
-      margin: 12px auto 0;
-      max-width: 460px;
-      text-align: center;
-      font-size: clamp(14px, 3.4vw, 22px);
-      color: var(--muted);
-      line-height: 1.45;
-    }
-
-    .stack {
-      margin-top: 18px;
-      display: grid;
-      gap: 10px;
-    }
-
-    .social-btn {
-      height: 54px;
-      border-radius: 999px;
-      border: 1px solid var(--line);
-      background: var(--btn);
-      color: #1a1a1a;
-      font-size: clamp(18px, 4.8vw, 26px);
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-      cursor: pointer;
-      text-decoration: none;
-      width: 100%;
-    }
-
-    .social-icon {
-      width: 28px;
-      text-align: center;
-      font-size: clamp(16px, 4vw, 22px);
-      color: #202020;
-      flex: 0 0 28px;
-    }
-
-    .social-icon.google {
-      color: #4285f4;
-      font-weight: 700;
-    }
-
-    .social-btn.disabled {
-      opacity: 0.55;
-      pointer-events: none;
-    }
-
-    .or {
-      margin: 12px 0;
-      display: grid;
-      grid-template-columns: 1fr auto 1fr;
-      align-items: center;
-      gap: 10px;
-      color: #5e5e5e;
-      font-size: clamp(14px, 3.6vw, 22px);
-      font-weight: 700;
-    }
-
-    .or::before,
-    .or::after {
-      content: "";
-      border-top: 1px solid var(--line);
-    }
-
-    .field {
-      width: 100%;
-      height: 56px;
-      border-radius: 999px;
-      border: 1px solid #353535;
-      background: #fff;
-      padding: 0 22px;
-      font-size: clamp(16px, 4.8vw, 22px);
-      outline: none;
-    }
-
-    .field::placeholder { color: #8a8a8a; }
-
-    .field:focus {
-      border-color: #0f62fe;
-      box-shadow: 0 0 0 4px rgba(15, 98, 254, 0.12);
-    }
-
-    .row-right {
-      margin-top: 8px;
-      display: flex;
-      justify-content: flex-end;
-    }
-
-    .mini-btn {
-      height: 48px;
-      border-radius: 999px;
-      border: 1px solid var(--line);
-      background: #f2f2f2;
-      padding: 0 28px;
-      font-size: clamp(16px, 4vw, 22px);
-      font-weight: 700;
-      cursor: pointer;
-    }
-
-    .mini-btn:disabled {
-      opacity: 0.45;
-      cursor: not-allowed;
-    }
-
-    .otp-block {
-      display: none;
-      margin-top: 10px;
-    }
-
-    .otp-block.show { display: block; }
-
-    .split {
-      margin: 12px 0;
-      border-top: 1px solid var(--line);
-    }
-
-    .state {
-      margin-top: 8px;
-      font-size: 14px;
-      color: #666;
-    }
-
-    .state.ok {
-      color: var(--ok);
-      font-weight: 700;
-    }
-
-    .msg {
-      margin-top: 10px;
-      border-radius: 12px;
-      padding: 10px 12px;
-      border: 1px solid var(--line);
-      display: none;
-      white-space: pre-line;
-      font-size: 14px;
-    }
-
-    .msg.ok {
-      display: block;
-      color: var(--ok);
-      border-color: #9ddfb8;
-      background: #eafdf1;
-    }
-
-    .msg.err {
-      display: block;
-      color: var(--err);
-      border-color: #f4c7c3;
-      background: #fff2f1;
-    }
-
-    @media (max-width: 620px) {
-      h1 { font-size: 32px; }
-      .field { font-size: 17px; }
-      .social-btn { font-size: 19px; }
-      .mini-btn { font-size: 18px; height: 48px; }
-    }
+    :root { --bg:#ededed; --sheet:#f8f8f8; --text:#111; --muted:#5e5e5e; --line:#cfcfcf; --btn:#f4f4f4; --ok:#0c8a46; --err:#b42318; }
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;background:var(--bg);color:var(--text);font-family:"Segoe UI",Tahoma,Arial,sans-serif;display:grid;place-items:center;padding:12px}
+    .sheet{width:min(560px,100%);background:var(--sheet);border:1px solid var(--line);border-radius:28px;padding:18px 14px 16px;position:relative}
+    .lang-toggle{position:absolute;top:12px;left:12px;display:flex;gap:6px}
+    .lang-btn{border:1px solid var(--line);border-radius:999px;background:#fff;padding:4px 10px;font-size:12px;font-weight:700;cursor:pointer}
+    .lang-btn.active{background:#0f62fe;border-color:#0f62fe;color:#fff}
+    .close{position:absolute;top:8px;right:10px;border:0;background:transparent;color:#1a1a1a;font-size:40px;line-height:1;cursor:pointer}
+    h1{margin:26px 0 0;text-align:center;font-size:clamp(30px,7vw,44px);font-weight:700;line-height:1.12;letter-spacing:-.02em}
+    .sub{margin:12px auto 0;max-width:460px;text-align:center;font-size:clamp(14px,3.4vw,22px);color:var(--muted);line-height:1.45}
+    .stack{margin-top:18px;display:grid;gap:10px}
+    .social-btn{height:54px;border-radius:999px;border:1px solid var(--line);background:var(--btn);color:#1a1a1a;font-size:clamp(18px,4.8vw,26px);font-weight:700;display:flex;align-items:center;justify-content:center;gap:12px;cursor:pointer;text-decoration:none;width:100%}
+    .social-btn.disabled{opacity:.55;pointer-events:none}
+    .social-icon{width:28px;text-align:center;font-size:clamp(16px,4vw,22px);color:#202020;flex:0 0 28px}
+    .social-icon.google{color:#4285f4;font-weight:700}
+    .or{margin:12px 0;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;color:#5e5e5e;font-size:clamp(14px,3.6vw,22px);font-weight:700}
+    .or:before,.or:after{content:"";border-top:1px solid var(--line)}
+    .field{width:100%;height:56px;border-radius:999px;border:1px solid #353535;background:#fff;padding:0 22px;font-size:clamp(16px,4.8vw,22px);outline:none}
+    .field::placeholder{color:#8a8a8a}
+    .field:focus{border-color:#0f62fe;box-shadow:0 0 0 4px rgba(15,98,254,.12)}
+    .row-right{margin-top:8px;display:flex;justify-content:flex-end}
+    .mini-btn{height:48px;border-radius:999px;border:1px solid var(--line);background:#f2f2f2;padding:0 28px;font-size:clamp(16px,4vw,22px);font-weight:700;cursor:pointer}
+    .mini-btn:disabled{opacity:.45;cursor:not-allowed}
+    .otp-block{display:none;margin-top:10px}.otp-block.show{display:block}
+    .split{margin:12px 0;border-top:1px solid var(--line)}
+    .state{margin-top:8px;font-size:14px;color:#666}.state.ok{color:var(--ok);font-weight:700}
+    .msg{margin-top:10px;border-radius:12px;padding:10px 12px;border:1px solid var(--line);display:none;white-space:pre-line;font-size:14px}
+    .msg.ok{display:block;color:var(--ok);border-color:#9ddfb8;background:#eafdf1}
+    .msg.err{display:block;color:var(--err);border-color:#f4c7c3;background:#fff2f1}
+    @media (max-width:620px){h1{font-size:32px}.field{font-size:17px}.social-btn{font-size:19px}.mini-btn{font-size:18px;height:48px}}
   </style>
 </head>
 <body>
   <div class="sheet">
+    <div class="lang-toggle"><button id="langUzBtn" class="lang-btn" type="button">UZ</button><button id="langRuBtn" class="lang-btn" type="button">RU</button></div>
     <button class="close" type="button" onclick="window.location.href='/'">&times;</button>
-
-    <h1>Log in or sign up</h1>
-    <p class="sub">You'll get smarter responses and can upload files, images, and more.</p>
+    <h1 id="loginTitle">Log in or sign up</h1>
+    <p id="loginSub" class="sub">You'll get smarter responses and can upload files, images, and more.</p>
 
     <div class="stack">
-      <a id="googleStartBtn" class="social-btn" href="/auth/google/start">
-        <span class="social-icon google">G</span>
-        Continue with Google
-      </a>
-      <button id="appleBtn" class="social-btn" type="button">
-        <span class="social-icon">A</span>
-        Continue with Apple
-      </button>
-      <button id="phoneBtn" class="social-btn" type="button">
-        <span class="social-icon">P</span>
-        Continue with phone
-      </button>
+      <a id="googleStartBtn" class="social-btn" href="/auth/google/start"><span class="social-icon google">G</span><span id="googleBtnText">Continue with Google</span></a>
+      <button id="appleBtn" class="social-btn" type="button"><span class="social-icon">A</span><span id="appleBtnText">Continue with Apple</span></button>
+      <button id="phoneBtn" class="social-btn" type="button"><span class="social-icon">P</span><span id="phoneBtnText">Continue with phone</span></button>
     </div>
 
-    <div class="or">OR</div>
+    <div id="orText" class="or">OR</div>
 
-    <input id="email" class="field" type="email" placeholder="Email address" autocomplete="email">
-    <div class="row-right">
-      <button id="sendCodeBtn" class="mini-btn" type="button">Send code</button>
-    </div>
+    <input id="email" class="field" type="email" autocomplete="email" placeholder="Email address">
+    <div class="row-right"><button id="sendCodeBtn" class="mini-btn" type="button">Send code</button></div>
 
     <div id="otpBlock" class="otp-block">
-      <input id="otp" class="field" type="text" placeholder="6-digit code" maxlength="6" inputmode="numeric">
-      <div class="row-right">
-        <button id="verifyCodeBtn" class="mini-btn" type="button">Verify</button>
-      </div>
+      <input id="otp" class="field" type="text" maxlength="6" inputmode="numeric" placeholder="6-digit code">
+      <div class="row-right"><button id="verifyCodeBtn" class="mini-btn" type="button">Verify</button></div>
       <div id="stepState" class="state">Email verification required.</div>
     </div>
 
     <div class="split"></div>
 
     <form id="loginForm">
-      <input id="username" class="field" type="text" placeholder="Username" autocomplete="username" required>
-      <div style="height:10px"></div>
-      <input id="password" class="field" type="password" placeholder="Password" autocomplete="current-password" required>
-      <div class="row-right" style="margin-top:12px;">
-        <button id="loginBtn" class="mini-btn" type="submit" disabled>Log in</button>
-      </div>
+      <input id="password" class="field" type="password" autocomplete="current-password" placeholder="Password" required>
+      <div style="height:10px" id="passwordConfirmWrap" hidden></div>
+      <input id="passwordConfirm" class="field" type="password" autocomplete="new-password" placeholder="Confirm password" hidden>
+      <div id="accountHint" class="state"></div>
+      <div class="row-right" style="margin-top:12px;"><button id="loginBtn" class="mini-btn" type="submit" disabled>Log in</button></div>
     </form>
 
     <div id="msg" class="msg"></div>
@@ -280,187 +82,239 @@
     const emailInput = document.getElementById("email");
     const otpInput = document.getElementById("otp");
     const otpBlock = document.getElementById("otpBlock");
-    const usernameInput = document.getElementById("username");
     const passwordInput = document.getElementById("password");
+    const passwordConfirmInput = document.getElementById("passwordConfirm");
+    const passwordConfirmWrap = document.getElementById("passwordConfirmWrap");
+    const accountHint = document.getElementById("accountHint");
     const sendCodeBtn = document.getElementById("sendCodeBtn");
     const verifyCodeBtn = document.getElementById("verifyCodeBtn");
     const loginBtn = document.getElementById("loginBtn");
     const googleStartBtn = document.getElementById("googleStartBtn");
     const appleBtn = document.getElementById("appleBtn");
     const phoneBtn = document.getElementById("phoneBtn");
+    const langUzBtn = document.getElementById("langUzBtn");
+    const langRuBtn = document.getElementById("langRuBtn");
     const GOOGLE_OAUTH_ENABLED = "{{ GOOGLE_OAUTH_ENABLED|default('0', true)|e }}" === "1";
+    const CURRENT_LANG = ("{{ CURRENT_LANG|default('ru', true)|e }}" || "ru").toLowerCase();
 
+    const I18N = {
+      uz: {
+        title: "Kirish yoki ro'yxatdan o'tish",
+        subtitle: "Tizimga kirib davom eting.",
+        google: "Google orqali davom etish",
+        apple: "Apple orqali davom etish",
+        phone: "Telefon orqali davom etish",
+        or: "YOKI",
+        email_ph: "Email manzil",
+        send_code: "Kod yuborish",
+        otp_ph: "6 xonali kod",
+        verify: "Tasdiqlash",
+        email_required: "Email tasdig'i kerak.",
+        password_ph: "Parol",
+        password_confirm_ph: "Parolni tasdiqlang",
+        login: "Kirish",
+        create_account: "Akkaunt yaratish",
+        account_exists_enter_password: "Bu email bazada bor. Parolni kiriting.",
+        account_new_create_password: "Bu email yangi. Yangi parol yarating.",
+        enter_password: "Parolni kiriting.",
+        password_mismatch: "Parollar mos kelmadi.",
+        password_too_short: "Parol kamida 6 ta belgidan iborat bo'lsin.",
+        auth_success_redirect: "Muvaffaqiyatli. Asosiy sahifaga o'tilmoqda...",
+        email_verified: "Email tasdiqlandi: ",
+        google_verified: "Google akkaunt tasdiqlandi.",
+        google_failed: "Google kirish xatosi: ",
+        google_not_configured: "Google kirish sozlanmagan.",
+        apple_disabled: "Apple kirish yoqilmagan.",
+        phone_help: "Pastdagi emailni tasdiqlab davom eting.",
+        enter_gmail: "Avval Gmail kiriting.",
+        send_code_failed: "Kod yuborilmadi.",
+        code_sent: "Kod yuborildi: ",
+        network_error: "Tarmoq xatosi.",
+        enter_gmail_code: "Gmail va kodni kiriting.",
+        invalid_code: "Kod noto'g'ri.",
+        verify_before_login: "Kirishdan oldin Gmail ni tasdiqlang.",
+        login_failed: "Kirish amalga oshmadi."
+      },
+      ru: {
+        title: "���� ��� �����������",
+        subtitle: "������� � ������� ��� �����������.",
+        google: "���������� ����� Google",
+        apple: "���������� ����� Apple",
+        phone: "���������� �� ��������",
+        or: "���",
+        email_ph: "Email �����",
+        send_code: "��������� ���",
+        otp_ph: "6-������� ���",
+        verify: "���������",
+        email_required: "��������� ������������� email.",
+        password_ph: "������",
+        password_confirm_ph: "����������� ������",
+        login: "�����",
+        create_account: "������� �������",
+        account_exists_enter_password: "���� email ��� ���� � ����. ������� ������.",
+        account_new_create_password: "���� email �����. �������� ������.",
+        enter_password: "������� ������.",
+        password_mismatch: "������ �� ���������.",
+        password_too_short: "������ ������� 6 ��������.",
+        auth_success_redirect: "�������. ��������� �� �������...",
+        email_verified: "Email �����������: ",
+        google_verified: "Google ������� �����������.",
+        google_failed: "������ ����� Google: ",
+        google_not_configured: "Google ���� �� ��������.",
+        apple_disabled: "���� ����� Apple �� �������.",
+        phone_help: "����������� email ���� ��� �����������.",
+        enter_gmail: "������� ������� Gmail.",
+        send_code_failed: "�� ������� ��������� ���.",
+        code_sent: "��� ���������: ",
+        network_error: "������ ����.",
+        enter_gmail_code: "������� Gmail � ���.",
+        invalid_code: "�������� ���.",
+        verify_before_login: "����������� Gmail ����� ������.",
+        login_failed: "�� ������� ��������� ����."
+      }
+    };
+
+    let lang = localStorage.getItem("hms_login_lang") || (CURRENT_LANG.startsWith("uz") ? "uz" : "ru");
+    if (!I18N[lang]) lang = "ru";
     let emailVerified = false;
+    let accountMode = "unknown"; // existing | new
 
-    function showMsg(type, text) {
-      msgEl.className = "msg " + type;
-      msgEl.textContent = text;
+    function tt(key){ return (I18N[lang] && I18N[lang][key]) || key; }
+    function showMsg(type, text){ msgEl.className = "msg " + type; msgEl.textContent = text; }
+    function clearMsg(){ msgEl.className = "msg"; msgEl.textContent = ""; }
+
+    function applyLang(){
+      document.documentElement.lang = lang;
+      localStorage.setItem("hms_login_lang", lang);
+      langUzBtn.classList.toggle("active", lang === "uz");
+      langRuBtn.classList.toggle("active", lang === "ru");
+      document.getElementById("loginTitle").textContent = tt("title");
+      document.getElementById("loginSub").textContent = tt("subtitle");
+      document.getElementById("googleBtnText").textContent = tt("google");
+      document.getElementById("appleBtnText").textContent = tt("apple");
+      document.getElementById("phoneBtnText").textContent = tt("phone");
+      document.getElementById("orText").textContent = tt("or");
+      emailInput.placeholder = tt("email_ph");
+      sendCodeBtn.textContent = tt("send_code");
+      otpInput.placeholder = tt("otp_ph");
+      verifyCodeBtn.textContent = tt("verify");
+      passwordInput.placeholder = tt("password_ph");
+      passwordConfirmInput.placeholder = tt("password_confirm_ph");
+      loginBtn.textContent = accountMode === "new" ? tt("create_account") : tt("login");
+      if (!emailVerified) stepState.textContent = tt("email_required");
     }
 
-    function clearMsg() {
-      msgEl.className = "msg";
-      msgEl.textContent = "";
-    }
-
-    function setVerifiedState(verified, email) {
+    function setVerifiedState(verified, email){
       emailVerified = !!verified;
       loginBtn.disabled = !emailVerified;
-      if (emailVerified) {
-        stepState.className = "state ok";
-        stepState.textContent = "Email verified: " + email;
-        if (!usernameInput.value && email.includes("@")) {
-          usernameInput.value = email.split("@")[0];
-        }
-      } else {
-        stepState.className = "state";
-        stepState.textContent = "Email verification required.";
-      }
+      stepState.className = verified ? "state ok" : "state";
+      stepState.textContent = verified ? (tt("email_verified") + email) : tt("email_required");
     }
 
-    async function postJson(url, body) {
-      const r = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
-      });
-      const payload = await r.json().catch(() => ({}));
-      return { ok: r.ok, status: r.status, payload };
+    function updateAccountFormUi(){
+      const isNew = accountMode === "new";
+      passwordConfirmWrap.hidden = !isNew;
+      passwordConfirmInput.hidden = !isNew;
+      accountHint.textContent = isNew ? tt("account_new_create_password") : tt("account_exists_enter_password");
+      loginBtn.textContent = isNew ? tt("create_account") : tt("login");
+      loginBtn.disabled = !emailVerified;
     }
 
-    function applyGoogleQueryState() {
+    async function postJson(url, body){
+      const r = await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+      const payload = await r.json().catch(()=>({}));
+      return {ok:r.ok,status:r.status,payload};
+    }
+
+    async function resolveAccountMode(email){
+      const {ok,payload} = await postJson("/auth/email/account-status",{email});
+      if(!ok || !payload.ok){ showMsg("err", payload.error || tt("login_failed")); return false; }
+      accountMode = payload.exists ? "existing" : "new";
+      updateAccountFormUi();
+      return true;
+    }
+
+    function applyGoogleQueryState(){
       const q = new URLSearchParams(window.location.search);
       const status = (q.get("google") || "").trim().toLowerCase();
       const email = (q.get("email") || "").trim().toLowerCase();
-      if (status === "ok" && email) {
+      if(status === "ok" && email){
         emailInput.value = email;
         otpBlock.classList.add("show");
-        setVerifiedState(true, email);
-        showMsg("ok", "Google account selected and verified. Now enter username/password.");
-        if (window.history && window.history.replaceState) {
-          window.history.replaceState({}, document.title, "/login");
-        }
-      } else if (status && status !== "ok") {
-        showMsg("err", "Google sign-in failed: " + status.replaceAll("_", " "));
-        if (window.history && window.history.replaceState) {
-          window.history.replaceState({}, document.title, "/login");
-        }
+        setVerifiedState(true,email);
+        showMsg("ok",tt("google_verified"));
+        resolveAccountMode(email);
+      } else if(status && status !== "ok"){
+        showMsg("err",tt("google_failed") + status.replaceAll("_"," "));
+      }
+      if (status && window.history && window.history.replaceState) {
+        window.history.replaceState({}, document.title, "/login");
       }
     }
 
-    if (!GOOGLE_OAUTH_ENABLED) {
-      googleStartBtn.classList.add("disabled");
-      googleStartBtn.removeAttribute("href");
-      showMsg("err", "Google sign-in not configured on server. Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI and restart.");
-    }
+    if(!GOOGLE_OAUTH_ENABLED){ googleStartBtn.classList.add("disabled"); googleStartBtn.removeAttribute("href"); showMsg("err",tt("google_not_configured")); }
+    appleBtn.addEventListener("click",()=>showMsg("err",tt("apple_disabled")));
+    phoneBtn.addEventListener("click",()=>{showMsg("ok",tt("phone_help"));emailInput.focus();});
 
-    appleBtn.addEventListener("click", () => {
-      showMsg("err", "Apple login is not enabled. Use Google or email verification.");
-    });
-
-    phoneBtn.addEventListener("click", () => {
-      showMsg("ok", "Use your email below and verify code to continue.");
-      emailInput.focus();
-    });
-
-    sendCodeBtn.addEventListener("click", async () => {
+    sendCodeBtn.addEventListener("click",async()=>{
       clearMsg();
-      const email = emailInput.value.trim();
-      if (!email) {
-        showMsg("err", "Enter your Gmail first.");
-        return;
-      }
-
+      const email=emailInput.value.trim();
+      if(!email){showMsg("err",tt("enter_gmail"));return;}
       otpBlock.classList.add("show");
-      sendCodeBtn.disabled = true;
-      try {
-        const { ok, payload } = await postJson("/auth/email/send-code", { email });
-        if (!ok || !payload.ok) {
-          showMsg("err", payload.error || "Failed to send code.");
-          return;
-        }
-        showMsg("ok", "Code sent to " + (payload.email_masked || email));
-      } catch (_) {
-        showMsg("err", "Network error. Try again.");
-      } finally {
-        setTimeout(() => {
-          sendCodeBtn.disabled = false;
-        }, 1200);
-      }
+      sendCodeBtn.disabled=true;
+      try{
+        const {ok,payload}=await postJson("/auth/email/send-code",{email});
+        if(!ok||!payload.ok){showMsg("err",payload.error||tt("send_code_failed"));return;}
+        showMsg("ok",tt("code_sent") + (payload.email_masked||email));
+      }catch{ showMsg("err",tt("network_error")); }
+      finally{ setTimeout(()=>{sendCodeBtn.disabled=false;},1200); }
     });
 
-    verifyCodeBtn.addEventListener("click", async () => {
+    verifyCodeBtn.addEventListener("click",async()=>{
       clearMsg();
-      const email = emailInput.value.trim();
-      const code = otpInput.value.trim();
-      if (!email || !code) {
-        showMsg("err", "Enter Gmail and code.");
-        return;
-      }
-
-      verifyCodeBtn.disabled = true;
-      try {
-        const { ok, payload } = await postJson("/auth/email/verify-code", { email, code });
-        if (!ok || !payload.ok) {
-          setVerifiedState(false, "");
-          showMsg("err", payload.error || "Invalid code.");
-          return;
-        }
-        setVerifiedState(true, payload.email || email);
-        showMsg("ok", "Verification successful. Redirecting...");
-        setTimeout(() => {
-          window.location.href = "/catalog";
-        }, 500);
-      } catch (_) {
-        showMsg("err", "Network error. Try again.");
-      } finally {
-        verifyCodeBtn.disabled = false;
-      }
+      const email=emailInput.value.trim();
+      const code=otpInput.value.trim();
+      if(!email||!code){showMsg("err",tt("enter_gmail_code"));return;}
+      verifyCodeBtn.disabled=true;
+      try{
+        const {ok,payload}=await postJson("/auth/email/verify-code",{email,code});
+        if(!ok||!payload.ok){setVerifiedState(false,"");showMsg("err",payload.error||tt("invalid_code"));return;}
+        const verifiedEmail = payload.email || email;
+        setVerifiedState(true,verifiedEmail);
+        await resolveAccountMode(verifiedEmail);
+        showMsg("ok", accountMode === "new" ? tt("account_new_create_password") : tt("enter_password"));
+      }catch{ showMsg("err",tt("network_error")); }
+      finally{ verifyCodeBtn.disabled=false; }
     });
 
-    document.getElementById("loginForm").addEventListener("submit", async (e) => {
+    document.getElementById("loginForm").addEventListener("submit",async(e)=>{
       e.preventDefault();
       clearMsg();
+      if(!emailVerified){showMsg("err",tt("verify_before_login"));return;}
+      const email=emailInput.value.trim();
+      const password=passwordInput.value;
+      if(!password || password.length<6){showMsg("err",tt("password_too_short"));return;}
+      if(accountMode === "new" && password !== passwordConfirmInput.value){showMsg("err",tt("password_mismatch"));return;}
 
-      if (!emailVerified) {
-        showMsg("err", "Verify your Gmail before login.");
-        return;
-      }
-
-      loginBtn.disabled = true;
-      try {
-        const { ok, payload } = await postJson("/login", {
-          username: usernameInput.value.trim(),
-          password: passwordInput.value
-        });
-        if (!ok) {
-          showMsg("err", payload.detail || payload.error || "Login failed.");
-          return;
-        }
-        window.location.href = "/dashboard?v=" + Date.now();
-      } catch (_) {
-        showMsg("err", "Network error. Try again.");
-      } finally {
-        loginBtn.disabled = !emailVerified;
-      }
+      loginBtn.disabled=true;
+      try{
+        const endpoint = accountMode === "new" ? "/auth/email/account-register" : "/auth/email/account-login";
+        const {ok,payload}=await postJson(endpoint,{email,password});
+        if(!ok||!payload.ok){showMsg("err",payload.error||tt("login_failed"));return;}
+        showMsg("ok",tt("auth_success_redirect"));
+        setTimeout(()=>{ window.location.href="/catalog"; },350);
+      }catch{ showMsg("err",tt("network_error")); }
+      finally{ loginBtn.disabled=!emailVerified; }
     });
 
+    langUzBtn.addEventListener("click",()=>{lang="uz";applyLang();});
+    langRuBtn.addEventListener("click",()=>{lang="ru";applyLang();});
+    applyLang();
     applyGoogleQueryState();
-    if (new URLSearchParams(window.location.search).get("google") === "ok") {
-      setTimeout(() => {
-        window.location.href = "/catalog";
-      }, 500);
-    }
 
     if (tg && tg.initData) {
-      tg.ready();
-      tg.expand();
-      postJson("/auth/telegram", { initData: tg.initData })
-        .then(({ ok, payload }) => {
-          if (ok && payload.ok) {
-            window.location.href = "/dashboard?v=" + Date.now();
-          }
-        })
-        .catch(() => {});
+      tg.ready(); tg.expand();
+      postJson("/auth/telegram", { initData: tg.initData }).then(({ok,payload})=>{ if(ok&&payload.ok){ window.location.href="/dashboard?v="+Date.now(); }}).catch(()=>{});
     }
   </script>
 </body>

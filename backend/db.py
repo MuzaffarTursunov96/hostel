@@ -5385,3 +5385,67 @@ def update_feedback_status_db(
         })
         return True
 
+
+def ensure_public_users_table():
+    with get_connection() as conn:
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS public_users (
+                id SERIAL PRIMARY KEY,
+                email TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """))
+
+
+def get_public_user_by_email_db(email: str):
+    ensure_public_users_table()
+    em = str(email or "").strip().lower()
+    if not em:
+        return None
+    with get_connection() as conn:
+        row = conn.execute(text("""
+            SELECT id, email, password_hash, created_at
+            FROM public_users
+            WHERE lower(email) = :email
+            LIMIT 1
+        """), {"email": em}).mappings().fetchone()
+    return dict(row) if row else None
+
+
+def create_public_user_by_email_db(email: str, password: str):
+    ensure_public_users_table()
+    em = str(email or "").strip().lower()
+    pw = str(password or "")
+    if not em:
+        raise ValueError("email required")
+    if len(pw) < 6:
+        raise ValueError("password must be at least 6 characters")
+    if get_public_user_by_email_db(em):
+        raise ValueError("email already exists")
+
+    with get_connection() as conn:
+        row = conn.execute(text("""
+            INSERT INTO public_users (email, password_hash)
+            VALUES (:email, :password_hash)
+            RETURNING id, email, created_at
+        """), {
+            "email": em,
+            "password_hash": hash_password(pw),
+        }).mappings().fetchone()
+
+    return dict(row) if row else None
+
+
+def verify_public_user_password_db(email: str, password: str):
+    user = get_public_user_by_email_db(email)
+    if not user:
+        return None
+    if not verify_password(str(password or ""), user["password_hash"]):
+        return None
+    return {
+        "id": int(user["id"]),
+        "email": user["email"],
+        "name": str(user["email"]).split("@")[0],
+    }
+

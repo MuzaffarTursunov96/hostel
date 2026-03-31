@@ -1,7 +1,13 @@
 from fastapi import APIRouter, HTTPException, Depends
 from datetime import datetime
 import os
-from .schemas import LoginIn, TelegramLoginIn
+from .schemas import (
+    LoginIn,
+    TelegramLoginIn,
+    EmailStatusIn,
+    EmailRegisterIn,
+    EmailPasswordIn,
+)
 from security import verify_password, create_token
 from db import (
     login as db_login,
@@ -10,6 +16,9 @@ from db import (
     get_app_expiry_db,
     sync_admin_active_by_expiry_db,
     create_admin_if_not_exists,
+    get_public_user_by_email_db,
+    create_public_user_by_email_db,
+    verify_public_user_password_db,
 )
 from api.deps import get_current_user
 from time_utils import app_now_naive
@@ -223,3 +232,34 @@ def telegram_login(data: TelegramLoginIn):
         "language": u["language"] or "ru",
         "telegram_id": data.telegram_id,
     }
+
+
+@router.post("/email/status")
+def email_status(data: EmailStatusIn):
+    email = str(data.email or "").strip().lower()
+    if not email:
+        raise HTTPException(status_code=400, detail="email required")
+    return {"exists": bool(get_public_user_by_email_db(email))}
+
+
+@router.post("/email/register")
+def email_register(data: EmailRegisterIn):
+    email = str(data.email or "").strip().lower()
+    if not email:
+        raise HTTPException(status_code=400, detail="email required")
+    try:
+        u = create_public_user_by_email_db(email, data.password)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"ok": True, "id": u["id"], "email": u["email"], "name": str(u["email"]).split("@")[0]}
+
+
+@router.post("/email/login")
+def email_login(data: EmailPasswordIn):
+    email = str(data.email or "").strip().lower()
+    if not email:
+        raise HTTPException(status_code=400, detail="email required")
+    u = verify_public_user_password_db(email, data.password)
+    if not u:
+        raise HTTPException(status_code=401, detail="invalid email or password")
+    return {"ok": True, "id": u["id"], "email": u["email"], "name": u["name"]}

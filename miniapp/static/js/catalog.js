@@ -211,6 +211,7 @@
   let userGeo = null;
   let currentTgUser = null;
   let sessionLoggedIn = false;
+  let sessionDisplayName = "";
   const NO_PHOTO_SRC = "/static/icons/no_photo.png";
 
   const cardsEl = document.getElementById("cards");
@@ -218,6 +219,7 @@
   const toggleFiltersBtnEl = document.getElementById("toggleFiltersBtn");
   const myHistoryBtnEl = document.getElementById("myHistoryBtn");
   const authBtnEl = document.getElementById("authBtn");
+  const userBadgeEl = document.getElementById("userBadge");
   const toggleFiltersTextEl = document.getElementById("toggleFiltersText");
   const toggleFiltersIconEl = toggleFiltersBtnEl ? toggleFiltersBtnEl.querySelector(".filter-toggle-icon") : null;
   const searchEl = document.getElementById("searchInput");
@@ -462,6 +464,16 @@
   function updateAuthButton() {
     if (!authBtnEl) return;
     authBtnEl.textContent = sessionLoggedIn ? t("logout") : t("login");
+    if (!userBadgeEl) return;
+    if (sessionLoggedIn && sessionDisplayName) {
+      userBadgeEl.hidden = false;
+      userBadgeEl.textContent = sessionDisplayName;
+      userBadgeEl.title = sessionDisplayName;
+    } else {
+      userBadgeEl.hidden = true;
+      userBadgeEl.textContent = "";
+      userBadgeEl.title = "";
+    }
   }
 
   function updateFiltersToggleUi() {
@@ -497,8 +509,16 @@
       const res = await fetch("/auth/session-status", { cache: "no-store" });
       const payload = await res.json().catch(() => ({}));
       sessionLoggedIn = !!(res.ok && payload && payload.logged_in);
+      const rawName = String((payload && payload.display_name) || "").trim();
+      if (rawName) {
+        sessionDisplayName = rawName;
+      } else {
+        const em = String((payload && payload.public_user_email) || "").trim();
+        sessionDisplayName = em.includes("@") ? em.split("@")[0] : "";
+      }
     } catch (_) {
       sessionLoggedIn = false;
+      sessionDisplayName = "";
     }
     updateAuthButton();
   }

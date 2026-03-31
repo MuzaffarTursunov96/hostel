@@ -22,3 +22,17 @@ class PayDebtIn(BaseModel):
 class TelegramLoginIn(BaseModel):
     telegram_id: int
     username: str | None = None
+
+
+class EmailStatusIn(BaseModel):
+    email: str
+
+
+class EmailRegisterIn(BaseModel):
+    email: str
+    password: str
+
+
+class EmailPasswordIn(BaseModel):
+    email: str
+    password: str

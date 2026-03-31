@@ -323,6 +323,10 @@ def marketing_page():
 
 @app.route("/login")
 def login_page():
+    if "access_token" in session:
+        return redirect("/dashboard")
+    if session.get("public_user_email"):
+        return redirect("/catalog")
     return render_template("login.html")
 
 
@@ -400,8 +404,6 @@ def google_callback():
     session["verified_email"] = email
     session["verified_email_at"] = now.isoformat()
     session["google_verified_email"] = email
-    session["public_user_email"] = email
-    session["public_user_name"] = email.split("@")[0]
 
     q = requests.compat.urlencode({"google": "ok", "email": email})
     return redirect(f"/login?{q}")
@@ -421,6 +423,11 @@ def public_catalog_page():
 def auth_session_status():
     is_admin = bool(session.get("access_token"))
     is_public = bool(session.get("public_user_email"))
+    display_name = (
+        session.get("display_name")
+        or session.get("public_user_name")
+        or (str(session.get("public_user_email") or "").split("@")[0] if session.get("public_user_email") else "")
+    )
     return jsonify({
         "ok": True,
         "logged_in": is_admin or is_public,
@@ -428,6 +435,7 @@ def auth_session_status():
         "user_id": session.get("user_id"),
         "is_admin": bool(session.get("is_admin")) if is_admin else False,
         "public_user_email": session.get("public_user_email"),
+        "display_name": display_name,
     })
 
 
@@ -639,6 +647,7 @@ def telegram_auth():
     session["telegram_id"] = payload.get("telegram_id")
     session["language"] = token_payload.get("language", "ru")
     session["branch_id"] = token_payload.get("branch_id")
+    session["display_name"] = user.get("username") or user.get("first_name") or "User"
     # session["branch_id"] = payload["branch_id"]
 
     with open("/tmp/telegram_payload.log", "a") as f:
@@ -709,9 +718,74 @@ def verify_email_code():
     record["verified"] = True
     session["verified_email"] = email
     session["verified_email_at"] = now.isoformat()
+    return jsonify({"ok": True, "email": email})
+
+
+@app.post("/auth/email/account-status")
+def email_account_status():
+    data = request.get_json(silent=True) or {}
+    email = _normalize_email(data.get("email"))
+    verified_email = _normalize_email(session.get("verified_email"))
+    if not email or email != verified_email:
+        return jsonify({"ok": False, "error": "Verify this email first"}), 403
+
+    r = requests.post(
+        f"{API_URL}/auth/email/status",
+        json={"email": email},
+        timeout=(10, 20)
+    )
+    payload = r.json() if r.headers.get("content-type", "").startswith("application/json") else {}
+    if r.status_code != 200:
+        return jsonify({"ok": False, "error": payload.get("detail") or "status check failed"}), r.status_code
+    return jsonify({"ok": True, "exists": bool(payload.get("exists"))})
+
+
+@app.post("/auth/email/account-register")
+def email_account_register():
+    data = request.get_json(silent=True) or {}
+    email = _normalize_email(data.get("email"))
+    password = str(data.get("password") or "")
+    verified_email = _normalize_email(session.get("verified_email"))
+    if not email or email != verified_email:
+        return jsonify({"ok": False, "error": "Verify this email first"}), 403
+
+    r = requests.post(
+        f"{API_URL}/auth/email/register",
+        json={"email": email, "password": password},
+        timeout=(10, 20)
+    )
+    payload = r.json() if r.headers.get("content-type", "").startswith("application/json") else {}
+    if r.status_code != 200:
+        return jsonify({"ok": False, "error": payload.get("detail") or "register failed"}), r.status_code
+
     session["public_user_email"] = email
-    session["public_user_name"] = email.split("@")[0]
-    return jsonify({"ok": True, "email": email, "auto_registered": True})
+    session["public_user_name"] = payload.get("name") or email.split("@")[0]
+    session["display_name"] = session["public_user_name"]
+    return jsonify({"ok": True})
+
+
+@app.post("/auth/email/account-login")
+def email_account_login():
+    data = request.get_json(silent=True) or {}
+    email = _normalize_email(data.get("email"))
+    password = str(data.get("password") or "")
+    verified_email = _normalize_email(session.get("verified_email"))
+    if not email or email != verified_email:
+        return jsonify({"ok": False, "error": "Verify this email first"}), 403
+
+    r = requests.post(
+        f"{API_URL}/auth/email/login",
+        json={"email": email, "password": password},
+        timeout=(10, 20)
+    )
+    payload = r.json() if r.headers.get("content-type", "").startswith("application/json") else {}
+    if r.status_code != 200:
+        return jsonify({"ok": False, "error": payload.get("detail") or "login failed"}), r.status_code
+
+    session["public_user_email"] = email
+    session["public_user_name"] = payload.get("name") or email.split("@")[0]
+    session["display_name"] = session["public_user_name"]
+    return jsonify({"ok": True})
 
 
 @app.post("/login")
@@ -736,6 +810,7 @@ def do_login():
         session["telegram_id"] = payload.get("telegram_id")
         session["branch_id"] = token_payload.get("branch_id", payload.get("branch_id"))
         session["language"] = token_payload.get("language", payload.get("language", "ru"))
+        session["display_name"] = str(data.get("username") or "User")
         session.pop("verified_email", None)
         session.pop("verified_email_at", None)
         session.pop("public_user_email", None)

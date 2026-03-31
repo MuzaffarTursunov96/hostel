@@ -56,6 +56,20 @@ body {
   gap: 8px;
 }
 
+.user-badge {
+  max-width: 132px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #eef4ff;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .auth-btn {
   padding-inline: 14px;
   font-weight: 700;
