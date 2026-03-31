@@ -406,7 +406,10 @@
           return;
         }
         setVerifiedState(true, payload.email || email);
-        showMsg("ok", "Verification successful. You can login now.");
+        showMsg("ok", "Verification successful. Redirecting...");
+        setTimeout(() => {
+          window.location.href = "/catalog";
+        }, 500);
       } catch (_) {
         showMsg("err", "Network error. Try again.");
       } finally {
@@ -442,6 +445,11 @@
     });
 
     applyGoogleQueryState();
+    if (new URLSearchParams(window.location.search).get("google") === "ok") {
+      setTimeout(() => {
+        window.location.href = "/catalog";
+      }, 500);
+    }
 
     if (tg && tg.initData) {
       tg.ready();

@@ -108,7 +108,7 @@ def login_required(f):
 
 
 def is_logged_in_session():
-    return "access_token" in session
+    return "access_token" in session or bool(session.get("public_user_email"))
 
 
 def require_login_json():
@@ -400,6 +400,8 @@ def google_callback():
     session["verified_email"] = email
     session["verified_email_at"] = now.isoformat()
     session["google_verified_email"] = email
+    session["public_user_email"] = email
+    session["public_user_name"] = email.split("@")[0]
 
     q = requests.compat.urlencode({"google": "ok", "email": email})
     return redirect(f"/login?{q}")
@@ -417,11 +419,15 @@ def public_catalog_page():
 
 @app.get("/auth/session-status")
 def auth_session_status():
+    is_admin = bool(session.get("access_token"))
+    is_public = bool(session.get("public_user_email"))
     return jsonify({
         "ok": True,
-        "logged_in": is_logged_in_session(),
+        "logged_in": is_admin or is_public,
+        "auth_mode": "admin" if is_admin else ("public" if is_public else "guest"),
         "user_id": session.get("user_id"),
-        "is_admin": bool(session.get("is_admin")),
+        "is_admin": bool(session.get("is_admin")) if is_admin else False,
+        "public_user_email": session.get("public_user_email"),
     })
 
 
@@ -703,7 +709,9 @@ def verify_email_code():
     record["verified"] = True
     session["verified_email"] = email
     session["verified_email_at"] = now.isoformat()
-    return jsonify({"ok": True, "email": email})
+    session["public_user_email"] = email
+    session["public_user_name"] = email.split("@")[0]
+    return jsonify({"ok": True, "email": email, "auto_registered": True})
 
 
 @app.post("/login")
@@ -730,6 +738,8 @@ def do_login():
         session["language"] = token_payload.get("language", payload.get("language", "ru"))
         session.pop("verified_email", None)
         session.pop("verified_email_at", None)
+        session.pop("public_user_email", None)
+        session.pop("public_user_name", None)
 
     return jsonify(r.json()), r.status_code
 
