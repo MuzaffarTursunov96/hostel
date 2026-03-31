@@ -81,6 +81,16 @@ def create_branch_admin(data: dict, current_user=Depends(get_current_user)):
     if not name:
         raise HTTPException(400, "name required")
 
+    if latitude is None or longitude is None:
+        raise HTTPException(400, "location required: latitude and longitude")
+    try:
+        latitude = float(latitude)
+        longitude = float(longitude)
+    except (TypeError, ValueError):
+        raise HTTPException(400, "invalid location: latitude/longitude must be numbers")
+    if not (-90 <= latitude <= 90 and -180 <= longitude <= 180):
+        raise HTTPException(400, "invalid location range")
+
     branch_id = create_branch_db(
         name=name,
         address=address,

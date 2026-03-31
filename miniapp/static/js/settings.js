@@ -337,11 +337,26 @@ function createBranch() {
     return;
   }
 
+  const latNum = parseFloat(latitude);
+  const lonNum = parseFloat(longitude);
+  if (!Number.isFinite(latNum) || !Number.isFinite(lonNum)) {
+    alert(CURRENT_LANG === "uz"
+      ? "Filial lokatsiyasi majburiy. Xaritadan joy tanlang."
+      : "Локация филиала обязательна. Выберите точку на карте.");
+    return;
+  }
+  if (latNum < -90 || latNum > 90 || lonNum < -180 || lonNum > 180) {
+    alert(CURRENT_LANG === "uz"
+      ? "Latitude/longitude noto'g'ri."
+      : "Неверные latitude/longitude.");
+    return;
+  }
+
   apiPost("/branches/branches-admin", { 
       name: name,
       address: address || null,
-      latitude: latitude ? parseFloat(latitude) : null,
-      longitude: longitude ? parseFloat(longitude) : null,
+      latitude: latNum,
+      longitude: lonNum,
       contact_phone: contactPhone || null,
       contact_telegram: contactTelegram || null
     }).done(function () {
