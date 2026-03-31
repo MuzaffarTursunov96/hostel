@@ -142,10 +142,26 @@ function handleApiError(xhr) {
 
   try {
     const data = JSON.parse(xhr.responseText);
-    msg = data.detail || data.error || msg;
+    const detail = data && data.detail;
+    if (Array.isArray(detail)) {
+      const first = detail[0] || {};
+      msg = first.msg || first.message || data.error || msg;
+    } else if (detail && typeof detail === "object") {
+      msg = detail.msg || detail.message || detail.error || data.error || msg;
+    } else {
+      msg = detail || data.error || msg;
+    }
   } catch (e) {
     if (xhr.responseText) {
       msg = xhr.responseText;
+    }
+  }
+
+  if (msg && typeof msg !== "string") {
+    try {
+      msg = JSON.stringify(msg);
+    } catch (_) {
+      msg = String(msg);
     }
   }
 

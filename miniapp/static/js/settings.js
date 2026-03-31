@@ -302,8 +302,6 @@ function saveBranchMapPoint() {
     closeBranchMapPicker();
     alert(CURRENT_LANG === "uz" ? "Filial lokatsiyasi saqlandi" : "Локация филиала сохранена");
     loadBranches();
-  }).fail(function () {
-    alert(t("api_error"));
   });
 }
 
@@ -368,13 +366,6 @@ function createBranch() {
       $("#newBranchTelegram").val("");
       alert(t("branch_created"));
       loadBranches();
-    })
-    .fail(function (err) {
-      if (err.responseJSON && err.responseJSON.detail) {
-        alert(err.responseJSON.detail);
-      } else {
-        alert(t("api_error"));
-      }
     });
 }
 
