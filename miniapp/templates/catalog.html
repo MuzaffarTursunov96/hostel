@@ -53,7 +53,9 @@
     <section id="filtersPanel" class="filters collapsed" hidden>
       <input id="searchInput" type="text" placeholder="Qidirish..." data-ph="search_ph">
       <div class="filters-row">
-        <input id="cityInput" type="text" data-ph="city_ph" placeholder="Shahar">
+        <select id="cityFilter">
+          <option value="" data-i18n="all_cities">Barcha shaharlar</option>
+        </select>
         <select id="regionFilter">
           <option value="" data-i18n="all_regions">Barcha viloyatlar</option>
         </select>
@@ -244,6 +246,7 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script src="/static/js/uz_regions_cities.js?v={{version}}"></script>
   <script src="/static/js/catalog.js?v={{version}}"></script>
 </body>
 </html>

@@ -23,6 +23,7 @@ const REGION_OPTIONS = [
   { id: 36, name: "Ферганская область", normalized_name: "ferganskaya-oblast" },
   { id: 37, name: "Хорезмская область", normalized_name: "horezmskaya-oblast" }
 ];
+const REGION_CITY_OPTIONS = window.UZ_REGIONS_CITIES || {};
 
 
 $(document).ready(function () {
@@ -123,6 +124,32 @@ $(document).ready(function () {
   $("#branchMapSaveBtn").on("click", saveBranchMapPoint);
   $("#branchMapModal").on("click", function (e) {
     if (e.target && e.target.id === "branchMapModal") closeBranchMapPicker();
+  });
+  $("#newBranchRegion").on("change", function () {
+    renderCitySelect("new", $(this).val() || "");
+    clearBranchValidation("new");
+    clearBranchFieldError("new", "Region");
+    clearBranchFieldError("new", "City");
+  });
+  $("#editBranchRegion").on("change", function () {
+    renderCitySelect("edit", $(this).val() || "");
+    clearBranchValidation("edit");
+    clearBranchFieldError("edit", "Region");
+    clearBranchFieldError("edit", "City");
+  });
+  $("#newBranchCity, #newBranchName, #newBranchLatitude, #newBranchLongitude").on("input change", function () {
+    clearBranchValidation("new");
+    const id = String(this.id || "");
+    if (id.includes("Name")) clearBranchFieldError("new", "Name");
+    if (id.includes("City")) clearBranchFieldError("new", "City");
+    if (id.includes("Latitude") || id.includes("Longitude")) clearBranchFieldError("new", "Location");
+  });
+  $("#editBranchCity, #editBranchName, #editBranchLatitude, #editBranchLongitude").on("input change", function () {
+    clearBranchValidation("edit");
+    const id = String(this.id || "");
+    if (id.includes("Name")) clearBranchFieldError("edit", "Name");
+    if (id.includes("City")) clearBranchFieldError("edit", "City");
+    if (id.includes("Latitude") || id.includes("Longitude")) clearBranchFieldError("edit", "Location");
   });
 
 
@@ -237,14 +264,21 @@ function fillBranchContactInputs() {
   $("#editBranchLongitude").val(row.longitude ?? "");
   $("#editBranchPhone").val(row.contact_phone || "");
   $("#editBranchTelegram").val(row.contact_telegram || "");
-  $("#editBranchRegion").val((row.region_slug || "").trim());
+  $("#editBranchCoverImage").val(row.cover_image || "");
+  const regionSlug = (row.region_slug || "").trim();
+  $("#editBranchRegion").val(regionSlug);
+  renderCitySelect("edit", regionSlug, row.city_name || "");
 }
 
 function openNewBranchModal() {
+  clearBranchValidation("new");
+  clearBranchFieldErrors("new");
   $("#newBranchModal").addClass("show");
 }
 
 function closeNewBranchModal() {
+  clearBranchValidation("new");
+  clearBranchFieldErrors("new");
   $("#newBranchModal").removeClass("show");
 }
 
@@ -255,10 +289,14 @@ function openEditBranchModal() {
     return;
   }
   fillBranchContactInputs();
+  clearBranchValidation("edit");
+  clearBranchFieldErrors("edit");
   $("#editBranchModal").addClass("show");
 }
 
 function closeEditBranchModal() {
+  clearBranchValidation("edit");
+  clearBranchFieldErrors("edit");
   $("#editBranchModal").removeClass("show");
 }
 
@@ -269,11 +307,64 @@ function renderRegionSelects() {
     .concat(REGION_OPTIONS.map((r) => `<option value="${r.normalized_name}">${r.name}</option>`))
     .join("");
   $("#newBranchRegion").html(options);
+  renderCitySelect("new", ($("#newBranchRegion").val() || "").trim(), "");
 
   const editOptions = [`<option value="">${allLabel}</option>`]
     .concat(REGION_OPTIONS.map((r) => `<option value="${r.normalized_name}">${r.name}</option>`))
     .join("");
   $("#editBranchRegion").html(editOptions);
+  renderCitySelect("edit", ($("#editBranchRegion").val() || "").trim(), "");
+}
+
+function renderCitySelect(mode, regionSlug, selectedCity) {
+  const target = mode === "edit" ? "#editBranchCity" : "#newBranchCity";
+  const cityLabel = CURRENT_LANG === "uz" ? "Shaharni tanlang" : "Выберите город";
+  const allCity = CURRENT_LANG === "uz" ? "Barcha shaharlar" : "Все города";
+  const region = String(regionSlug || "").trim();
+  const cities = region ? (REGION_CITY_OPTIONS[region] || []) : [];
+  const base = mode === "edit" ? [`<option value="">${allCity}</option>`] : [`<option value="">${cityLabel}</option>`];
+  const options = base.concat(cities.map((c) => `<option value="${c}">${c}</option>`)).join("");
+  $(target).html(options);
+  if (selectedCity && cities.includes(selectedCity)) {
+    $(target).val(selectedCity);
+  } else {
+    $(target).val("");
+  }
+}
+
+function showBranchValidation(mode, message) {
+  const target = mode === "edit" ? "#editBranchValidation" : "#newBranchValidation";
+  const $el = $(target);
+  if (!$el.length) return;
+  $el.text(String(message || "")).removeClass("hidden");
+}
+
+function clearBranchValidation(mode) {
+  const target = mode === "edit" ? "#editBranchValidation" : "#newBranchValidation";
+  const $el = $(target);
+  if (!$el.length) return;
+  $el.text("").addClass("hidden");
+}
+
+function showBranchFieldError(mode, field, message) {
+  const target = `#${mode}Branch${field}Error`;
+  const $el = $(target);
+  if (!$el.length) return;
+  $el.text(String(message || "")).removeClass("hidden");
+}
+
+function clearBranchFieldError(mode, field) {
+  const target = `#${mode}Branch${field}Error`;
+  const $el = $(target);
+  if (!$el.length) return;
+  $el.text("").addClass("hidden");
+}
+
+function clearBranchFieldErrors(mode) {
+  $(`#${mode}BranchNameError`).text("").addClass("hidden");
+  $(`#${mode}BranchRegionError`).text("").addClass("hidden");
+  $(`#${mode}BranchCityError`).text("").addClass("hidden");
+  $(`#${mode}BranchLocationError`).text("").addClass("hidden");
 }
 
 function getRegionBySlug(slug) {
@@ -383,30 +474,42 @@ $(document).on("change", "#branchSelect", function () {
 });
 
 function createBranch() {
+  clearBranchValidation("new");
+  clearBranchFieldErrors("new");
   const name = $("#newBranchName").val().trim();
   const address = $("#newBranchAddress").val().trim();
   const latitude = $("#newBranchLatitude").val().trim();
   const longitude = $("#newBranchLongitude").val().trim();
   const regionSlug = ($("#newBranchRegion").val() || "").trim();
   const regionObj = getRegionBySlug(regionSlug);
+  const cityName = ($("#newBranchCity").val() || "").trim();
   const contactPhone = $("#newBranchPhone").val().trim();
   const contactTelegram = $("#newBranchTelegram").val().trim();
+  const coverImage = $("#newBranchCoverImage").val().trim();
 
   if (!name) {
-    alert(t("branch_name_required"));
+    showBranchFieldError("new", "Name", t("branch_name_required"));
+    return;
+  }
+  if (!regionSlug || !regionObj) {
+    showBranchFieldError("new", "Region", CURRENT_LANG === "uz" ? "Viloyat majburiy." : "Область обязательна.");
+    return;
+  }
+  if (!cityName) {
+    showBranchFieldError("new", "City", CURRENT_LANG === "uz" ? "Shahar majburiy." : "Город обязателен.");
     return;
   }
 
   const latNum = parseFloat(latitude);
   const lonNum = parseFloat(longitude);
   if (!Number.isFinite(latNum) || !Number.isFinite(lonNum)) {
-    alert(CURRENT_LANG === "uz"
+    showBranchFieldError("new", "Location", CURRENT_LANG === "uz"
       ? "Filial lokatsiyasi majburiy. Xaritadan joy tanlang."
       : "Локация филиала обязательна. Выберите точку на карте.");
     return;
   }
   if (latNum < -90 || latNum > 90 || lonNum < -180 || lonNum > 180) {
-    alert(CURRENT_LANG === "uz"
+    showBranchFieldError("new", "Location", CURRENT_LANG === "uz"
       ? "Latitude/longitude noto'g'ri."
       : "Неверные latitude/longitude.");
     return;
@@ -419,23 +522,35 @@ function createBranch() {
       longitude: lonNum,
       region_slug: regionSlug || null,
       region_name: regionObj ? regionObj.name : null,
+      city_name: cityName || null,
+      city_slug: cityName ? (window.toCitySlug ? window.toCitySlug(cityName) : cityName.toLowerCase()) : null,
       contact_phone: contactPhone || null,
-      contact_telegram: contactTelegram || null
+      contact_telegram: contactTelegram || null,
+      cover_image: coverImage || null
     }).done(function () {
       $("#newBranchName").val("");
       $("#newBranchAddress").val("");
       $("#newBranchLatitude").val("");
       $("#newBranchLongitude").val("");
       $("#newBranchRegion").val("");
+      $("#newBranchCity").val("");
       $("#newBranchPhone").val("");
       $("#newBranchTelegram").val("");
+      $("#newBranchCoverImage").val("");
+      clearBranchValidation("new");
+      clearBranchFieldErrors("new");
       alert(t("branch_created"));
       closeNewBranchModal();
       loadBranches();
+    }).fail(function (xhr) {
+      const msg = (xhr && xhr.responseJSON && (xhr.responseJSON.detail || xhr.responseJSON.message)) || (CURRENT_LANG === "uz" ? "Saqlashda xato." : "Ошибка при сохранении.");
+      showBranchValidation("new", msg);
     });
 }
 
 function saveBranchContacts() {
+  clearBranchValidation("edit");
+  clearBranchFieldErrors("edit");
   const branchId = Number($("#branchSelect").val() || 0);
   if (!branchId) {
     alert(t("select_branch"));
@@ -444,16 +559,27 @@ function saveBranchContacts() {
 
   const name = ($("#editBranchName").val() || "").trim();
   const address = ($("#editBranchAddress").val() || "").trim();
+  const regionSlug = ($("#editBranchRegion").val() || "").trim();
+  const regionObj = getRegionBySlug(regionSlug);
+  const cityName = ($("#editBranchCity").val() || "").trim();
   const latRaw = ($("#editBranchLatitude").val() || "").trim();
   const lonRaw = ($("#editBranchLongitude").val() || "").trim();
   if (!name) {
-    alert(t("branch_name_required"));
+    showBranchFieldError("edit", "Name", t("branch_name_required"));
+    return;
+  }
+  if (!regionSlug || !regionObj) {
+    showBranchFieldError("edit", "Region", CURRENT_LANG === "uz" ? "Viloyat majburiy." : "Область обязательна.");
+    return;
+  }
+  if (!cityName) {
+    showBranchFieldError("edit", "City", CURRENT_LANG === "uz" ? "Shahar majburiy." : "Город обязателен.");
     return;
   }
   const latNum = parseFloat(latRaw);
   const lonNum = parseFloat(lonRaw);
   if (!Number.isFinite(latNum) || !Number.isFinite(lonNum)) {
-    alert(CURRENT_LANG === "uz"
+    showBranchFieldError("edit", "Location", CURRENT_LANG === "uz"
       ? "Filial lokatsiyasi majburiy. Xaritadan joy tanlang."
       : "Локация филиала обязательна. Выберите точку на карте.");
     return;
@@ -464,14 +590,22 @@ function saveBranchContacts() {
     address: address || null,
     latitude: latNum,
     longitude: lonNum,
-    region_slug: ($("#editBranchRegion").val() || "").trim() || null,
-    region_name: (getRegionBySlug(($("#editBranchRegion").val() || "").trim()) || {}).name || null,
+    region_slug: regionSlug,
+    region_name: regionObj.name,
+    city_name: cityName,
+    city_slug: window.toCitySlug ? window.toCitySlug(cityName) : cityName.toLowerCase(),
     contact_phone: ($("#editBranchPhone").val() || "").trim() || null,
-    contact_telegram: ($("#editBranchTelegram").val() || "").trim() || null
+    contact_telegram: ($("#editBranchTelegram").val() || "").trim() || null,
+    cover_image: ($("#editBranchCoverImage").val() || "").trim() || null
   }).done(function () {
+    clearBranchValidation("edit");
+    clearBranchFieldErrors("edit");
     alert(t("branch_updated"));
     closeEditBranchModal();
     loadBranches();
+  }).fail(function (xhr) {
+    const msg = (xhr && xhr.responseJSON && (xhr.responseJSON.detail || xhr.responseJSON.message)) || (CURRENT_LANG === "uz" ? "Saqlashda xato." : "Ошибка при сохранении.");
+    showBranchValidation("edit", msg);
   });
 }
 

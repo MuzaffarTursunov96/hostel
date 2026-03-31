@@ -19,6 +19,7 @@ def public_branches(
     min_rating: float | None = None,
     room_type: str | None = None,
     region_slug: str | None = None,
+    city_name: str | None = None,
     price_mode: str | None = None,
     limit: int = 100
 ):
@@ -28,6 +29,7 @@ def public_branches(
         min_rating=min_rating,
         room_type=room_type,
         region_slug=region_slug,
+        city_name=city_name,
         price_mode=price_mode,
         limit=limit
     )

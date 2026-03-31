@@ -77,11 +77,18 @@ def create_branch_admin(data: dict, current_user=Depends(get_current_user)):
     longitude = data.get("longitude", None)
     region_name = data.get("region_name", None)
     region_slug = data.get("region_slug", None)
+    city_name = data.get("city_name", None)
+    city_slug = data.get("city_slug", None)
     contact_phone = data.get("contact_phone", None)
     contact_telegram = data.get("contact_telegram", None)
+    cover_image = data.get("cover_image", None)
 
     if not name:
         raise HTTPException(400, "name required")
+    if not str(region_slug or "").strip() or not str(region_name or "").strip():
+        raise HTTPException(400, "region required")
+    if not str(city_name or "").strip() or not str(city_slug or "").strip():
+        raise HTTPException(400, "city required")
 
     if latitude is None or longitude is None:
         raise HTTPException(400, "location required: latitude and longitude")
@@ -100,8 +107,11 @@ def create_branch_admin(data: dict, current_user=Depends(get_current_user)):
         longitude=longitude,
         region_name=region_name,
         region_slug=region_slug,
+        city_name=city_name,
+        city_slug=city_slug,
         contact_phone=contact_phone,
         contact_telegram=contact_telegram,
+        cover_image=cover_image,
         created_by=current_user["user_id"]
     )
 
@@ -165,11 +175,18 @@ def update_branch(
     longitude = data.get("longitude", None)
     region_name = data.get("region_name", None)
     region_slug = data.get("region_slug", None)
+    city_name = data.get("city_name", None)
+    city_slug = data.get("city_slug", None)
     contact_phone = data.get("contact_phone", None)
     contact_telegram = data.get("contact_telegram", None)
+    cover_image = data.get("cover_image", None)
 
     if not name:
         raise HTTPException(400, "name required")
+    if not str(region_slug or "").strip() or not str(region_name or "").strip():
+        raise HTTPException(400, "region required")
+    if not str(city_name or "").strip() or not str(city_slug or "").strip():
+        raise HTTPException(400, "city required")
 
     ok = update_branch_by_admin_db(
         admin_id=current_user["user_id"],
@@ -180,8 +197,11 @@ def update_branch(
         longitude=longitude,
         region_name=region_name,
         region_slug=region_slug,
+        city_name=city_name,
+        city_slug=city_slug,
         contact_phone=contact_phone,
-        contact_telegram=contact_telegram
+        contact_telegram=contact_telegram,
+        cover_image=cover_image
     )
 
 
