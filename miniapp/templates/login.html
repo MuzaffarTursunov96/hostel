@@ -37,6 +37,8 @@
     .msg { margin-top:10px; border-radius:12px; padding:10px 12px; border:1px solid var(--line); display:none; white-space:pre-line; font-size:14px; }
     .msg.ok { display:block; color:var(--ok); border-color:#9ddfb8; background:#eafdf1; }
     .msg.err { display:block; color:var(--err); border-color:#f4c7c3; background:#fff2f1; }
+    .verified-chip { margin-top:10px; padding:10px 12px; border:1px solid #9ddfb8; border-radius:12px; background:#eafdf1; color:#0c8a46; font-weight:700; font-size:14px; text-align:center; }
+    .hidden { display:none !important; }
     @media (max-width:620px){ h1{font-size:32px;} .field{font-size:17px;} .social-btn{font-size:19px;} .mini-btn{font-size:18px;height:48px;} }
   </style>
 </head>
@@ -51,32 +53,37 @@
     <h1 id="loginTitle">Log in or sign up</h1>
     <p id="loginSub" class="sub">Verify email, then log in or create a new account.</p>
 
-    <div class="stack">
-      <a id="googleStartBtn" class="social-btn" href="/auth/google/start"><span class="social-icon google">G</span><span id="googleBtnText">Continue with Google</span></a>
-      <button id="appleBtn" class="social-btn" type="button"><span class="social-icon">A</span><span id="appleBtnText">Continue with Apple</span></button>
-      <button id="phoneBtn" class="social-btn" type="button"><span class="social-icon">P</span><span id="phoneBtnText">Continue with phone</span></button>
+    <div id="preVerifySection">
+      <div class="stack">
+        <a id="googleStartBtn" class="social-btn" href="/auth/google/start"><span class="social-icon google">G</span><span id="googleBtnText">Continue with Google</span></a>
+        <button id="appleBtn" class="social-btn" type="button"><span class="social-icon">A</span><span id="appleBtnText">Continue with Apple</span></button>
+        <button id="phoneBtn" class="social-btn" type="button"><span class="social-icon">P</span><span id="phoneBtnText">Continue with phone</span></button>
+      </div>
+
+      <div id="orText" class="or">OR</div>
+
+      <input id="email" class="field" type="email" autocomplete="email" placeholder="Email address">
+      <div class="row-right"><button id="sendCodeBtn" class="mini-btn" type="button">Send code</button></div>
+
+      <div id="otpBlock" class="otp-block">
+        <input id="otp" class="field" type="text" maxlength="6" inputmode="numeric" placeholder="6-digit code">
+        <div class="row-right"><button id="verifyCodeBtn" class="mini-btn" type="button">Verify</button></div>
+        <div id="stepState" class="state">Email verification required.</div>
+      </div>
     </div>
 
-    <div id="orText" class="or">OR</div>
+    <div id="postVerifySection" class="hidden">
+      <div id="verifiedChip" class="verified-chip"></div>
+      <div class="split"></div>
 
-    <input id="email" class="field" type="email" autocomplete="email" placeholder="Email address">
-    <div class="row-right"><button id="sendCodeBtn" class="mini-btn" type="button">Send code</button></div>
-
-    <div id="otpBlock" class="otp-block">
-      <input id="otp" class="field" type="text" maxlength="6" inputmode="numeric" placeholder="6-digit code">
-      <div class="row-right"><button id="verifyCodeBtn" class="mini-btn" type="button">Verify</button></div>
-      <div id="stepState" class="state">Email verification required.</div>
+      <form id="loginForm">
+        <input id="password" class="field" type="password" autocomplete="current-password" placeholder="Password" required>
+        <div style="height:10px" id="passwordConfirmWrap" hidden></div>
+        <input id="passwordConfirm" class="field" type="password" autocomplete="new-password" placeholder="Confirm password" hidden>
+        <div id="accountHint" class="state"></div>
+        <div class="row-right" style="margin-top:12px;"><button id="loginBtn" class="mini-btn" type="submit" disabled>Log in</button></div>
+      </form>
     </div>
-
-    <div class="split"></div>
-
-    <form id="loginForm">
-      <input id="password" class="field" type="password" autocomplete="current-password" placeholder="Password" required>
-      <div style="height:10px" id="passwordConfirmWrap" hidden></div>
-      <input id="passwordConfirm" class="field" type="password" autocomplete="new-password" placeholder="Confirm password" hidden>
-      <div id="accountHint" class="state"></div>
-      <div class="row-right" style="margin-top:12px;"><button id="loginBtn" class="mini-btn" type="submit" disabled>Log in</button></div>
-    </form>
 
     <div id="msg" class="msg"></div>
   </div>
@@ -100,14 +107,89 @@
     const phoneBtn = document.getElementById("phoneBtn");
     const langUzBtn = document.getElementById("langUzBtn");
     const langRuBtn = document.getElementById("langRuBtn");
+    const preVerifySection = document.getElementById("preVerifySection");
+    const postVerifySection = document.getElementById("postVerifySection");
+    const verifiedChip = document.getElementById("verifiedChip");
     const GOOGLE_OAUTH_ENABLED = "{{ GOOGLE_OAUTH_ENABLED|default('0', true)|e }}" === "1";
     const CURRENT_LANG = ("{{ CURRENT_LANG|default('ru', true)|e }}" || "ru").toLowerCase();
 
     const I18N = {
       uz: {
-        title: "Kirish yoki royxatdan otish", subtitle: "Emailni tasdiqlang, keyin kiring yoki yangi akkaunt yarating.", google: "Google orqali davom etish", apple: "Apple orqali davom etish", phone: "Telefon orqali davom etish", or: "YOKI", email_ph: "Email manzil", send_code: "Kod yuborish", otp_ph: "6 xonali kod", verify: "Tasdiqlash", email_required: "Email tasdigi kerak.", password_ph: "Parol", password_confirm_ph: "Parolni tasdiqlang", login: "Kirish", create_account: "Akkaunt yaratish", account_exists_enter_password: "Bu email bazada bor. Parolni kiriting.", account_new_create_password: "Bu email yangi. Yangi parol yarating.", enter_password: "Parolni kiriting.", password_mismatch: "Parollar mos kelmadi.", password_too_short: "Parol kamida 6 ta belgi bolsin.", auth_success_redirect: "Muvaffaqiyatli. Asosiy sahifaga otilmoqda...", email_verified: "Email tasdiqlandi: ", google_verified: "Google akkaunt tasdiqlandi.", google_failed: "Google xatosi: ", google_not_configured: "Google kirish sozlanmagan.", apple_disabled: "Apple kirish yoqilmagan.", phone_help: "Pastdagi emailni tasdiqlab davom eting.", enter_gmail: "Avval Gmail kiriting.", send_code_failed: "Kod yuborilmadi.", code_sent: "Kod yuborildi: ", network_error: "Tarmoq xatosi.", enter_gmail_code: "Gmail va kodni kiriting.", invalid_code: "Kod notogri.", verify_before_login: "Kirishdan oldin Gmail ni tasdiqlang.", login_failed: "Kirish amalga oshmadi." },
+        title: "Kirish yoki ro'yxatdan o'tish",
+        subtitle: "Emailni tasdiqlang, keyin kiring yoki yangi akkaunt yarating.",
+        subtitle_password: "Email tasdiqlandi. Endi parol kiriting.",
+        google: "Google orqali davom etish",
+        apple: "Apple orqali davom etish",
+        phone: "Telefon orqali davom etish",
+        or: "YOKI",
+        email_ph: "Email manzil",
+        send_code: "Kod yuborish",
+        otp_ph: "6 xonali kod",
+        verify: "Tasdiqlash",
+        email_required: "Email tasdig'i kerak.",
+        password_ph: "Parol",
+        password_confirm_ph: "Parolni tasdiqlang",
+        login: "Kirish",
+        create_account: "Akkaunt yaratish",
+        account_exists_enter_password: "Bu email bazada bor. Parolni kiriting.",
+        account_new_create_password: "Bu email yangi. Yangi parol yarating.",
+        enter_password: "Parolni kiriting.",
+        password_mismatch: "Parollar mos kelmadi.",
+        password_too_short: "Parol kamida 6 ta belgi bo'lsin.",
+        auth_success_redirect: "Muvaffaqiyatli. Asosiy sahifaga o'tilmoqda...",
+        email_verified: "Email tasdiqlandi: ",
+        google_verified: "Google akkaunt tasdiqlandi.",
+        google_failed: "Google xatosi: ",
+        google_not_configured: "Google kirish sozlanmagan.",
+        apple_disabled: "Apple kirish yoqilmagan.",
+        phone_help: "Pastdagi emailni tasdiqlab davom eting.",
+        enter_gmail: "Avval Gmail kiriting.",
+        send_code_failed: "Kod yuborilmadi.",
+        code_sent: "Kod yuborildi: ",
+        network_error: "Tarmoq xatosi.",
+        enter_gmail_code: "Gmail va kodni kiriting.",
+        invalid_code: "Kod noto'g'ri.",
+        verify_before_login: "Kirishdan oldin Gmail ni tasdiqlang.",
+        login_failed: "Kirish amalga oshmadi."
+      },
       ru: {
-        title: "Vhod ili registraciya", subtitle: "Podtverdite email, potom voydite ili sozdajte novyy akkaunt.", google: "Prodolzhit cherez Google", apple: "Prodolzhit cherez Apple", phone: "Prodolzhit po telefonu", or: "ILI", email_ph: "Email adres", send_code: "Otpravit kod", otp_ph: "6-znachnyy kod", verify: "Proverit", email_required: "Nuzhno podtverdit email.", password_ph: "Parol", password_confirm_ph: "Podtverdite parol", login: "Voyti", create_account: "Sozdat akkaunt", account_exists_enter_password: "Etot email uzhe est v baze. Vvedite parol.", account_new_create_password: "Etot email novyy. Sozdayte parol.", enter_password: "Vvedite parol.", password_mismatch: "Paroli ne sovpadayut.", password_too_short: "Parol minimum 6 simvolov.", auth_success_redirect: "Uspeshno. Perehod na glavnuyu...", email_verified: "Email podtverzhden: ", google_verified: "Google akkaunt podtverzhden.", google_failed: "Google oshibka: ", google_not_configured: "Google vhod ne nastroen.", apple_disabled: "Vhod cherez Apple ne vklyuchen.", phone_help: "Podtverdite email nizhe dlya prodolzheniya.", enter_gmail: "Snachala vvedite Gmail.", send_code_failed: "Ne udalos otpravit kod.", code_sent: "Kod otpravlen: ", network_error: "Oshibka seti.", enter_gmail_code: "Vvedite Gmail i kod.", invalid_code: "Nevernyy kod.", verify_before_login: "Podtverdite Gmail pered vhodom.", login_failed: "Ne udalos voiti." }
+        title: "Вход или регистрация",
+        subtitle: "Подтвердите email, затем войдите или создайте новый аккаунт.",
+        subtitle_password: "Email подтвержден. Теперь введите пароль.",
+        google: "Продолжить через Google",
+        apple: "Продолжить через Apple",
+        phone: "Продолжить по телефону",
+        or: "ИЛИ",
+        email_ph: "Email адрес",
+        send_code: "Отправить код",
+        otp_ph: "6-значный код",
+        verify: "Проверить",
+        email_required: "Нужно подтвердить email.",
+        password_ph: "Пароль",
+        password_confirm_ph: "Подтвердите пароль",
+        login: "Войти",
+        create_account: "Создать аккаунт",
+        account_exists_enter_password: "Этот email уже есть в базе. Введите пароль.",
+        account_new_create_password: "Этот email новый. Создайте пароль.",
+        enter_password: "Введите пароль.",
+        password_mismatch: "Пароли не совпадают.",
+        password_too_short: "Пароль минимум 6 символов.",
+        auth_success_redirect: "Успешно. Переход на главную...",
+        email_verified: "Email подтвержден: ",
+        google_verified: "Google аккаунт подтвержден.",
+        google_failed: "Ошибка Google: ",
+        google_not_configured: "Google вход не настроен.",
+        apple_disabled: "Вход через Apple не включен.",
+        phone_help: "Подтвердите email ниже для продолжения.",
+        enter_gmail: "Сначала введите Gmail.",
+        send_code_failed: "Не удалось отправить код.",
+        code_sent: "Код отправлен: ",
+        network_error: "Ошибка сети.",
+        enter_gmail_code: "Введите Gmail и код.",
+        invalid_code: "Неверный код.",
+        verify_before_login: "Подтвердите Gmail перед входом.",
+        login_failed: "Не удалось войти."
+      }
     };
 
     let lang = localStorage.getItem("hms_login_lang") || (CURRENT_LANG.startsWith("uz") ? "uz" : "ru");
@@ -124,8 +206,6 @@
       localStorage.setItem("hms_login_lang", lang);
       langUzBtn.classList.toggle("active", lang === "uz");
       langRuBtn.classList.toggle("active", lang === "ru");
-      document.getElementById("loginTitle").textContent = tt("title");
-      document.getElementById("loginSub").textContent = tt("subtitle");
       document.getElementById("googleBtnText").textContent = tt("google");
       document.getElementById("appleBtnText").textContent = tt("apple");
       document.getElementById("phoneBtnText").textContent = tt("phone");
@@ -137,14 +217,26 @@
       passwordInput.placeholder = tt("password_ph");
       passwordConfirmInput.placeholder = tt("password_confirm_ph");
       loginBtn.textContent = accountMode === "new" ? tt("create_account") : tt("login");
-      if (!emailVerified) stepState.textContent = tt("email_required");
+
+      if (emailVerified) {
+        document.getElementById("loginTitle").textContent = tt("login");
+        document.getElementById("loginSub").textContent = tt("subtitle_password");
+        verifiedChip.textContent = tt("email_verified") + emailInput.value.trim();
+      } else {
+        document.getElementById("loginTitle").textContent = tt("title");
+        document.getElementById("loginSub").textContent = tt("subtitle");
+        stepState.textContent = tt("email_required");
+      }
     }
 
-    function setVerifiedState(verified, email){
-      emailVerified = !!verified;
-      loginBtn.disabled = !emailVerified;
-      stepState.className = verified ? "state ok" : "state";
-      stepState.textContent = verified ? (tt("email_verified") + email) : tt("email_required");
+    function enterPasswordStep(email){
+      preVerifySection.classList.add("hidden");
+      postVerifySection.classList.remove("hidden");
+      emailVerified = true;
+      loginBtn.disabled = false;
+      verifiedChip.textContent = tt("email_verified") + email;
+      document.getElementById("loginTitle").textContent = tt("login");
+      document.getElementById("loginSub").textContent = tt("subtitle_password");
     }
 
     function updateAccountFormUi(){
@@ -170,16 +262,20 @@
       return true;
     }
 
+    async function completeVerificationAndShowPassword(email, successMessage){
+      const ok = await resolveAccountMode(email);
+      if (!ok) return;
+      enterPasswordStep(email);
+      showMsg("ok", successMessage || (accountMode === "new" ? tt("account_new_create_password") : tt("enter_password")));
+    }
+
     function applyGoogleQueryState(){
       const q = new URLSearchParams(window.location.search);
       const status = (q.get("google") || "").trim().toLowerCase();
       const email = (q.get("email") || "").trim().toLowerCase();
       if(status === "ok" && email){
         emailInput.value = email;
-        otpBlock.classList.add("show");
-        setVerifiedState(true,email);
-        showMsg("ok",tt("google_verified"));
-        resolveAccountMode(email);
+        completeVerificationAndShowPassword(email, tt("google_verified"));
       } else if(status && status !== "ok") {
         showMsg("err",tt("google_failed") + status.replaceAll("_"," "));
       }
@@ -214,11 +310,10 @@
       verifyCodeBtn.disabled=true;
       try{
         const {ok,payload}=await postJson("/auth/email/verify-code",{email,code});
-        if(!ok||!payload.ok){setVerifiedState(false,"");showMsg("err",payload.error||tt("invalid_code"));return;}
+        if(!ok||!payload.ok){showMsg("err",payload.error||tt("invalid_code"));return;}
         const verifiedEmail = payload.email || email;
-        setVerifiedState(true,verifiedEmail);
-        await resolveAccountMode(verifiedEmail);
-        showMsg("ok", accountMode === "new" ? tt("account_new_create_password") : tt("enter_password"));
+        emailInput.value = verifiedEmail;
+        await completeVerificationAndShowPassword(verifiedEmail);
       }catch{ showMsg("err",tt("network_error")); }
       finally{ verifyCodeBtn.disabled=false; }
     });
