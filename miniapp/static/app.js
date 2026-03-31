@@ -127,12 +127,11 @@ function apiDelete(path, params = {}) {
 }
 
 function apiPut(path, params = {}) {
-  const query = $.param(params);
-  const url = query ? `/api2${path}?${query}` : `/api2${path}`;
-
   return $.ajax({
-    url: url,
+    url: "/api2" + path,
     method: "PUT",
+    contentType: "application/json",
+    data: JSON.stringify(params || {}),
     dataType: "json"
   }).fail(handleApiError);
 }
