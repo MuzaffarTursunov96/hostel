@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HMSUZ</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/catalog.css?v={{version}}">
+  <style>
+    .page-wrap { max-width: 900px; margin: 0 auto; padding: 16px; }
+    .page-card { background:#fff; border:1px solid var(--line); border-radius:16px; padding:14px; box-shadow:0 8px 30px rgba(8,15,52,.06); }
+    .page-title { margin:0; font-family:"Space Grotesk",sans-serif; font-size:clamp(22px,4vw,34px); }
+    .page-sub { margin:8px 0 0; color:var(--muted); }
+    .section-grid { margin-top:12px; display:grid; gap:8px; }
+    .menu-link { display:block; border:1px solid var(--line); border-radius:10px; background:#f8fbff; color:#0f172a; text-decoration:none; padding:10px 12px; font-weight:600; }
+    .menu-link.active { border-color:#2f6de0; background:#eef4ff; }
+    .actions { margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; }
+  </style>
+</head>
+<body>
+  <div class="bg-glow"></div>
+  <header class="topbar">
+    <a class="back-link" href="/catalog">HMSUZ</a>
+    <div class="topbar-right">
+      <button id="logoutBtn" type="button" class="lang-btn auth-btn">Chiqish</button>
+      <div class="lang-switch">
+        <button type="button" class="lang-btn" data-lang="uz">UZ</button>
+        <button type="button" class="lang-btn" data-lang="ru">RU</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="page-wrap">
+    <div class="page-card">
+      <h1 id="pageTitle" class="page-title">Sahifa</h1>
+      <p id="pageSub" class="page-sub"></p>
+      <div class="section-grid">
+        <a id="navBooking" class="menu-link" href="/catalog/booking-history">Bronlar tarixi</a>
+        <a id="navFeedbacks" class="menu-link" href="/catalog/feedbacks">Fikrlarim</a>
+        <a id="navAccount" class="menu-link" href="/catalog/my-account">Mening akkauntim</a>
+        <a id="navSettings" class="menu-link" href="/catalog/settings">Sozlamalar</a>
+      </div>
+      <div class="actions">
+        <a id="backCatalog" class="ghost-btn" href="/catalog">Katalogga qaytish</a>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    (function () {
+      const pageKey = "{{ page_key|default('booking_history')|e }}";
+      const tr = {
+        uz: {
+          booking_history: "Bronlar tarixi",
+          feedbacks: "Fikrlarim",
+          my_account: "Mening akkauntim",
+          settings: "Sozlamalar",
+          page_desc: "Bu bo'lim tayyorlandi. Keyingi bosqichda ma'lumotlar shu sahifada ko'rsatiladi.",
+          logout: "Chiqish",
+          back_catalog: "Katalogga qaytish",
+          booking_history_nav: "Bronlar tarixi",
+          feedbacks_nav: "Fikrlarim",
+          my_account_nav: "Mening akkauntim",
+          settings_nav: "Sozlamalar"
+        },
+        ru: {
+          booking_history: "История броней",
+          feedbacks: "Мои отзывы",
+          my_account: "Мой аккаунт",
+          settings: "Настройки",
+          page_desc: "Раздел создан. На следующем шаге здесь будут отображаться данные.",
+          logout: "Выйти",
+          back_catalog: "Назад в каталог",
+          booking_history_nav: "История броней",
+          feedbacks_nav: "Мои отзывы",
+          my_account_nav: "Мой аккаунт",
+          settings_nav: "Настройки"
+        }
+      };
+
+      let lang = localStorage.getItem("hms_lang") === "ru" ? "ru" : "uz";
+      const tt = (k) => (tr[lang] && tr[lang][k]) || k;
+      const $ = (id) => document.getElementById(id);
+
+      function applyLang() {
+        document.documentElement.lang = lang;
+        document.querySelectorAll(".lang-switch .lang-btn").forEach((btn) => {
+          btn.classList.toggle("active", btn.dataset.lang === lang);
+        });
+        $("pageTitle").textContent = tt(pageKey);
+        $("pageSub").textContent = tt("page_desc");
+        $("logoutBtn").textContent = tt("logout");
+        $("backCatalog").textContent = tt("back_catalog");
+        $("navBooking").textContent = tt("booking_history_nav");
+        $("navFeedbacks").textContent = tt("feedbacks_nav");
+        $("navAccount").textContent = tt("my_account_nav");
+        $("navSettings").textContent = tt("settings_nav");
+      }
+
+      function markActiveNav() {
+        const map = {
+          booking_history: "navBooking",
+          feedbacks: "navFeedbacks",
+          my_account: "navAccount",
+          settings: "navSettings"
+        };
+        const id = map[pageKey];
+        if (id && $(id)) $(id).classList.add("active");
+      }
+
+      document.querySelectorAll(".lang-switch .lang-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          lang = btn.dataset.lang === "ru" ? "ru" : "uz";
+          localStorage.setItem("hms_lang", lang);
+          applyLang();
+        });
+      });
+
+      $("logoutBtn").addEventListener("click", () => {
+        window.location.href = "/logout";
+      });
+
+      applyLang();
+      markActiveNav();
+    })();
+  </script>
+</body>
+</html>

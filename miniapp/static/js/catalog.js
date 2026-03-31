@@ -16,6 +16,10 @@
       login: "Kirish",
       logout: "Chiqish",
       profile: "Profil",
+      menu_booking_history: "Bronlar tarixi",
+      menu_feedbacks: "Fikrlarim",
+      menu_my_account: "Mening akkauntim",
+      menu_settings: "Sozlamalar",
       login_required_history: "Tarixni ko'rish uchun tizimga kirish kerak",
       login_required_rating: "Baholash uchun tizimga kirish kerak",
       login_required_action: "Bu amal uchun avval tizimga kiring",
@@ -119,6 +123,10 @@
       login: "Войти",
       logout: "Выйти",
       profile: "Профиль",
+      menu_booking_history: "История броней",
+      menu_feedbacks: "Мои отзывы",
+      menu_my_account: "Мой аккаунт",
+      menu_settings: "Настройки",
       login_required_history: "Для истории нужно войти в систему",
       login_required_rating: "Для оценки нужно войти в систему",
       login_required_action: "Для этого действия нужно войти в систему",
@@ -226,6 +234,7 @@
   const profileMenuEl = document.getElementById("profileMenu");
   const profileNameEl = document.getElementById("profileName");
   const profileLogoutBtnEl = document.getElementById("profileLogoutBtn");
+  const profileMenuLinks = Array.from(document.querySelectorAll(".profile-menu-link"));
   const toggleFiltersTextEl = document.getElementById("toggleFiltersText");
   const toggleFiltersIconEl = toggleFiltersBtnEl ? toggleFiltersBtnEl.querySelector(".filter-toggle-icon") : null;
   const searchEl = document.getElementById("searchInput");
@@ -463,6 +472,7 @@
       el.placeholder = t(el.dataset.ph);
     });
     updateAuthButton();
+    closeProfileMenu();
     updateFiltersToggleUi();
     render();
   }
@@ -485,6 +495,10 @@
       if (profileMenuWrapEl) profileMenuWrapEl.hidden = true;
       if (profileMenuEl) profileMenuEl.hidden = true;
     }
+  }
+
+  function closeProfileMenu() {
+    if (profileMenuEl) profileMenuEl.hidden = true;
   }
 
   function updateFiltersToggleUi() {
@@ -1051,8 +1065,14 @@
       profileMenuEl.hidden = !profileMenuEl.hidden;
     });
   }
+  profileMenuLinks.forEach((link) => {
+    link.addEventListener("click", () => {
+      closeProfileMenu();
+    });
+  });
   if (profileLogoutBtnEl) {
     profileLogoutBtnEl.addEventListener("click", () => {
+      closeProfileMenu();
       window.location.href = "/logout";
     });
   }
@@ -1060,9 +1080,10 @@
     if (!profileMenuEl || !profileMenuWrapEl) return;
     if (profileMenuEl.hidden) return;
     if (!profileMenuWrapEl.contains(e.target)) {
-      profileMenuEl.hidden = true;
+      closeProfileMenu();
     }
   });
+  window.addEventListener("scroll", closeProfileMenu, { passive: true });
 
   refreshEl.addEventListener("click", () => loadBranches());
   toggleFiltersBtnEl.addEventListener("click", () => {

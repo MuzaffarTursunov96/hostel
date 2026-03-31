@@ -95,6 +95,21 @@ body {
   white-space: nowrap;
 }
 
+.profile-menu-link {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #f8fafc;
+  padding: 7px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+  text-decoration: none;
+}
+
+.profile-menu-link:hover {
+  background: #eef4ff;
+}
+
 .profile-logout {
   border: 1px solid var(--line);
   border-radius: 10px;

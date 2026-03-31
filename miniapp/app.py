@@ -17,7 +17,7 @@ from email.mime.text import MIMEText
 
 
 API_URL = "http://backend:8000"
-VERSION ="2026-31-03-02-25"
+VERSION ="2026-31-03-02-56"
 load_dotenv()
 ROOT_ADMIN_TELEGRAM = os.getenv("ROOT_ADMIN_TELEGRAM", "muzaffar_developer")
 ROOT_ADMIN_PHONE = os.getenv("ROOT_ADMIN_PHONE", "+998991422110")
@@ -417,6 +417,30 @@ def logout_page():
 @app.route("/catalog")
 def public_catalog_page():
     return render_template("catalog.html", version=VERSION)
+
+@app.route("/catalog/booking-history")
+def public_booking_history_page():
+    if not is_logged_in_session():
+        return redirect("/login")
+    return render_template("catalog_profile_page.html", version=VERSION, page_key="booking_history")
+
+@app.route("/catalog/feedbacks")
+def public_feedbacks_page():
+    if not is_logged_in_session():
+        return redirect("/login")
+    return render_template("catalog_profile_page.html", version=VERSION, page_key="feedbacks")
+
+@app.route("/catalog/my-account")
+def public_my_account_page():
+    if not is_logged_in_session():
+        return redirect("/login")
+    return render_template("catalog_profile_page.html", version=VERSION, page_key="my_account")
+
+@app.route("/catalog/settings")
+def public_catalog_settings_page():
+    if not is_logged_in_session():
+        return redirect("/login")
+    return render_template("catalog_profile_page.html", version=VERSION, page_key="settings")
 
 
 @app.get("/auth/session-status")
