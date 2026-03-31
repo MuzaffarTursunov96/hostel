@@ -266,15 +266,16 @@ class _LoginScreenState extends State<LoginScreen> {
     return _uiLang == 'ru' ? ru : uz;
   }
 
-  Future<void> _openClientCatalog() async {
-    final uri = Uri.parse('https://hmsuz.com/catalog');
+  Future<void> _openClientGoogleLogin() async {
+    final lang = _uiLang == 'ru' ? 'ru' : 'uz';
+    final uri = Uri.parse('https://hmsuz.com/auth/google/start?lang=$lang');
     final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!ok && mounted) {
       showAppAlert(
         context,
         _tr(
-          ru: 'Не удалось открыть каталог. Откройте вручную: https://hmsuz.com/catalog',
-          uz: 'Katalogni ochib bo‘lmadi. Qo‘lda oching: https://hmsuz.com/catalog',
+          ru: 'Не удалось открыть Google вход. Откройте вручную: https://hmsuz.com/login',
+          uz: 'Google kirishni ochib bo‘lmadi. Qo‘lda oching: https://hmsuz.com/login',
         ),
         error: true,
       );
@@ -580,8 +581,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                               child: Text(
                                 _tr(
-                                  ru: 'Режим клиента: просмотр отелей/хостелов, цены, фото, рейтинг и контакты.',
-                                  uz: 'Mijoz rejimi: mehmonxona/xostellar, narx, rasm, reyting va kontaktlarni ko‘rish.',
+                                  ru: 'Режим клиента: войдите через Google и продолжайте как клиент.',
+                                  uz: 'Mijoz rejimi: Google orqali kirib, client sifatida davom eting.',
                                 ),
                                 style: const TextStyle(height: 1.3, color: Color(0xFF334155)),
                               ),
@@ -594,9 +595,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                   minimumSize: const Size.fromHeight(50),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                                 ),
-                                onPressed: _openClientCatalog,
-                                icon: const Icon(Icons.open_in_new),
-                                label: Text(_tr(ru: 'Открыть каталог', uz: 'Katalogni ochish')),
+                                onPressed: _openClientGoogleLogin,
+                                icon: const Icon(Icons.login_rounded),
+                                label: Text(_tr(ru: 'Продолжить через Google', uz: 'Google orqali davom etish')),
                               ),
                             ),
                           ],

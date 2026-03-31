@@ -13,10 +13,21 @@
     .page-card { background:#fff; border:1px solid var(--line); border-radius:16px; padding:14px; box-shadow:0 8px 30px rgba(8,15,52,.06); }
     .page-title { margin:0; font-family:"Space Grotesk",sans-serif; font-size:clamp(22px,4vw,34px); }
     .page-sub { margin:8px 0 0; color:var(--muted); }
-    .section-grid { margin-top:12px; display:grid; gap:8px; }
-    .menu-link { display:block; border:1px solid var(--line); border-radius:10px; background:#f8fbff; color:#0f172a; text-decoration:none; padding:10px 12px; font-weight:600; }
-    .menu-link.active { border-color:#2f6de0; background:#eef4ff; }
-    .actions { margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; }
+    .actions { margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; }
+    .back-mini { font-size:13px; padding:6px 10px; border-radius:10px; text-decoration:none; }
+    .history-wrap { margin-top: 14px; display:grid; gap:10px; }
+    .history-top { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; }
+    .history-count { font-weight:700; color:#1e3a8a; }
+    .history-change { border:1px solid var(--line); background:#fff; border-radius:10px; padding:6px 10px; font-weight:600; }
+    .history-list { display:grid; gap:8px; }
+    .history-item { border:1px solid var(--line); border-radius:12px; background:#f8fbff; padding:10px; display:grid; gap:6px; }
+    .history-branch { font-weight:800; color:#0f2b67; }
+    .history-meta { display:grid; grid-template-columns:1fr 1fr; gap:6px; font-size:13px; }
+    .history-meta b { color:#0f2b67; }
+    .history-note { color:var(--muted); font-size:13px; }
+    @media (max-width: 560px) {
+      .history-meta { grid-template-columns:1fr; }
+    }
   </style>
 </head>
 <body>
@@ -24,7 +35,17 @@
   <header class="topbar">
     <a class="back-link" href="/catalog">HMSUZ</a>
     <div class="topbar-right">
-      <button id="logoutBtn" type="button" class="lang-btn auth-btn">Chiqish</button>
+      <div id="profileMenuWrap" class="profile-menu-wrap">
+        <button id="profileBtn" type="button" class="profile-btn" aria-label="Profile">&#128100;</button>
+        <div id="profileMenu" class="profile-menu" hidden>
+          <div id="profileName" class="profile-name">User</div>
+          <a id="menuBooking" href="/catalog/booking-history" class="profile-menu-link">Mening bronlarim</a>
+          <a id="menuFeedbacks" href="/catalog/feedbacks" class="profile-menu-link">Fikrlarim</a>
+          <a id="menuAccount" href="/catalog/my-account" class="profile-menu-link">Mening akkauntim</a>
+          <a id="menuSettings" href="/catalog/settings" class="profile-menu-link">Sozlamalar</a>
+          <button id="profileLogoutBtn" type="button" class="profile-logout">Chiqish</button>
+        </div>
+      </div>
       <div class="lang-switch">
         <button type="button" class="lang-btn" data-lang="uz">UZ</button>
         <button type="button" class="lang-btn" data-lang="ru">RU</button>
@@ -36,14 +57,9 @@
     <div class="page-card">
       <h1 id="pageTitle" class="page-title">Sahifa</h1>
       <p id="pageSub" class="page-sub"></p>
-      <div class="section-grid">
-        <a id="navBooking" class="menu-link" href="/catalog/booking-history">Bronlar tarixi</a>
-        <a id="navFeedbacks" class="menu-link" href="/catalog/feedbacks">Fikrlarim</a>
-        <a id="navAccount" class="menu-link" href="/catalog/my-account">Mening akkauntim</a>
-        <a id="navSettings" class="menu-link" href="/catalog/settings">Sozlamalar</a>
-      </div>
+      <div id="dynamicContent"></div>
       <div class="actions">
-        <a id="backCatalog" class="ghost-btn" href="/catalog">Katalogga qaytish</a>
+        <a id="backCatalog" class="ghost-btn back-mini" href="/catalog">Katalogga qaytish</a>
       </div>
     </div>
   </main>
@@ -54,26 +70,52 @@
       const tr = {
         uz: {
           booking_history: "Bronlar tarixi",
+          my_bookings: "Mening bronlarim",
           feedbacks: "Fikrlarim",
           my_account: "Mening akkauntim",
           settings: "Sozlamalar",
           page_desc: "Bu bo'lim tayyorlandi. Keyingi bosqichda ma'lumotlar shu sahifada ko'rsatiladi.",
+          bookings_count: "Jami bronlar",
+          change_phone: "Telefonni almashtirish",
+          ask_contact: "Bron qilingan telefon raqamingizni kiriting",
+          loading: "Yuklanmoqda...",
+          empty_bookings: "Bron topilmadi",
+          booking_date: "Yaratilgan sana",
+          checkin: "Kelish",
+          checkout: "Ketish",
+          status: "Holat",
+          total: "Umumiy",
+          paid: "To'langan",
+          remaining: "Qarz",
           logout: "Chiqish",
           back_catalog: "Katalogga qaytish",
-          booking_history_nav: "Bronlar tarixi",
+          booking_history_nav: "Mening bronlarim",
           feedbacks_nav: "Fikrlarim",
           my_account_nav: "Mening akkauntim",
           settings_nav: "Sozlamalar"
         },
         ru: {
           booking_history: "История броней",
+          my_bookings: "Мои брони",
           feedbacks: "Мои отзывы",
           my_account: "Мой аккаунт",
           settings: "Настройки",
           page_desc: "Раздел создан. На следующем шаге здесь будут отображаться данные.",
+          bookings_count: "Всего броней",
+          change_phone: "Сменить телефон",
+          ask_contact: "Введите телефон, который использовали при бронировании",
+          loading: "Загрузка...",
+          empty_bookings: "Брони не найдены",
+          booking_date: "Дата создания",
+          checkin: "Заезд",
+          checkout: "Выезд",
+          status: "Статус",
+          total: "Сумма",
+          paid: "Оплачено",
+          remaining: "Остаток",
           logout: "Выйти",
           back_catalog: "Назад в каталог",
-          booking_history_nav: "История броней",
+          booking_history_nav: "Мои брони",
           feedbacks_nav: "Мои отзывы",
           my_account_nav: "Мой аккаунт",
           settings_nav: "Настройки"
@@ -83,31 +125,141 @@
       let lang = localStorage.getItem("hms_lang") === "ru" ? "ru" : "uz";
       const tt = (k) => (tr[lang] && tr[lang][k]) || k;
       const $ = (id) => document.getElementById(id);
+      const dynamicContentEl = $("dynamicContent");
+      let historyContact = localStorage.getItem("hms_history_contact") || "";
+      const profileBtnEl = $("profileBtn");
+      const profileMenuEl = $("profileMenu");
+      const profileMenuWrapEl = $("profileMenuWrap");
+      const profileLogoutBtnEl = $("profileLogoutBtn");
+      const profileNameEl = $("profileName");
+
+      function esc(s) {
+        return String(s || "")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;");
+      }
+
+      function parseBookingInfo(msg) {
+        const raw = String(msg || "");
+        const byKey = (name) => {
+          const m = raw.match(new RegExp(`${name}:\\s*([^,]+)`, "i"));
+          return m ? m[1].trim() : "";
+        };
+        return {
+          checkin: byKey("Check-in"),
+          checkout: byKey("Check-out"),
+          status: byKey("Status"),
+          total: byKey("Total"),
+          paid: byKey("Paid"),
+          remaining: byKey("Remaining"),
+        };
+      }
+
+      function fmtDate(v) {
+        const d = new Date(v);
+        if (Number.isNaN(d.getTime())) return String(v || "");
+        return d.toLocaleString(lang === "ru" ? "ru-RU" : "uz-UZ");
+      }
 
       function applyLang() {
         document.documentElement.lang = lang;
         document.querySelectorAll(".lang-switch .lang-btn").forEach((btn) => {
           btn.classList.toggle("active", btn.dataset.lang === lang);
         });
-        $("pageTitle").textContent = tt(pageKey);
-        $("pageSub").textContent = tt("page_desc");
-        $("logoutBtn").textContent = tt("logout");
+        $("pageTitle").textContent = pageKey === "booking_history" ? tt("my_bookings") : tt(pageKey);
+        $("pageSub").textContent = pageKey === "booking_history" ? "" : tt("page_desc");
         $("backCatalog").textContent = tt("back_catalog");
-        $("navBooking").textContent = tt("booking_history_nav");
-        $("navFeedbacks").textContent = tt("feedbacks_nav");
-        $("navAccount").textContent = tt("my_account_nav");
-        $("navSettings").textContent = tt("settings_nav");
+        $("menuBooking").textContent = tt("booking_history_nav");
+        $("menuFeedbacks").textContent = tt("feedbacks_nav");
+        $("menuAccount").textContent = tt("my_account_nav");
+        $("menuSettings").textContent = tt("settings_nav");
+        $("profileLogoutBtn").textContent = tt("logout");
+        if (pageKey === "booking_history") renderBookingHistory();
       }
 
-      function markActiveNav() {
-        const map = {
-          booking_history: "navBooking",
-          feedbacks: "navFeedbacks",
-          my_account: "navAccount",
-          settings: "navSettings"
-        };
-        const id = map[pageKey];
-        if (id && $(id)) $(id).classList.add("active");
+      function closeProfileMenu() {
+        if (profileMenuEl) profileMenuEl.hidden = true;
+      }
+
+      function renderBookingHistoryRows(items) {
+        const bookings = (items || []).filter((x) => String(x.item_type || "").toLowerCase() === "booking");
+        if (!bookings.length) {
+          return `<div class="history-note">${tt("empty_bookings")}</div>`;
+        }
+        return bookings.map((x) => {
+          const info = parseBookingInfo(x.message);
+          return `
+            <div class="history-item">
+              <div class="history-branch">${esc(x.branch_name || "Branch")}</div>
+              <div class="history-meta">
+                <div>${tt("booking_date")}: <b>${esc(fmtDate(x.created_at))}</b></div>
+                <div>${tt("status")}: <b>${esc(info.status || "-")}</b></div>
+                <div>${tt("checkin")}: <b>${esc(info.checkin || "-")}</b></div>
+                <div>${tt("checkout")}: <b>${esc(info.checkout || "-")}</b></div>
+                <div>${tt("total")}: <b>${esc(info.total || "-")}</b></div>
+                <div>${tt("paid")}: <b>${esc(info.paid || "-")}</b></div>
+                <div>${tt("remaining")}: <b>${esc(info.remaining || "-")}</b></div>
+              </div>
+            </div>
+          `;
+        }).join("");
+      }
+
+      async function fetchHistoryItems(forceContactPrompt = false) {
+        const tg = (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe && window.Telegram.WebApp.initDataUnsafe.user)
+          ? window.Telegram.WebApp.initDataUnsafe.user
+          : null;
+        const tgId = tg && tg.id ? Number(tg.id) : null;
+
+        if (forceContactPrompt || (!tgId && !historyContact)) {
+          const entered = (window.prompt(tt("ask_contact"), historyContact || "") || "").trim();
+          if (entered) {
+            historyContact = entered;
+            localStorage.setItem("hms_history_contact", historyContact);
+          }
+        }
+
+        const q = new URLSearchParams();
+        if (historyContact) q.set("contact", historyContact);
+        if (tgId) q.set("telegram_id", String(tgId));
+        if (!q.toString()) return [];
+
+        const res = await fetch(`/public-api/user-history?${q.toString()}`, { cache: "no-store" });
+        if (!res.ok) return [];
+        const payload = await res.json().catch(() => ({}));
+        return (payload && payload.items) || [];
+      }
+
+      async function renderBookingHistory(forcePrompt = false) {
+        if (pageKey !== "booking_history" || !dynamicContentEl) return;
+        dynamicContentEl.innerHTML = `
+          <div class="history-wrap">
+            <div class="history-top">
+              <div class="history-count">${tt("bookings_count")}: ...</div>
+              <button id="changeHistoryContactBtn" type="button" class="history-change">${tt("change_phone")}</button>
+            </div>
+            <div class="history-note">${tt("loading")}</div>
+          </div>
+        `;
+        const items = await fetchHistoryItems(forcePrompt);
+        const bookings = (items || []).filter((x) => String(x.item_type || "").toLowerCase() === "booking");
+        dynamicContentEl.innerHTML = `
+          <div class="history-wrap">
+            <div class="history-top">
+              <div class="history-count">${tt("bookings_count")}: ${bookings.length}</div>
+              <button id="changeHistoryContactBtn" type="button" class="history-change">${tt("change_phone")}</button>
+            </div>
+            <div class="history-list">
+              ${renderBookingHistoryRows(items)}
+            </div>
+          </div>
+        `;
+        const btn = document.getElementById("changeHistoryContactBtn");
+        if (btn) {
+          btn.addEventListener("click", () => renderBookingHistory(true));
+        }
       }
 
       document.querySelectorAll(".lang-switch .lang-btn").forEach((btn) => {
@@ -118,12 +270,39 @@
         });
       });
 
-      $("logoutBtn").addEventListener("click", () => {
-        window.location.href = "/logout";
-      });
+      if (profileNameEl) {
+        profileNameEl.textContent =
+          localStorage.getItem("hms_public_display_name")
+          || localStorage.getItem("hms_public_user_email")
+          || "User";
+      }
+      if (profileBtnEl && profileMenuEl) {
+        profileBtnEl.addEventListener("click", (e) => {
+          e.stopPropagation();
+          profileMenuEl.hidden = !profileMenuEl.hidden;
+        });
+      }
+      const outsideMenuHandler = (e) => {
+        if (!profileMenuEl || !profileMenuWrapEl) return;
+        if (profileMenuEl.hidden) return;
+        if (!profileMenuWrapEl.contains(e.target)) {
+          closeProfileMenu();
+        }
+      };
+      document.addEventListener("click", outsideMenuHandler);
+      document.addEventListener("pointerdown", outsideMenuHandler);
+      document.addEventListener("touchstart", outsideMenuHandler, { passive: true });
+      if (profileLogoutBtnEl) {
+        profileLogoutBtnEl.addEventListener("click", () => {
+          closeProfileMenu();
+          window.location.href = "/logout";
+        });
+      }
 
       applyLang();
-      markActiveNav();
+      if (pageKey === "booking_history") {
+        renderBookingHistory(false);
+      }
     })();
   </script>
 </body>

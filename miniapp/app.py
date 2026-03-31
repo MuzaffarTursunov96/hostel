@@ -17,7 +17,7 @@ from email.mime.text import MIMEText
 
 
 API_URL = "http://backend:8000"
-VERSION ="2026-31-03-15-40"
+VERSION ="2026-31-03-16-40"
 load_dotenv()
 ROOT_ADMIN_TELEGRAM = os.getenv("ROOT_ADMIN_TELEGRAM", "muzaffar_developer")
 ROOT_ADMIN_PHONE = os.getenv("ROOT_ADMIN_PHONE", "+998991422110")
@@ -166,6 +166,35 @@ def _send_otp_email(email, code):
         return True, None
     except Exception:
         return False, "Failed to send verification code"
+
+
+def _send_password_reset_email(email, new_password):
+    if not SMTP_USERNAME or not SMTP_PASSWORD:
+        return False, "SMTP is not configured"
+
+    body_html = f"""
+    <div style="font-family:Segoe UI,Arial,sans-serif;line-height:1.5;color:#111">
+      <h2 style="margin:0 0 12px">HMSUZ пароль сброшен / Parol tiklandi</h2>
+      <p style="margin:0 0 10px">Ваш новый временный пароль / Sizning yangi vaqtinchalik parolingiz:</p>
+      <div style="display:inline-block;padding:10px 14px;border:1px solid #cbd5e1;border-radius:10px;background:#f8fafc;font-size:20px;font-weight:700;letter-spacing:.5px">
+        {new_password}
+      </div>
+      <p style="margin:12px 0 0">После входа обязательно смените пароль / Kirgandan keyin parolni albatta almashtiring.</p>
+    </div>
+    """
+    msg = MIMEText(body_html, "html", "utf-8")
+    msg["Subject"] = "HMSUZ password reset / Parol tiklash"
+    msg["From"] = SMTP_FROM
+    msg["To"] = email
+
+    try:
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as server:
+            server.starttls()
+            server.login(SMTP_USERNAME, SMTP_PASSWORD)
+            server.sendmail(SMTP_FROM, [email], msg.as_string())
+        return True, None
+    except Exception:
+        return False, "Failed to send password reset email"
 
 
 def _post_backend_login(username, password):
@@ -824,6 +853,44 @@ def email_account_login():
     session["public_user_name"] = payload.get("name") or email.split("@")[0]
     session["display_name"] = session["public_user_name"]
     return jsonify({"ok": True})
+
+
+@app.post("/auth/email/forgot-password")
+def email_forgot_password():
+    data = request.get_json(silent=True) or {}
+    email = _normalize_email(data.get("email"))
+    verified_email = _normalize_email(session.get("verified_email"))
+    if not email or email != verified_email:
+        return jsonify({"ok": False, "error": "Verify this email first"}), 403
+
+    status_resp = requests.post(
+        f"{API_URL}/auth/email/status",
+        json={"email": email},
+        timeout=(10, 20)
+    )
+    status_payload = status_resp.json() if status_resp.headers.get("content-type", "").startswith("application/json") else {}
+    if status_resp.status_code != 200:
+        return jsonify({"ok": False, "error": status_payload.get("detail") or "status check failed"}), status_resp.status_code
+    if not bool(status_payload.get("exists")):
+        return jsonify({"ok": False, "error": "Account not found"}), 404
+
+    alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789"
+    temp_password = "".join(secrets.choice(alphabet) for _ in range(10))
+
+    reset_resp = requests.post(
+        f"{API_URL}/auth/email/reset-password",
+        json={"email": email, "password": temp_password},
+        timeout=(10, 20)
+    )
+    reset_payload = reset_resp.json() if reset_resp.headers.get("content-type", "").startswith("application/json") else {}
+    if reset_resp.status_code != 200:
+        return jsonify({"ok": False, "error": reset_payload.get("detail") or "reset failed"}), reset_resp.status_code
+
+    sent, err = _send_password_reset_email(email, temp_password)
+    if not sent:
+        return jsonify({"ok": False, "error": err or "Failed to send password reset email"}), 500
+
+    return jsonify({"ok": True, "email_masked": _mask_email(email)})
 
 
 @app.post("/login")

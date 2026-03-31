@@ -5128,7 +5128,10 @@ def list_public_user_history_db(contact: str | None = None, telegram_id: int | N
                 (
                     'Check-in: ' || bk.checkin_date::text ||
                     ', Check-out: ' || bk.checkout_date::text ||
-                    ', Status: ' || coalesce(bk.status, '')
+                    ', Status: ' || coalesce(bk.status, '') ||
+                    ', Total: ' || coalesce(bk.total_amount::text, '0') ||
+                    ', Paid: ' || coalesce(bk.paid_amount::text, '0') ||
+                    ', Remaining: ' || coalesce(bk.remaining_amount::text, '0')
                 ) AS message,
                 'mobile_app'::text AS source,
                 bk.created_at
@@ -5907,4 +5910,35 @@ def verify_public_user_password_db(email: str, password: str):
         "email": user["email"],
         "name": str(user["email"]).split("@")[0],
     }
+
+
+def reset_public_user_password_db(email: str, new_password: str):
+    ensure_public_users_table()
+    em = str(email or "").strip().lower()
+    pw = str(new_password or "")
+    if not em:
+        raise ValueError("email required")
+    if len(pw) < 6:
+        raise ValueError("password must be at least 6 characters")
+
+    with get_connection() as conn:
+        row = conn.execute(text("""
+            SELECT id, email
+            FROM public_users
+            WHERE lower(email) = :email
+            LIMIT 1
+        """), {"email": em}).mappings().fetchone()
+        if not row:
+            raise ValueError("email not found")
+
+        conn.execute(text("""
+            UPDATE public_users
+            SET password_hash = :password_hash
+            WHERE id = :uid
+        """), {
+            "password_hash": hash_password(pw),
+            "uid": int(row["id"]),
+        })
+
+    return {"id": int(row["id"]), "email": str(row["email"])}
 

@@ -19,6 +19,7 @@ from db import (
     get_public_user_by_email_db,
     create_public_user_by_email_db,
     verify_public_user_password_db,
+    reset_public_user_password_db,
 )
 from api.deps import get_current_user
 from time_utils import app_now_naive
@@ -263,3 +264,15 @@ def email_login(data: EmailPasswordIn):
     if not u:
         raise HTTPException(status_code=401, detail="invalid email or password")
     return {"ok": True, "id": u["id"], "email": u["email"], "name": u["name"]}
+
+
+@router.post("/email/reset-password")
+def email_reset_password(data: EmailRegisterIn):
+    email = str(data.email or "").strip().lower()
+    if not email:
+        raise HTTPException(status_code=400, detail="email required")
+    try:
+        u = reset_public_user_password_db(email, data.password)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"ok": True, "id": u["id"], "email": u["email"]}

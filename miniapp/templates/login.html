@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Login</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <style>
     :root { --bg:#ededed; --sheet:#f8f8f8; --text:#111; --muted:#5e5e5e; --line:#cfcfcf; --btn:#f4f4f4; --ok:#0c8a46; --err:#b42318; }
     * { box-sizing: border-box; }
@@ -81,6 +82,9 @@
         <div style="height:10px" id="passwordConfirmWrap" hidden></div>
         <input id="passwordConfirm" class="field" type="password" autocomplete="new-password" placeholder="Confirm password" hidden>
         <div id="accountHint" class="state"></div>
+        <div class="row-right" style="margin-top:8px;">
+          <button id="forgotPasswordBtn" class="mini-btn" type="button" hidden>Forgot password</button>
+        </div>
         <div class="row-right" style="margin-top:12px;"><button id="loginBtn" class="mini-btn" type="submit" disabled>Log in</button></div>
       </form>
     </div>
@@ -102,6 +106,7 @@
     const sendCodeBtn = document.getElementById("sendCodeBtn");
     const verifyCodeBtn = document.getElementById("verifyCodeBtn");
     const loginBtn = document.getElementById("loginBtn");
+    const forgotPasswordBtn = document.getElementById("forgotPasswordBtn");
     const googleStartBtn = document.getElementById("googleStartBtn");
     const appleBtn = document.getElementById("appleBtn");
     const phoneBtn = document.getElementById("phoneBtn");
@@ -130,6 +135,7 @@
         password_ph: "Parol",
         password_confirm_ph: "Parolni tasdiqlang",
         login: "Kirish",
+        forgot_password: "Parolni unutdim",
         create_account: "Akkaunt yaratish",
         account_exists_enter_password: "Bu email bazada bor. Parolni kiriting.",
         account_new_create_password: "Bu email yangi. Yangi parol yarating.",
@@ -151,6 +157,9 @@
         invalid_code: "Kod noto'g'ri.",
         verify_before_login: "Kirishdan oldin Gmail ni tasdiqlang.",
         login_failed: "Kirish amalga oshmadi."
+        , account_exists_alert_title: "Bu Gmail oldin ro'yxatdan o'tgan"
+        , account_exists_alert_text: "Yangi profil yaratib bo'lmaydi. Parol bilan kiring yoki parolni tiklang."
+        , reset_sent: "Yangi vaqtinchalik parol yuborildi: "
       },
       ru: {
         title: "Вход или регистрация",
@@ -168,6 +177,7 @@
         password_ph: "Пароль",
         password_confirm_ph: "Подтвердите пароль",
         login: "Войти",
+        forgot_password: "Забыли пароль?",
         create_account: "Создать аккаунт",
         account_exists_enter_password: "Этот email уже есть в базе. Введите пароль.",
         account_new_create_password: "Этот email новый. Создайте пароль.",
@@ -189,6 +199,9 @@
         invalid_code: "Неверный код.",
         verify_before_login: "Подтвердите Gmail перед входом.",
         login_failed: "Не удалось войти."
+        , account_exists_alert_title: "Этот Gmail уже зарегистрирован"
+        , account_exists_alert_text: "Создать новый профиль нельзя. Войдите с паролем или восстановите пароль."
+        , reset_sent: "Новый временный пароль отправлен: "
       }
     };
 
@@ -203,6 +216,11 @@
     const tt = (k) => (I18N[lang] && I18N[lang][k]) || k;
     const showMsg = (type, text) => { msgEl.className = "msg " + type; msgEl.textContent = text; };
     const clearMsg = () => { msgEl.className = "msg"; msgEl.textContent = ""; };
+    const swal = (opts) => {
+      if (window.Swal && typeof window.Swal.fire === "function") return window.Swal.fire(opts);
+      alert((opts && (opts.title || opts.text)) || "");
+      return Promise.resolve();
+    };
 
     function applyLang(){
       document.documentElement.lang = lang;
@@ -221,6 +239,7 @@
       passwordInput.placeholder = tt("password_ph");
       passwordConfirmInput.placeholder = tt("password_confirm_ph");
       loginBtn.textContent = accountMode === "new" ? tt("create_account") : tt("login");
+      forgotPasswordBtn.textContent = tt("forgot_password");
 
       if (emailVerified) {
         document.getElementById("loginTitle").textContent = tt("login");
@@ -247,6 +266,7 @@
       const isNew = accountMode === "new";
       passwordConfirmWrap.hidden = !isNew;
       passwordConfirmInput.hidden = !isNew;
+      forgotPasswordBtn.hidden = isNew;
       accountHint.textContent = isNew ? tt("account_new_create_password") : tt("account_exists_enter_password");
       loginBtn.textContent = isNew ? tt("create_account") : tt("login");
       loginBtn.disabled = !emailVerified;
@@ -263,6 +283,14 @@
       if(!ok || !payload.ok){ showMsg("err", payload.error || tt("login_failed")); return false; }
       accountMode = payload.exists ? "existing" : "new";
       updateAccountFormUi();
+      if (payload.exists) {
+        swal({
+          icon: "info",
+          title: tt("account_exists_alert_title"),
+          text: tt("account_exists_alert_text"),
+          confirmButtonText: "OK"
+        });
+      }
       return true;
     }
 
@@ -335,11 +363,51 @@
       try{
         const endpoint = accountMode === "new" ? "/auth/email/account-register" : "/auth/email/account-login";
         const {ok,payload}=await postJson(endpoint,{email,password});
-        if(!ok||!payload.ok){showMsg("err",payload.error||tt("login_failed"));return;}
+        if(!ok||!payload.ok){
+          const emsg = String(payload.error || "");
+          if (emsg.toLowerCase().includes("already exists")) {
+            await swal({
+              icon: "warning",
+              title: tt("account_exists_alert_title"),
+              text: tt("account_exists_alert_text"),
+              confirmButtonText: "OK"
+            });
+          }
+          showMsg("err",payload.error||tt("login_failed"));
+          return;
+        }
         showMsg("ok",tt("auth_success_redirect"));
         setTimeout(()=>{ window.location.href="/catalog"; },350);
       }catch{ showMsg("err",tt("network_error")); }
       finally{ loginBtn.disabled=!emailVerified; }
+    });
+
+    forgotPasswordBtn.addEventListener("click", async () => {
+      clearMsg();
+      const email = emailInput.value.trim();
+      if (!emailVerified || !email) {
+        showMsg("err", tt("verify_before_login"));
+        return;
+      }
+      forgotPasswordBtn.disabled = true;
+      try {
+        const {ok, payload} = await postJson("/auth/email/forgot-password", {email});
+        if (!ok || !payload.ok) {
+          showMsg("err", payload.error || tt("login_failed"));
+          return;
+        }
+        await swal({
+          icon: "success",
+          title: tt("forgot_password"),
+          text: tt("reset_sent") + (payload.email_masked || email),
+          confirmButtonText: "OK"
+        });
+        showMsg("ok", tt("reset_sent") + (payload.email_masked || email));
+      } catch {
+        showMsg("err", tt("network_error"));
+      } finally {
+        forgotPasswordBtn.disabled = false;
+      }
     });
 
     langUzBtn.addEventListener("click",()=>{lang="uz";applyLang();});
