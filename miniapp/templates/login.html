@@ -54,7 +54,7 @@
     h1 {
       margin: 26px 0 0;
       text-align: center;
-      font-size: clamp(42px, 10vw, 70px);
+      font-size: clamp(30px, 7vw, 44px);
       font-weight: 700;
       line-height: 1.12;
       letter-spacing: -0.02em;
@@ -64,7 +64,7 @@
       margin: 12px auto 0;
       max-width: 460px;
       text-align: center;
-      font-size: clamp(16px, 3.6vw, 22px);
+      font-size: clamp(14px, 3.4vw, 22px);
       color: var(--muted);
       line-height: 1.45;
     }
@@ -76,12 +76,12 @@
     }
 
     .social-btn {
-      height: 68px;
+      height: 54px;
       border-radius: 999px;
       border: 1px solid var(--line);
       background: var(--btn);
       color: #1a1a1a;
-      font-size: clamp(24px, 6vw, 44px);
+      font-size: clamp(18px, 4.8vw, 26px);
       font-weight: 700;
       display: flex;
       align-items: center;
@@ -95,7 +95,7 @@
     .social-icon {
       width: 28px;
       text-align: center;
-      font-size: clamp(22px, 4.8vw, 32px);
+      font-size: clamp(16px, 4vw, 22px);
       color: #202020;
       flex: 0 0 28px;
     }
@@ -105,6 +105,11 @@
       font-weight: 700;
     }
 
+    .social-btn.disabled {
+      opacity: 0.55;
+      pointer-events: none;
+    }
+
     .or {
       margin: 12px 0;
       display: grid;
@@ -112,7 +117,7 @@
       align-items: center;
       gap: 10px;
       color: #5e5e5e;
-      font-size: clamp(16px, 4vw, 34px);
+      font-size: clamp(14px, 3.6vw, 22px);
       font-weight: 700;
     }
 
@@ -124,12 +129,12 @@
 
     .field {
       width: 100%;
-      height: 68px;
+      height: 56px;
       border-radius: 999px;
       border: 1px solid #353535;
       background: #fff;
       padding: 0 22px;
-      font-size: clamp(28px, 6vw, 52px);
+      font-size: clamp(16px, 4.8vw, 22px);
       outline: none;
     }
 
@@ -147,12 +152,12 @@
     }
 
     .mini-btn {
-      height: 54px;
+      height: 48px;
       border-radius: 999px;
       border: 1px solid var(--line);
       background: #f2f2f2;
       padding: 0 28px;
-      font-size: clamp(18px, 4vw, 32px);
+      font-size: clamp(16px, 4vw, 22px);
       font-weight: 700;
       cursor: pointer;
     }
@@ -210,10 +215,10 @@
     }
 
     @media (max-width: 620px) {
-      h1 { font-size: 64px; }
-      .field { font-size: 52px; }
-      .social-btn { font-size: 46px; }
-      .mini-btn { font-size: 36px; height: 58px; }
+      h1 { font-size: 32px; }
+      .field { font-size: 17px; }
+      .social-btn { font-size: 19px; }
+      .mini-btn { font-size: 18px; height: 48px; }
     }
   </style>
 </head>
@@ -280,8 +285,10 @@
     const sendCodeBtn = document.getElementById("sendCodeBtn");
     const verifyCodeBtn = document.getElementById("verifyCodeBtn");
     const loginBtn = document.getElementById("loginBtn");
+    const googleStartBtn = document.getElementById("googleStartBtn");
     const appleBtn = document.getElementById("appleBtn");
     const phoneBtn = document.getElementById("phoneBtn");
+    const GOOGLE_OAUTH_ENABLED = "{{ GOOGLE_OAUTH_ENABLED|default('0', true)|e }}" === "1";
 
     let emailVerified = false;
 
@@ -338,6 +345,12 @@
           window.history.replaceState({}, document.title, "/login");
         }
       }
+    }
+
+    if (!GOOGLE_OAUTH_ENABLED) {
+      googleStartBtn.classList.add("disabled");
+      googleStartBtn.removeAttribute("href");
+      showMsg("err", "Google sign-in not configured on server. Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI and restart.");
     }
 
     appleBtn.addEventListener("click", () => {
