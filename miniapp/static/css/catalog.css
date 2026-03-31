@@ -86,6 +86,14 @@ body {
   z-index: 35;
 }
 
+.profile-menu[hidden] {
+  display: none !important;
+}
+
+.profile-menu-wrap[hidden] {
+  display: none !important;
+}
+
 .profile-name {
   font-size: 13px;
   font-weight: 700;
