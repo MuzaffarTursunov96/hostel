@@ -1,5 +1,4 @@
-﻿import 'dart:async';
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -30,7 +29,14 @@ class ClientCatalogScreen extends StatefulWidget {
 class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
   final _searchCtrl = TextEditingController();
   bool _loading = false;
+  bool _filtersOpen = false;
+  bool _filtersActive = false;
   String _priceMode = 'day';
+  double _minRating = 0;
+  String? _regionSlug;
+  String? _cityName;
+  String? _districtName;
+  String? _roomType;
   RangeValues _priceRange = const RangeValues(0, 0);
   double _priceMinBound = 0;
   double _priceMaxBound = 0;
@@ -87,6 +93,11 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
         'limit': '200',
         'price_mode': _priceMode,
       };
+      if (_minRating > 0) q['min_rating'] = _minRating.toString();
+      if (_roomType != null && _roomType!.trim().isNotEmpty) q['room_type'] = _roomType!;
+      if (_regionSlug != null && _regionSlug!.trim().isNotEmpty) q['region_slug'] = _regionSlug!;
+      if (_cityName != null && _cityName!.trim().isNotEmpty) q['city_name'] = _cityName!;
+      if (_districtName != null && _districtName!.trim().isNotEmpty) q['district_name'] = _districtName!;
       final uri = Uri.parse('$_publicApiBase/public/branches').replace(queryParameters: q);
       final res = await http.get(uri, headers: const {'Cache-Control': 'no-cache'});
       if (res.statusCode != 200) {
@@ -135,6 +146,14 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
         final text = '${b.name} ${b.address ?? ''}'.toLowerCase();
         if (!text.contains(needle)) return false;
       }
+      if (_minRating > 0 && (b.rating ?? 0) < _minRating) return false;
+      if (_regionSlug != null && _regionSlug!.trim().isNotEmpty && b.regionSlug != _regionSlug) return false;
+      if (_cityName != null && _cityName!.trim().isNotEmpty && b.cityName != _cityName) return false;
+      if (_districtName != null && _districtName!.trim().isNotEmpty && b.districtName != _districtName) return false;
+      if (_roomType != null && _roomType!.trim().isNotEmpty) {
+        final parts = b.roomTypes.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty);
+        if (!parts.contains(_roomType)) return false;
+      }
       final rowMin = b.minPrice;
       final rowMax = b.maxPrice;
       if (rowMin != null || rowMax != null) {
@@ -144,7 +163,96 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
       }
       return true;
     }).toList();
-    setState(() => _filtered = list);
+    setState(() {
+      _filtered = list;
+      _filtersActive = _hasActiveFilters();
+    });
+  }
+
+  void _toggleFilters() {
+    setState(() => _filtersOpen = !_filtersOpen);
+  }
+
+  bool _hasActiveFilters() {
+    if (_searchCtrl.text.trim().isNotEmpty) return true;
+    if (_regionSlug != null && _regionSlug!.trim().isNotEmpty) return true;
+    if (_cityName != null && _cityName!.trim().isNotEmpty) return true;
+    if (_districtName != null && _districtName!.trim().isNotEmpty) return true;
+    if (_roomType != null && _roomType!.trim().isNotEmpty) return true;
+    if (_priceMode != 'day') return true;
+    if (_minRating > 0) return true;
+    return false;
+  }
+
+  void _resetFilters() {
+    setState(() {
+      _searchCtrl.clear();
+      _priceMode = 'day';
+      _minRating = 0;
+      _regionSlug = null;
+      _cityName = null;
+      _districtName = null;
+      _roomType = null;
+      _priceRange = RangeValues(_priceMinBound, _priceMaxBound);
+      _filtersActive = false;
+    });
+    _applyClientFilters();
+  }
+
+  List<DropdownMenuItem<String?>> _regionItems() {
+    final map = <String, String>{};
+    for (final b in _branches) {
+      final slug = (b.regionSlug ?? '').trim();
+      final name = (b.regionName ?? '').trim();
+      if (slug.isNotEmpty) map[slug] = name.isEmpty ? slug : name;
+    }
+    final items = map.entries.toList()..sort((a, b) => a.value.compareTo(b.value));
+    return [
+      DropdownMenuItem<String?>(value: null, child: Text(_tr(ru: 'Все области', uz: 'Barcha viloyatlar'))),
+      ...items.map((e) => DropdownMenuItem<String?>(value: e.key, child: Text(e.value))),
+    ];
+  }
+
+  List<DropdownMenuItem<String?>> _cityItems() {
+    final set = <String>{};
+    for (final b in _branches) {
+      if (_regionSlug != null && _regionSlug!.isNotEmpty && b.regionSlug != _regionSlug) continue;
+      final name = (b.cityName ?? '').trim();
+      if (name.isNotEmpty) set.add(name);
+    }
+    final list = set.toList()..sort();
+    return [
+      DropdownMenuItem<String?>(value: null, child: Text(_tr(ru: 'Все города', uz: 'Barcha shaharlar'))),
+      ...list.map((e) => DropdownMenuItem<String?>(value: e, child: Text(e))),
+    ];
+  }
+
+  List<DropdownMenuItem<String?>> _districtItems() {
+    final set = <String>{};
+    for (final b in _branches) {
+      if (_regionSlug != null && _regionSlug!.isNotEmpty && b.regionSlug != _regionSlug) continue;
+      if (_cityName != null && _cityName!.isNotEmpty && b.cityName != _cityName) continue;
+      final name = (b.districtName ?? '').trim();
+      if (name.isNotEmpty) set.add(name);
+    }
+    final list = set.toList()..sort();
+    return [
+      DropdownMenuItem<String?>(value: null, child: Text(_tr(ru: 'Все районы', uz: 'Barcha tumanlar'))),
+      ...list.map((e) => DropdownMenuItem<String?>(value: e, child: Text(e))),
+    ];
+  }
+
+  List<DropdownMenuItem<String?>> _roomTypeItems() {
+    final set = <String>{};
+    for (final b in _branches) {
+      final parts = b.roomTypes.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty);
+      set.addAll(parts);
+    }
+    final list = set.toList()..sort();
+    return [
+      DropdownMenuItem<String?>(value: null, child: Text(_tr(ru: 'Все типы', uz: 'Barcha turlar'))),
+      ...list.map((e) => DropdownMenuItem<String?>(value: e, child: Text(e))),
+    ];
   }
 
   Future<void> _openHistory() async {
@@ -384,6 +492,15 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                 decoration: InputDecoration(
                   hintText: _tr(ru: 'Поиск...', uz: 'Qidirish...'),
                   prefixIcon: const Icon(Icons.search),
+                  suffixIcon: _searchCtrl.text.trim().isEmpty
+                      ? null
+                      : IconButton(
+                          onPressed: () {
+                            _searchCtrl.clear();
+                            _applyClientFilters();
+                          },
+                          icon: Image.asset('assets/icons/clear-filter.png', width: 18, height: 18),
+                        ),
                   filled: true,
                   fillColor: _card,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: _border)),
@@ -393,28 +510,227 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Text(_tr(ru: 'Диапазон цены', uz: 'Narx oralig\'i')),
-                  RangeSlider(
-                    min: _priceMinBound,
-                    max: rangeMax,
-                    values: range,
-                    onChanged: (v) {
-                      setState(() => _priceRange = v);
-                      _applyClientFilters();
-                    },
+                  OutlinedButton.icon(
+                    onPressed: _toggleFilters,
+                    icon: Image.asset('assets/icons/filter.png', width: 18, height: 18),
+                    label: Text(_filtersOpen ? _tr(ru: 'Скрыть', uz: 'Yopish') : _tr(ru: 'Фильтры', uz: 'Filtrlar')),
                   ),
-                  Row(
-                    children: [
-                      Text('${range.start.toStringAsFixed(0)}'),
-                      const Spacer(),
-                      Text('${range.end.toStringAsFixed(0)}'),
-                    ],
-                  ),
+                  const Spacer(),
+                  if (_filtersActive)
+                    IconButton(
+                      onPressed: _resetFilters,
+                      tooltip: _tr(ru: 'Сбросить', uz: 'Bekor qilish'),
+                      icon: Image.asset('assets/icons/clear-filter.png', width: 18, height: 18),
+                    ),
                 ],
               ),
+            ),
+            AnimatedCrossFade(
+              crossFadeState: _filtersOpen ? CrossFadeState.showFirst : CrossFadeState.showSecond,
+              duration: const Duration(milliseconds: 220),
+              firstChild: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<String?>(
+                            value: _regionSlug,
+                            decoration: InputDecoration(
+                              labelText: _tr(ru: 'Область', uz: 'Viloyat'),
+                              filled: true,
+                              fillColor: _card,
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                              suffixIcon: _regionSlug == null
+                                  ? null
+                                  : IconButton(
+                                      onPressed: () {
+                                        setState(() {
+                                          _regionSlug = null;
+                                          _cityName = null;
+                                          _districtName = null;
+                                        });
+                                        _applyClientFilters();
+                                      },
+                                      icon: Image.asset('assets/icons/clear-filter.png', width: 16, height: 16),
+                                    ),
+                            ),
+                            items: _regionItems(),
+                            onChanged: (v) {
+                              setState(() {
+                                _regionSlug = v;
+                                _cityName = null;
+                                _districtName = null;
+                              });
+                              _applyClientFilters();
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: DropdownButtonFormField<String?>(
+                            value: _cityName,
+                            decoration: InputDecoration(
+                              labelText: _tr(ru: 'Город', uz: 'Shahar'),
+                              filled: true,
+                              fillColor: _card,
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                              suffixIcon: _cityName == null
+                                  ? null
+                                  : IconButton(
+                                      onPressed: () {
+                                        setState(() {
+                                          _cityName = null;
+                                          _districtName = null;
+                                        });
+                                        _applyClientFilters();
+                                      },
+                                      icon: Image.asset('assets/icons/clear-filter.png', width: 16, height: 16),
+                                    ),
+                            ),
+                            items: _cityItems(),
+                            onChanged: (v) {
+                              setState(() {
+                                _cityName = v;
+                                _districtName = null;
+                              });
+                              _applyClientFilters();
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<String?>(
+                            value: _districtName,
+                            decoration: InputDecoration(
+                              labelText: _tr(ru: 'Район', uz: 'Tuman'),
+                              filled: true,
+                              fillColor: _card,
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                              suffixIcon: _districtName == null
+                                  ? null
+                                  : IconButton(
+                                      onPressed: () {
+                                        setState(() => _districtName = null);
+                                        _applyClientFilters();
+                                      },
+                                      icon: Image.asset('assets/icons/clear-filter.png', width: 16, height: 16),
+                                    ),
+                            ),
+                            items: _districtItems(),
+                            onChanged: (v) {
+                              setState(() => _districtName = v);
+                              _applyClientFilters();
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: DropdownButtonFormField<String?>(
+                            value: _roomType,
+                            decoration: InputDecoration(
+                              labelText: _tr(ru: 'Тип комнаты', uz: 'Xona turi'),
+                              filled: true,
+                              fillColor: _card,
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                              suffixIcon: _roomType == null
+                                  ? null
+                                  : IconButton(
+                                      onPressed: () {
+                                        setState(() => _roomType = null);
+                                        _applyClientFilters();
+                                      },
+                                      icon: Image.asset('assets/icons/clear-filter.png', width: 16, height: 16),
+                                    ),
+                            ),
+                            items: _roomTypeItems(),
+                            onChanged: (v) {
+                              setState(() => _roomType = v);
+                              _applyClientFilters();
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            value: _priceMode,
+                            decoration: InputDecoration(
+                              labelText: _tr(ru: 'Режим цены', uz: 'Narx turi'),
+                              filled: true,
+                              fillColor: _card,
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            items: [
+                              DropdownMenuItem(value: 'day', child: Text(_tr(ru: 'Сутки', uz: 'Kunlik'))),
+                              DropdownMenuItem(value: 'hour', child: Text(_tr(ru: 'Час', uz: 'Soatlik'))),
+                              DropdownMenuItem(value: 'month', child: Text(_tr(ru: 'Месяц', uz: 'Oylik'))),
+                            ],
+                            onChanged: (v) {
+                              setState(() => _priceMode = v ?? 'day');
+                              _loadBranches();
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(_tr(ru: 'Мин. рейтинг', uz: 'Reyting')),
+                              Slider(
+                                value: _minRating,
+                                min: 0,
+                                max: 5,
+                                divisions: 10,
+                                label: _minRating.toStringAsFixed(1),
+                                onChanged: (v) {
+                                  setState(() => _minRating = v);
+                                  _applyClientFilters();
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(_tr(ru: 'Диапазон цены', uz: 'Narx oralig\'i')),
+                        RangeSlider(
+                          min: _priceMinBound,
+                          max: rangeMax,
+                          values: range,
+                          onChanged: (v) {
+                            setState(() => _priceRange = v);
+                            _applyClientFilters();
+                          },
+                        ),
+                        Row(
+                          children: [
+                            Text('${range.start.toStringAsFixed(0)}'),
+                            const Spacer(),
+                            Text('${range.end.toStringAsFixed(0)}'),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              secondChild: const SizedBox.shrink(),
             ),
             const SizedBox(height: 8),
             Expanded(
@@ -592,6 +908,14 @@ class BranchSummary {
 
   factory BranchSummary.fromJson(Map<String, dynamic> json) {
     double? _num(dynamic v) => v == null ? null : (v is num ? v.toDouble() : double.tryParse(v.toString()));
+    String? _photo(dynamic v) {
+      if (v == null) return null;
+      final raw = v.toString();
+      if (raw.isEmpty) return null;
+      if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+      if (raw.startsWith('/')) return '$_publicHost$raw';
+      return raw;
+    }
     return BranchSummary(
       id: (json['id'] is num) ? (json['id'] as num).toInt() : int.tryParse(json['id'].toString()) ?? 0,
       name: (json['name'] ?? '').toString(),
@@ -607,7 +931,7 @@ class BranchSummary {
       cityName: json['city_name']?.toString(),
       districtName: json['district_name']?.toString(),
       roomTypes: (json['room_types'] ?? json['roomTypes'] ?? '').toString(),
-      coverPhoto: (json['cover_photo'] ?? json['coverPhoto'] ?? json['photo'])?.toString(),
+      coverPhoto: _photo(json['cover_photo'] ?? json['coverPhoto'] ?? json['photo']),
       status: json['status']?.toString(),
       statusCode: json['status_code']?.toString(),
       contactPhone: json['contact_phone']?.toString(),

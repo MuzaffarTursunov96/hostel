@@ -178,9 +178,155 @@ class HostelApp extends StatelessWidget {
               margin: EdgeInsets.zero,
             ),
           ),
-          home: const LoginScreen(),
+          home: const AppEntry(),
         );
       },
+    );
+  }
+}
+
+class AppEntry extends StatefulWidget {
+  const AppEntry({super.key});
+
+  @override
+  State<AppEntry> createState() => _AppEntryState();
+}
+
+class _AppEntryState extends State<AppEntry> {
+  static const String pinKey = 'app_pin';
+  bool _loading = true;
+  bool _hasPin = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPinState();
+  }
+
+  Future<void> _loadPinState() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final pin = prefs.getString(pinKey) ?? '';
+      _hasPin = pin.trim().isNotEmpty;
+    } catch (_) {
+      _hasPin = false;
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  void _openLogin() {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (_hasPin) {
+      return PinLockScreen(onVerified: _openLogin);
+    }
+    return const LoginScreen();
+  }
+}
+
+class PinLockScreen extends StatefulWidget {
+  const PinLockScreen({super.key, required this.onVerified});
+
+  final VoidCallback onVerified;
+
+  @override
+  State<PinLockScreen> createState() => _PinLockScreenState();
+}
+
+class _PinLockScreenState extends State<PinLockScreen> {
+  static const String pinKey = 'app_pin';
+  final _pinCtrl = TextEditingController();
+  String? _error;
+  bool _busy = false;
+
+  @override
+  void dispose() {
+    _pinCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _checkPin() async {
+    final pin = _pinCtrl.text.trim();
+    if (pin.length < 4) {
+      setState(() => _error = 'PIN is too short');
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final stored = prefs.getString(pinKey) ?? '';
+      if (pin == stored) {
+        widget.onVerified();
+      } else {
+        setState(() => _error = 'Wrong PIN');
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 360),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.lock_outline_rounded, size: 48, color: Color(0xFF1D4ED8)),
+                const SizedBox(height: 12),
+                const Text('Enter PIN', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _pinCtrl,
+                  keyboardType: TextInputType.number,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    hintText: '****',
+                  ),
+                  onSubmitted: (_) => _checkPin(),
+                ),
+                if (_error != null) ...[
+                  const SizedBox(height: 8),
+                  Text(_error!, style: const TextStyle(color: Color(0xFFDC2626))),
+                ],
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: _busy ? null : _checkPin,
+                    child: _busy
+                        ? const SizedBox(
+                            height: 18,
+                            width: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Text('Unlock'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -200,6 +346,7 @@ class _LoginScreenState extends State<LoginScreen> {
   static const String userIdKey = 'user_id';
   static const String isAdminKey = 'is_admin';
   static const String branchIdKey = 'branch_id';
+  static const String pinKey = 'app_pin';
 
   final _formKey = GlobalKey<FormState>();
   final _usernameController = TextEditingController();
@@ -358,6 +505,21 @@ class _LoginScreenState extends State<LoginScreen> {
       await prefs.setString(kLanguageKey, lang);
       appLang.value = lang;
 
+      final existingPin = prefs.getString(pinKey) ?? '';
+      if (existingPin.trim().isEmpty) {
+        final newPin = await _promptSetPin();
+        if (newPin == null || newPin.trim().length < 4) {
+          final msg = _tr(
+            ru: 'Нужно установить PIN.',
+            uz: 'PIN o‘rnatish kerak.',
+          );
+          setState(() => _error = msg);
+          if (mounted) showAppAlert(context, msg, error: true);
+          return;
+        }
+        await prefs.setString(pinKey, newPin.trim());
+      }
+
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
@@ -386,6 +548,64 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (_) {}
     return null;
+  }
+
+  Future<String?> _promptSetPin() async {
+    final ctrl = TextEditingController();
+    String? error;
+    final ok = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) {
+        return StatefulBuilder(
+          builder: (context, setLocal) {
+            return AlertDialog(
+              title: Text(_tr(ru: 'Установите PIN', uz: 'PIN o‘rnating')),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: ctrl,
+                    keyboardType: TextInputType.number,
+                    obscureText: true,
+                    decoration: InputDecoration(
+                      hintText: '****',
+                      errorText: error,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    _tr(ru: 'Минимум 4 цифры', uz: 'Kamida 4 ta raqam'),
+                    style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context, false);
+                  },
+                  child: Text(_tr(ru: 'Отмена', uz: 'Bekor')),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    final v = ctrl.text.trim();
+                    if (v.length < 4) {
+                      setLocal(() => error = _tr(ru: 'Слишком короткий PIN', uz: 'PIN juda qisqa'));
+                      return;
+                    }
+                    Navigator.pop(context, true);
+                  },
+                  child: Text(_tr(ru: 'Сохранить', uz: 'Saqlash')),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    if (ok != true) return null;
+    return ctrl.text.trim();
   }
 
   @override
