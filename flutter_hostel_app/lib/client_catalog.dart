@@ -1131,15 +1131,8 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
 
   Widget _buildBranchCard(BranchSummary b) {
     final rating = b.rating != null ? b.rating!.toStringAsFixed(1) : '-';
-    final activeTab = _cardTabs[b.id] ?? 'rooms';
 
     final cardPrice = _fmtMinMaxPrice(b.minPrice, b.maxPrice, _priceMode);
-    final roomDaily = _fmtMinMaxPrice(b.roomPriceDaily, b.roomPriceDaily, 'day');
-    final roomHourly = _fmtMinMaxPrice(b.roomPriceHourly, b.roomPriceHourly, 'hour');
-    final roomMonthly = _fmtMinMaxPrice(b.roomPriceMonthly, b.roomPriceMonthly, 'month');
-    final bedDaily = _fmtMinMaxPrice(b.minBedDailyPrice, b.maxBedDailyPrice, 'day');
-    final bedHourly = _fmtMinMaxPrice(b.minBedHourlyPrice, b.maxBedHourlyPrice, 'hour');
-    final bedMonthly = _fmtMinMaxPrice(b.minBedMonthlyPrice, b.maxBedMonthlyPrice, 'month');
     return Container(
       decoration: BoxDecoration(
         color: _card,
@@ -1202,74 +1195,6 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                       Text(cardPrice, style: const TextStyle(fontWeight: FontWeight.w600)),
                   ],
                 ),
-                const SizedBox(height: 10),
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: _border),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () => setState(() => _cardTabs[b.id] = 'rooms'),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            decoration: BoxDecoration(
-                              color: activeTab == 'rooms' ? const Color(0xFFEFF6FF) : Colors.transparent,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            alignment: Alignment.center,
-                            child: Text(
-                              _tr(ru: 'Комнаты', uz: 'Xonalar'),
-                              style: TextStyle(
-                                fontWeight: FontWeight.w600,
-                                color: activeTab == 'rooms' ? _brandBlue : _textMuted,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () => setState(() => _cardTabs[b.id] = 'beds'),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            decoration: BoxDecoration(
-                              color: activeTab == 'beds' ? const Color(0xFFEFF6FF) : Colors.transparent,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            alignment: Alignment.center,
-                            child: Text(
-                              _tr(ru: 'Кровати', uz: 'Yotoqlar'),
-                              style: TextStyle(
-                                fontWeight: FontWeight.w600,
-                                color: activeTab == 'beds' ? _brandBlue : _textMuted,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                if (activeTab == 'rooms') ...[
-                  if (b.roomTypes.isNotEmpty)
-                    Text(b.roomTypes, style: const TextStyle(color: _textMuted)),
-                  const SizedBox(height: 6),
-                  Text('${_priceModeLabel("day")}: $roomDaily'),
-                  Text('${_priceModeLabel("hour")}: $roomHourly'),
-                  Text('${_priceModeLabel("month")}: $roomMonthly'),
-                ] else ...[
-                  Text(_tr(ru: 'Информация о кроватях', uz: 'Yotoqlar haqida maʼlumot'), style: const TextStyle(color: _textMuted)),
-                  const SizedBox(height: 6),
-                  Text('${_priceModeLabel("day")}: $bedDaily'),
-                  Text('${_priceModeLabel("hour")}: $bedHourly'),
-                  Text('${_priceModeLabel("month")}: $bedMonthly'),
-                ],
                 const SizedBox(height: 10),
                 Row(
                   children: [
@@ -1842,11 +1767,36 @@ class ClientBranchDetailsScreen extends StatefulWidget {
 }
 
 class _ClientBranchDetailsScreenState extends State<ClientBranchDetailsScreen> {
-  BranchSummary? _details;
+  BranchSummary? _branch;
+  List<RoomSummary> _rooms = [];
   bool _loading = true;
-  List<String> _photos = [];
 
   String _tr(String ru, String uz) => widget.lang == 'ru' ? ru : uz;
+
+  String _priceModeLabel(String mode) {
+    if (mode == 'hour') return _tr('За час', 'Soatlik');
+    if (mode == 'month') return _tr('За месяц', 'Oylik');
+    return _tr('За день', 'Kunlik');
+  }
+
+  String _fmtPrice(num v) {
+    final s = v.toStringAsFixed(0);
+    final buf = StringBuffer();
+    for (int i = 0; i < s.length; i++) {
+      final idx = s.length - i;
+      buf.write(s[i]);
+      if (idx > 1 && idx % 3 == 1) buf.write(' ');
+    }
+    return '${buf.toString()} so\'m';
+  }
+
+  String _fmtMinMaxPrice(num? minPrice, num? maxPrice, String mode) {
+    if (minPrice == null) return _tr('По договоренности', 'Kelishiladi');
+    if (maxPrice == null) {
+      return '${_priceModeLabel(mode)}: ${_fmtPrice(minPrice)}';
+    }
+    return '${_tr("Min narx", "Min narx")}: ${_fmtPrice(minPrice)} | ${_tr("Max narx", "Max narx")}: ${_fmtPrice(maxPrice)}';
+  }
 
   @override
   void initState() {
@@ -1863,21 +1813,19 @@ class _ClientBranchDetailsScreenState extends State<ClientBranchDetailsScreen> {
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         if (data is Map<String, dynamic>) {
-          _details = BranchSummary.fromJson(data);
-        }
-      }
-      final photosUri = Uri.parse('$_publicApiBase/branches/${widget.branchId}/photos')
-          .replace(queryParameters: const {'limit': '80'});
-      final photosRes = await http.get(photosUri, headers: const {'Cache-Control': 'no-cache'});
-      if (photosRes.statusCode == 200) {
-        final photosData = jsonDecode(photosRes.body);
-        final list = photosData is List ? photosData : (photosData is Map ? photosData['items'] : null);
-        if (list is List) {
-          _photos = list.map((e) {
-            if (e is Map && e['url'] != null) return e['url'].toString();
-            if (e is Map && e['photo'] != null) return e['photo'].toString();
-            return e.toString();
-          }).where((e) => e.trim().isNotEmpty).toList();
+          final branchRaw = data['branch'];
+          final roomsRaw = data['rooms'];
+          if (branchRaw is Map<String, dynamic>) {
+            _branch = BranchSummary.fromJson(branchRaw);
+          } else if (branchRaw is Map) {
+            _branch = BranchSummary.fromJson(branchRaw.cast<String, dynamic>());
+          }
+          if (roomsRaw is List) {
+            _rooms = roomsRaw
+                .whereType<Map>()
+                .map((e) => RoomSummary.fromJson(e.cast<String, dynamic>()))
+                .toList();
+          }
         }
       }
     } catch (_) {} finally {
@@ -1891,73 +1839,51 @@ class _ClientBranchDetailsScreenState extends State<ClientBranchDetailsScreen> {
       appBar: AppBar(title: Text(_tr('Детали', 'Batafsil'))),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : _details == null
+          : _branch == null
               ? Center(child: Text(_tr('Не удалось загрузить.', 'Yuklab bo\'lmadi.')))
               : ListView(
                   padding: const EdgeInsets.all(16),
                   children: [
-                    Text(_details!.name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+                    Text(_branch!.name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
                     const SizedBox(height: 6),
-                    Text(_details!.address ?? '-', style: const TextStyle(color: _textMuted)),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        _infoChip('⭐ ${_details!.rating?.toStringAsFixed(1) ?? '-'}'),
-                        if (_details!.roomTypes.isNotEmpty) _infoChip(_details!.roomTypes),
-                        if (_details!.minPrice != null || _details!.maxPrice != null)
-                          _infoChip(_details!.priceLabel(widget.priceMode, widget.lang)),
-                      ],
+                    Text(_branch!.address ?? '-', style: const TextStyle(color: _textMuted)),
+                    const SizedBox(height: 6),
+                    Text(
+                      '⭐ ${_branch!.rating?.toStringAsFixed(1) ?? '-'} (${_branch!.ratingCount ?? 0})',
+                      style: const TextStyle(color: _textMuted),
                     ),
-                    if (widget.prepay != null && widget.prepay!.enabled) ...[
-                      const SizedBox(height: 8),
-                      Text(widget.prepay!.label(widget.lang), style: const TextStyle(color: _textMuted)),
-                    ],
-                    const SizedBox(height: 14),
-                    if (_photos.isNotEmpty)
-                      SizedBox(
-                        height: 160,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: _photos.length,
-                          separatorBuilder: (_, __) => const SizedBox(width: 10),
-                          itemBuilder: (_, i) => ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: Image.network(
-                              _photos[i],
-                              width: 220,
-                              height: 160,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Container(
-                                width: 220,
-                                color: _surfaceSoft,
-                                alignment: Alignment.center,
-                                child: const Icon(Icons.image_not_supported_outlined),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 10),
                     Row(
                       children: [
                         Expanded(
                           child: OutlinedButton(
-                            onPressed: _details!.contactPhone == null || _details!.contactPhone!.isEmpty
+                            onPressed: _branch!.contactPhone == null || _branch!.contactPhone!.isEmpty
                                 ? null
-                                : () => _launchPhone(_details!.contactPhone!),
+                                : () => _launchPhone(_branch!.contactPhone!),
                             child: Text(_tr('Позвонить', 'Qo\'ng\'iroq')),
                           ),
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: FilledButton(
-                            onPressed: () => _openMaps(_details!),
-                            child: Text(_tr('Открыть карту', 'Xaritani ochish')),
+                        if (_branch!.contactTelegram != null && _branch!.contactTelegram!.trim().isNotEmpty) ...[
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => _openTelegram(_branch!.contactTelegram!),
+                              child: const Text('Telegram'),
+                            ),
                           ),
-                        ),
+                        ],
                       ],
+                    ),
+                    if (widget.prepay != null && widget.prepay!.enabled) ...[
+                      const SizedBox(height: 10),
+                      Text(widget.prepay!.label(widget.lang), style: const TextStyle(color: _textMuted)),
+                    ],
+                    const SizedBox(height: 16),
+                    ..._buildRoomCards(),
+                    const SizedBox(height: 10),
+                    FilledButton(
+                      onPressed: () => _openMaps(_branch!),
+                      child: Text(_tr('Открыть карту', 'Xaritani ochish')),
                     ),
                   ],
                 ),
@@ -1985,6 +1911,332 @@ class _ClientBranchDetailsScreenState extends State<ClientBranchDetailsScreen> {
   Future<void> _launchPhone(String phone) async {
     final uri = Uri.parse('tel:${phone.replaceAll(' ', '')}');
     await launchUrl(uri);
+  }
+
+  Future<void> _openTelegram(String raw) async {
+    final clean = raw.trim().replaceAll('@', '');
+    if (clean.isEmpty) return;
+    final uri = Uri.parse('https://t.me/$clean');
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  List<Widget> _buildRoomCards() {
+    final visible = _rooms.where((r) => (r.availableBeds ?? 0) > 0).toList();
+    if (visible.isEmpty) {
+      return [Text(_tr('Ma\'lumot topilmadi', 'Ma\'lumot topilmadi'), style: const TextStyle(color: _textMuted))];
+    }
+    return visible.map((r) {
+      final roomDaily = _fmtMinMaxPrice(r.roomPriceDaily, r.roomPriceDaily, 'day');
+      final roomHourly = _fmtMinMaxPrice(r.roomPriceHourly, r.roomPriceHourly, 'hour');
+      final roomMonthly = _fmtMinMaxPrice(r.roomPriceMonthly, r.roomPriceMonthly, 'month');
+      final bedDaily = _fmtMinMaxPrice(r.minBedDailyPrice, r.maxBedDailyPrice, 'day');
+      final bedHourly = _fmtMinMaxPrice(r.minBedHourlyPrice, r.maxBedHourlyPrice, 'hour');
+      final bedMonthly = _fmtMinMaxPrice(r.minBedMonthlyPrice, r.maxBedMonthlyPrice, 'month');
+      final label = r.roomName ?? r.roomNumber ?? '-';
+      final status = _occupancyLabel(r.occupancyStatus);
+      return Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: _card,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: _border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: r.coverImage != null && r.coverImage!.isNotEmpty
+                      ? Image.network(
+                          r.coverImage!,
+                          width: 90,
+                          height: 90,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            width: 90,
+                            height: 90,
+                            color: _surfaceSoft,
+                            alignment: Alignment.center,
+                            child: const Icon(Icons.image_not_supported_outlined),
+                          ),
+                        )
+                      : Container(
+                          width: 90,
+                          height: 90,
+                          color: _surfaceSoft,
+                          alignment: Alignment.center,
+                          child: const Icon(Icons.image_not_supported_outlined),
+                        ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(child: Text(label, style: const TextStyle(fontWeight: FontWeight.w700))),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEFF6FF),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: _border),
+                            ),
+                            child: Text(status, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      _factRow(_tr('Xona turlari', 'Xona turlari'), _roomTypeLabel(r.roomType)),
+                      _factRow(_tr('Kravatlar', 'Kravatlar'), _bedBreakdown(r)),
+                      _factRow(_tr('Bo\'sh o\'rin', 'Bo\'sh o\'rin'), (r.availableBeds ?? 0).toString()),
+                      _factRow(_tr('Bron rejimi', 'Bron rejimi'), _bookingModeLabel(r.bookingMode)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _border),
+              ),
+              child: _RoomPriceTabs(
+                roomDaily: roomDaily,
+                roomHourly: roomHourly,
+                roomMonthly: roomMonthly,
+                bedDaily: bedDaily,
+                bedHourly: bedHourly,
+                bedMonthly: bedMonthly,
+                lang: widget.lang,
+              ),
+            ),
+          ],
+        ),
+      );
+    }).toList();
+  }
+
+  Widget _factRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          Expanded(child: Text(label, style: const TextStyle(color: _textMuted))),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
+        ],
+      ),
+    );
+  }
+
+  String _roomTypeLabel(String? raw) {
+    final s = (raw ?? '').toLowerCase();
+    if (s.contains('family') || s.contains('oil')) return _tr('Oilaviy', 'Oilaviy');
+    if (s.contains('bed') || s.contains('kravat') || s.contains('кров')) return _tr('Kravatli', 'Kravatli');
+    if (raw == null || raw.trim().isEmpty) return _tr('Boshqa', 'Boshqa');
+    return raw;
+  }
+
+  String _bookingModeLabel(String? raw) {
+    final s = (raw ?? '').toLowerCase();
+    if (s == 'full') return _tr('To\'liq xona', 'To\'liq xona');
+    return _tr('Kravat bo\'yicha', 'Kravat bo\'yicha');
+  }
+
+  String _occupancyLabel(String? raw) {
+    final s = (raw ?? '').toLowerCase();
+    if (s.contains('full')) return _tr('To\'liq band', 'To\'liq band');
+    if (s.contains('partial')) return _tr('Qisman band', 'Qisman band');
+    return _tr('Bo\'sh', 'Bo\'sh');
+  }
+
+  String _bedBreakdown(RoomSummary r) {
+    final total = r.bedCount ?? 0;
+    final single = r.singleCount ?? 0;
+    final dbl = r.doubleCount ?? 0;
+    final child = r.childCount ?? 0;
+    return '$total (${_tr("Bir kishilik", "Bir kishilik")}: $single, ${_tr("Ikki kishilik", "Ikki kishilik")}: $dbl, ${_tr("Bolalar", "Bolalar")}: $child)';
+  }
+}
+
+class RoomSummary {
+  RoomSummary({
+    this.roomName,
+    this.roomNumber,
+    this.coverImage,
+    this.occupancyStatus,
+    this.roomType,
+    this.bedCount,
+    this.singleCount,
+    this.doubleCount,
+    this.childCount,
+    this.availableBeds,
+    this.bookingMode,
+    this.roomPriceDaily,
+    this.roomPriceHourly,
+    this.roomPriceMonthly,
+    this.minBedDailyPrice,
+    this.maxBedDailyPrice,
+    this.minBedHourlyPrice,
+    this.maxBedHourlyPrice,
+    this.minBedMonthlyPrice,
+    this.maxBedMonthlyPrice,
+  });
+
+  final String? roomName;
+  final String? roomNumber;
+  final String? coverImage;
+  final String? occupancyStatus;
+  final String? roomType;
+  final int? bedCount;
+  final int? singleCount;
+  final int? doubleCount;
+  final int? childCount;
+  final int? availableBeds;
+  final String? bookingMode;
+  final double? roomPriceDaily;
+  final double? roomPriceHourly;
+  final double? roomPriceMonthly;
+  final double? minBedDailyPrice;
+  final double? maxBedDailyPrice;
+  final double? minBedHourlyPrice;
+  final double? maxBedHourlyPrice;
+  final double? minBedMonthlyPrice;
+  final double? maxBedMonthlyPrice;
+
+  factory RoomSummary.fromJson(Map<String, dynamic> json) {
+    double? _num(dynamic v) => v == null ? null : (v is num ? v.toDouble() : double.tryParse(v.toString()));
+    int? _int(dynamic v) => v == null ? null : (v is num ? v.toInt() : int.tryParse(v.toString()));
+    String? _photo(dynamic v) {
+      if (v == null) return null;
+      final raw = v.toString();
+      if (raw.isEmpty) return null;
+      if (raw.startsWith('//')) return 'https:$raw';
+      if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+      if (raw.startsWith('/')) return '$_publicHost$raw';
+      return '$_publicHost/$raw';
+    }
+    return RoomSummary(
+      roomName: json['room_name']?.toString(),
+      roomNumber: json['room_number']?.toString(),
+      coverImage: _photo(json['cover_image'] ?? json['photo']),
+      occupancyStatus: json['occupancy_status']?.toString(),
+      roomType: json['room_type']?.toString(),
+      bedCount: _int(json['bed_count'] ?? json['total_beds']),
+      singleCount: _int(json['single_count'] ?? json['single_beds']),
+      doubleCount: _int(json['double_count'] ?? json['double_beds']),
+      childCount: _int(json['child_count'] ?? json['child_beds']),
+      availableBeds: _int(json['available_beds']),
+      bookingMode: json['booking_mode']?.toString(),
+      roomPriceDaily: _num(json['room_price_daily']),
+      roomPriceHourly: _num(json['room_price_hourly']),
+      roomPriceMonthly: _num(json['room_price_monthly']),
+      minBedDailyPrice: _num(json['min_bed_daily_price']),
+      maxBedDailyPrice: _num(json['max_bed_daily_price']),
+      minBedHourlyPrice: _num(json['min_bed_hourly_price']),
+      maxBedHourlyPrice: _num(json['max_bed_hourly_price']),
+      minBedMonthlyPrice: _num(json['min_bed_monthly_price']),
+      maxBedMonthlyPrice: _num(json['max_bed_monthly_price']),
+    );
+  }
+}
+
+class _RoomPriceTabs extends StatefulWidget {
+  const _RoomPriceTabs({
+    required this.roomDaily,
+    required this.roomHourly,
+    required this.roomMonthly,
+    required this.bedDaily,
+    required this.bedHourly,
+    required this.bedMonthly,
+    required this.lang,
+  });
+
+  final String roomDaily;
+  final String roomHourly;
+  final String roomMonthly;
+  final String bedDaily;
+  final String bedHourly;
+  final String bedMonthly;
+  final String lang;
+
+  @override
+  State<_RoomPriceTabs> createState() => _RoomPriceTabsState();
+}
+
+class _RoomPriceTabsState extends State<_RoomPriceTabs> {
+  String _tab = 'room';
+
+  String _tr(String ru, String uz) => widget.lang == 'ru' ? ru : uz;
+
+  String _label(String mode) {
+    if (mode == 'hour') return _tr('Soatlik', 'Soatlik');
+    if (mode == 'month') return _tr('Oylik', 'Oylik');
+    return _tr('Kunlik', 'Kunlik');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: GestureDetector(
+                onTap: () => setState(() => _tab = 'room'),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  decoration: BoxDecoration(
+                    color: _tab == 'room' ? const Color(0xFFEFF6FF) : Colors.transparent,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    _tr('Xona narxi', 'Xona narxi'),
+                    style: TextStyle(fontWeight: FontWeight.w600, color: _tab == 'room' ? _brandBlue : _textMuted),
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              child: GestureDetector(
+                onTap: () => setState(() => _tab = 'bed'),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  decoration: BoxDecoration(
+                    color: _tab == 'bed' ? const Color(0xFFEFF6FF) : Colors.transparent,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    _tr('Kravat narxi', 'Kravat narxi'),
+                    style: TextStyle(fontWeight: FontWeight.w600, color: _tab == 'bed' ? _brandBlue : _textMuted),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (_tab == 'room') ...[
+          Text('${_label("day")}: ${widget.roomDaily}'),
+          Text('${_label("hour")}: ${widget.roomHourly}'),
+          Text('${_label("month")}: ${widget.roomMonthly}'),
+        ] else ...[
+          Text('${_label("day")}: ${widget.bedDaily}'),
+          Text('${_label("hour")}: ${widget.bedHourly}'),
+          Text('${_label("month")}: ${widget.bedMonthly}'),
+        ],
+      ],
+    );
   }
 }
 
