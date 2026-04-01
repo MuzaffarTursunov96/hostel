@@ -77,6 +77,67 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
     });
   }
 
+  Future<void> _setLangAndSave(String lang) async {
+    _setLang(lang);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('language', _lang);
+    } catch (_) {}
+  }
+
+  void _openLangPicker() {
+    showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: _border,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(_tr(ru: 'Язык', uz: 'Til'), style: const TextStyle(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _setLangAndSave('ru');
+                      },
+                      child: const Text('RU'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _setLangAndSave('uz');
+                      },
+                      child: const Text('UZ'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _loadAll() async {
     await Future.wait([_loadPrepay(), _loadBranches()]);
   }
@@ -514,7 +575,7 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
           ),
           IconButton(
             tooltip: _tr(ru: 'Язык', uz: 'Til'),
-            onPressed: () => _setLang(_lang == 'ru' ? 'uz' : 'ru'),
+            onPressed: _openLangPicker,
             icon: Image.asset('assets/icons/language.png', width: 20, height: 20),
           ),
         ],

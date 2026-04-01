@@ -184,121 +184,18 @@ class HostelApp extends StatelessWidget {
               margin: EdgeInsets.zero,
             ),
           ),
-          home: const AppEntry(),
+          home: const LoginScreen(),
         );
       },
     );
   }
 }
 
-class AppEntry extends StatefulWidget {
-  const AppEntry({super.key});
-
-  @override
-  State<AppEntry> createState() => _AppEntryState();
-}
-
-class _AppEntryState extends State<AppEntry> {
-  static const String pinKey = 'app_pin';
-  static const String clientVerifiedKey = 'client_verified';
-  static const String clientLangKey = 'client_lang';
-  bool _loading = true;
-  bool _hasPin = false;
-  bool _clientVerified = false;
-  String _clientLang = 'uz';
-
-  @override
-  void initState() {
-    super.initState();
-    _loadPinState();
-  }
-
-  Future<void> _loadPinState() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final pin = prefs.getString(pinKey) ?? '';
-      _hasPin = pin.trim().isNotEmpty;
-      _clientVerified = prefs.getBool(clientVerifiedKey) ?? false;
-      _clientLang = normLang(prefs.getString(clientLangKey) ?? prefs.getString(kLanguageKey));
-    } catch (_) {
-      _hasPin = false;
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  void _openAfterPin() {
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => ClientCatalogScreen(lang: _clientLang)),
-    );
-  }
-
-  void _openStaffLogin() {
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const LoginScreen(initialEntryMode: 'staff')),
-    );
-  }
-
-  void _openClientFlow() {
-    if (_clientVerified && _hasPin) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => PinLockScreen(onVerified: _openAfterPin)),
-      );
-      return;
-    }
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const LoginScreen(initialEntryMode: 'client')),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_loading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-    return Scaffold(
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 360),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('HMS', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800)),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    onPressed: _openStaffLogin,
-                    icon: const Icon(Icons.badge_outlined),
-                    label: Text(trPair(ru: 'Сотрудник', uz: 'Xodim')),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    onPressed: _openClientFlow,
-                    icon: const Icon(Icons.travel_explore_outlined),
-                    label: Text(trPair(ru: 'Клиент', uz: 'Mijoz')),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class PinLockScreen extends StatefulWidget {
-  const PinLockScreen({super.key, required this.onVerified});
+  const PinLockScreen({super.key, this.onVerified, this.onSuccess});
 
-  final VoidCallback onVerified;
+  final VoidCallback? onVerified;
+  final WidgetBuilder? onSuccess;
 
   @override
   State<PinLockScreen> createState() => _PinLockScreenState();
@@ -330,7 +227,12 @@ class _PinLockScreenState extends State<PinLockScreen> {
       final prefs = await SharedPreferences.getInstance();
       final stored = prefs.getString(pinKey) ?? '';
       if (pin == stored) {
-        widget.onVerified();
+        widget.onVerified?.call();
+        if (widget.onSuccess != null && mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: widget.onSuccess!),
+          );
+        }
       } else {
         setState(() => _error = 'Wrong PIN');
       }
@@ -716,21 +618,6 @@ class _LoginScreenState extends State<LoginScreen> {
       await prefs.setString(kLanguageKey, lang);
       appLang.value = lang;
 
-      final existingPin = prefs.getString(pinKey) ?? '';
-      if (existingPin.trim().isEmpty) {
-        final newPin = await _promptSetPin();
-        if (newPin == null || !RegExp(r'^\d{4}$').hasMatch(newPin.trim())) {
-          final msg = _tr(
-            ru: 'Нужно установить PIN.',
-            uz: 'PIN o‘rnatish kerak.',
-          );
-          setState(() => _error = msg);
-          if (mounted) showAppAlert(context, msg, error: true);
-          return;
-        }
-        await prefs.setString(pinKey, newPin.trim());
-      }
-
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
@@ -759,6 +646,23 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (_) {}
     return null;
+  }
+
+  Future<void> _maybeOpenClientPin() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final pin = prefs.getString(pinKey) ?? '';
+      if (pin.trim().isNotEmpty) {
+        if (!mounted) return;
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => PinLockScreen(
+              onSuccess: (_) => ClientCatalogScreen(lang: _uiLang),
+            ),
+          ),
+        );
+      }
+    } catch (_) {}
   }
 
   Future<String?> _promptSetPin() async {
@@ -941,6 +845,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                   _resetClientFlow();
                                 }
                               });
+                              if (_entryMode == 'client') {
+                                _maybeOpenClientPin();
+                              }
                             },
                           ),
                           const SizedBox(height: 18),
