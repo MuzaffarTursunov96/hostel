@@ -1222,7 +1222,8 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                       ),
                   ],
                 ),
-                if (_prepay != null && _prepay!.enabled) ...[
+                final prepayLabel = _prepay?.label(_lang) ?? '';
+                if (prepayLabel.isNotEmpty) ...[
                   const SizedBox(height: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -1237,7 +1238,7 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            _prepay!.label(_lang),
+                            prepayLabel,
                             style: const TextStyle(fontSize: 12, color: Color(0xFF166534), fontWeight: FontWeight.w600),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
@@ -1455,10 +1456,10 @@ class BookingPrepayConfig {
   String label(String lang) {
     if (!enabled) return '';
     if (note != null && note!.trim().isNotEmpty) return note!;
-    if (amount != null) {
+    if (amount != null && amount! > 0) {
       return lang == 'ru' ? 'Предоплата: ${amount!.toStringAsFixed(0)}' : 'Oldindan to\'lov: ${amount!.toStringAsFixed(0)}';
     }
-    return lang == 'ru' ? 'Предоплата требуется' : 'Oldindan to\'lov talab qilinadi';
+    return '';
   }
 }
 
@@ -2156,7 +2157,14 @@ class _ClientBranchDetailsScreenState extends State<ClientBranchDetailsScreen> {
               width: double.infinity,
               child: FilledButton(
                 onPressed: () => _openBooking(r),
-                child: Text(_tr('Bron qilish', 'Bron qilish')),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Image.asset('assets/icons/booking_client.png', width: 18, height: 18),
+                    const SizedBox(width: 8),
+                    Text(_tr('Bron qilish', 'Bron qilish')),
+                  ],
+                ),
               ),
             ),
           ],
@@ -2269,6 +2277,7 @@ class _BookingRequestScreenState extends State<BookingRequestScreen> {
   final _checkoutCtrl = TextEditingController();
   final _msgCtrl = TextEditingController();
   bool _busy = false;
+  bool _isHourly = false;
 
   String _tr(String ru, String uz) => widget.lang == 'ru' ? ru : uz;
 
@@ -2320,6 +2329,12 @@ class _BookingRequestScreenState extends State<BookingRequestScreen> {
       _showSnack(_tr('Телефон обязателен', 'Telefon majburiy'), error: true);
       return;
     }
+    if (!_isHourly) {
+      if (_checkinCtrl.text.trim().isEmpty || _checkoutCtrl.text.trim().isEmpty) {
+        _showSnack(_tr('Введите даты заезда и выезда', 'Kelish va ketish sanasini kiriting'), error: true);
+        return;
+      }
+    }
     setState(() => _busy = true);
     try {
       final payload = {
@@ -2369,7 +2384,8 @@ class _BookingRequestScreenState extends State<BookingRequestScreen> {
         children: [
           Text(widget.branchName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
           const SizedBox(height: 10),
-          if (widget.prepay != null && widget.prepay!.enabled) ...[
+          final prepayLabel = widget.prepay?.label(widget.lang) ?? '';
+          if (prepayLabel.isNotEmpty) ...[
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -2378,7 +2394,7 @@ class _BookingRequestScreenState extends State<BookingRequestScreen> {
                 border: Border.all(color: const Color(0xFFBBF7D0)),
               ),
               child: Text(
-                widget.prepay!.label(widget.lang),
+                prepayLabel,
                 style: const TextStyle(color: Color(0xFF166534), fontWeight: FontWeight.w600),
               ),
             ),
@@ -2426,10 +2442,27 @@ class _BookingRequestScreenState extends State<BookingRequestScreen> {
           Row(
             children: [
               Expanded(
+                child: Row(
+                  children: [
+                    Switch(
+                      value: _isHourly,
+                      onChanged: (v) => setState(() => _isHourly = v),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(_tr('Soatlik bron', 'Soatlik bron')),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Expanded(
                 child: TextField(
                   controller: _checkinCtrl,
                   readOnly: true,
-                  onTap: () => _pickDate(_checkinCtrl),
+                  onTap: _isHourly ? null : () => _pickDate(_checkinCtrl),
                   decoration: InputDecoration(
                     labelText: _tr('Kelish sanasi', 'Kelish sanasi'),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -2441,7 +2474,7 @@ class _BookingRequestScreenState extends State<BookingRequestScreen> {
                 child: TextField(
                   controller: _checkoutCtrl,
                   readOnly: true,
-                  onTap: () => _pickDate(_checkoutCtrl),
+                  onTap: _isHourly ? null : () => _pickDate(_checkoutCtrl),
                   decoration: InputDecoration(
                     labelText: _tr('Ketish sanasi', 'Ketish sanasi'),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -2464,7 +2497,16 @@ class _BookingRequestScreenState extends State<BookingRequestScreen> {
             height: 48,
             child: FilledButton(
               onPressed: _busy ? null : _submit,
-              child: Text(_busy ? _tr('Yuborilmoqda...', 'Yuborilmoqda...') : _tr('Yuborish', 'Yuborish')),
+              child: _busy
+                  ? Text(_tr('Yuborilmoqda...', 'Yuborilmoqda...'))
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Image.asset('assets/icons/booking_client.png', width: 18, height: 18),
+                        const SizedBox(width: 8),
+                        Text(_tr('Yuborish', 'Yuborish')),
+                      ],
+                    ),
             ),
           ),
         ],
