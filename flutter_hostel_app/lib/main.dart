@@ -228,14 +228,26 @@ class _AppEntryState extends State<AppEntry> {
   }
 
   void _openAfterPin() {
-    if (_clientVerified) {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => ClientCatalogScreen(lang: _clientLang)),
+    );
+  }
+
+  void _openStaffLogin() {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const LoginScreen(initialEntryMode: 'staff')),
+    );
+  }
+
+  void _openClientFlow() {
+    if (_clientVerified && _hasPin) {
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => ClientCatalogScreen(lang: _clientLang)),
+        MaterialPageRoute(builder: (_) => PinLockScreen(onVerified: _openAfterPin)),
       );
       return;
     }
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      MaterialPageRoute(builder: (_) => const LoginScreen(initialEntryMode: 'client')),
     );
   }
 
@@ -246,10 +258,40 @@ class _AppEntryState extends State<AppEntry> {
         body: Center(child: CircularProgressIndicator()),
       );
     }
-    if (_hasPin) {
-      return PinLockScreen(onVerified: _openAfterPin);
-    }
-    return const LoginScreen();
+    return Scaffold(
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 360),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('HMS', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _openStaffLogin,
+                    icon: const Icon(Icons.badge_outlined),
+                    label: Text(trPair(ru: 'Сотрудник', uz: 'Xodim')),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _openClientFlow,
+                    icon: const Icon(Icons.travel_explore_outlined),
+                    label: Text(trPair(ru: 'Клиент', uz: 'Mijoz')),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -350,7 +392,9 @@ class _PinLockScreenState extends State<PinLockScreen> {
 }
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({super.key, this.initialEntryMode});
+
+  final String? initialEntryMode;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -389,6 +433,9 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialEntryMode == 'client') {
+      _entryMode = 'client';
+    }
     _loadPreferredLanguage();
     _restoreSession();
   }

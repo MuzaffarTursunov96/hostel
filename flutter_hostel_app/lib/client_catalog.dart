@@ -520,275 +520,279 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
         ],
       ),
       body: SafeArea(
-        child: Column(
+        child: Stack(
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _searchCtrl,
-                      decoration: InputDecoration(
-                        hintText: _tr(ru: 'Поиск...', uz: 'Qidirish...'),
-                        prefixIcon: const Icon(Icons.search),
-                        suffixIcon: _searchCtrl.text.trim().isEmpty
-                            ? null
-                            : IconButton(
-                                onPressed: () {
-                                  _searchCtrl.clear();
-                                  _applyClientFilters();
-                                },
+            Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _searchCtrl,
+                          decoration: InputDecoration(
+                            hintText: _tr(ru: 'Поиск...', uz: 'Qidirish...'),
+                            prefixIcon: const Icon(Icons.search),
+                            suffixIcon: _searchCtrl.text.trim().isEmpty
+                                ? null
+                                : IconButton(
+                                    onPressed: () {
+                                      _searchCtrl.clear();
+                                      _applyClientFilters();
+                                    },
+                                    icon: Image.asset('assets/icons/clear-filter.png', width: 18, height: 18),
+                                  ),
+                            filled: true,
+                            fillColor: _card,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: _border)),
+                            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: _border)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        onPressed: _toggleFilters,
+                        tooltip: _filtersOpen ? _tr(ru: 'Скрыть фильтры', uz: 'Filterni yopish') : _tr(ru: 'Фильтры', uz: 'Filtrlar'),
+                        icon: Image.asset('assets/icons/filter.png', width: 20, height: 20),
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: [
+                      const Spacer(),
+                      if (_filtersActive)
+                        IconButton(
+                          onPressed: _resetFilters,
+                          tooltip: _tr(ru: 'Сбросить', uz: 'Bekor qilish'),
+                          icon: Image.asset('assets/icons/clear-filter.png', width: 18, height: 18),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: _loading
+                      ? const Center(child: CircularProgressIndicator())
+                      : _filtered.isEmpty
+                          ? Center(child: Text(_tr(ru: 'Ничего не найдено.', uz: 'Natija topilmadi.')))
+                          : ListView.separated(
+                              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                              itemCount: _filtered.length,
+                              separatorBuilder: (_, __) => const SizedBox(height: 12),
+                              itemBuilder: (_, i) => _buildBranchCard(_filtered[i]),
+                            ),
+                ),
+              ],
+            ),
+            if (_filtersOpen)
+              Positioned.fill(
+                child: GestureDetector(
+                  onTap: _toggleFilters,
+                  child: Container(color: Colors.black.withOpacity(0.25)),
+                ),
+              ),
+            if (_filtersOpen)
+              Center(
+                child: Material(
+                  color: _card,
+                  elevation: 10,
+                  borderRadius: BorderRadius.circular(20),
+                  child: SizedBox(
+                    width: 360,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            children: [
+                              Text(_tr(ru: 'Фильтры', uz: 'Filtrlar'), style: const TextStyle(fontWeight: FontWeight.w700)),
+                              const Spacer(),
+                              IconButton(
+                                onPressed: _toggleFilters,
                                 icon: Image.asset('assets/icons/clear-filter.png', width: 18, height: 18),
                               ),
-                        filled: true,
-                        fillColor: _card,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: _border)),
-                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: _border)),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: DropdownButtonFormField<String?>(
+                                  value: _regionSlug,
+                                  decoration: InputDecoration(
+                                    labelText: _tr(ru: 'Область', uz: 'Viloyat'),
+                                    filled: true,
+                                    fillColor: _card,
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                  items: _regionItems(),
+                                  onChanged: (v) {
+                                    setState(() {
+                                      _regionSlug = v;
+                                      _cityName = null;
+                                      _districtName = null;
+                                    });
+                                    _applyClientFilters();
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: DropdownButtonFormField<String?>(
+                                  value: _cityName,
+                                  decoration: InputDecoration(
+                                    labelText: _tr(ru: 'Город', uz: 'Shahar'),
+                                    filled: true,
+                                    fillColor: _card,
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                  items: _cityItems(),
+                                  onChanged: (v) {
+                                    setState(() {
+                                      _cityName = v;
+                                      _districtName = null;
+                                    });
+                                    _applyClientFilters();
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: DropdownButtonFormField<String?>(
+                                  value: _districtName,
+                                  decoration: InputDecoration(
+                                    labelText: _tr(ru: 'Район', uz: 'Tuman'),
+                                    filled: true,
+                                    fillColor: _card,
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                  items: _districtItems(),
+                                  onChanged: (v) {
+                                    setState(() => _districtName = v);
+                                    _applyClientFilters();
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: DropdownButtonFormField<String?>(
+                                  value: _roomType,
+                                  decoration: InputDecoration(
+                                    labelText: _tr(ru: 'Тип комнаты', uz: 'Xona turi'),
+                                    filled: true,
+                                    fillColor: _card,
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                  items: _roomTypeItems(),
+                                  onChanged: (v) {
+                                    setState(() => _roomType = v);
+                                    _applyClientFilters();
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: DropdownButtonFormField<String>(
+                                  value: _priceMode,
+                                  decoration: InputDecoration(
+                                    labelText: _tr(ru: 'Режим цены', uz: 'Narx turi'),
+                                    filled: true,
+                                    fillColor: _card,
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                  items: [
+                                    DropdownMenuItem(value: 'day', child: Text(_tr(ru: 'Сутки', uz: 'Kunlik'))),
+                                    DropdownMenuItem(value: 'hour', child: Text(_tr(ru: 'Час', uz: 'Soatlik'))),
+                                    DropdownMenuItem(value: 'month', child: Text(_tr(ru: 'Месяц', uz: 'Oylik'))),
+                                  ],
+                                  onChanged: (v) {
+                                    setState(() => _priceMode = v ?? 'day');
+                                    _loadBranches();
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(_tr(ru: 'Мин. рейтинг', uz: 'Reyting')),
+                                    Slider(
+                                      value: _minRating,
+                                      min: 0,
+                                      max: 5,
+                                      divisions: 10,
+                                      label: _minRating.toStringAsFixed(1),
+                                      onChanged: (v) {
+                                        setState(() => _minRating = v);
+                                        _applyClientFilters();
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(_tr(ru: 'Диапазон цены', uz: 'Narx oralig\'i')),
+                              RangeSlider(
+                                min: _priceMinBound,
+                                max: rangeMax,
+                                values: range,
+                                onChanged: (v) {
+                                  setState(() => _priceRange = v);
+                                  _applyClientFilters();
+                                },
+                              ),
+                              Row(
+                                children: [
+                                  Text('${range.start.toStringAsFixed(0)}'),
+                                  const Spacer(),
+                                  Text('${range.end.toStringAsFixed(0)}'),
+                                ],
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: _resetFilters,
+                                  child: Text(_tr(ru: 'Сбросить', uz: 'Bekor qilish')),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: FilledButton(
+                                  onPressed: _toggleFilters,
+                                  child: Text(_tr(ru: 'Готово', uz: 'Tayyor')),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    onPressed: _toggleFilters,
-                    tooltip: _filtersOpen ? _tr(ru: 'Скрыть фильтры', uz: 'Filterni yopish') : _tr(ru: 'Фильтры', uz: 'Filtrlar'),
-                    icon: Image.asset('assets/icons/filter.png', width: 20, height: 20),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  const Spacer(),
-                  if (_filtersActive)
-                    IconButton(
-                      onPressed: _resetFilters,
-                      tooltip: _tr(ru: 'Сбросить', uz: 'Bekor qilish'),
-                      icon: Image.asset('assets/icons/clear-filter.png', width: 18, height: 18),
-                    ),
-                ],
-              ),
-            ),
-            AnimatedCrossFade(
-              crossFadeState: _filtersOpen ? CrossFadeState.showFirst : CrossFadeState.showSecond,
-              duration: const Duration(milliseconds: 220),
-              firstChild: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: DropdownButtonFormField<String?>(
-                            value: _regionSlug,
-                            decoration: InputDecoration(
-                              labelText: _tr(ru: 'Область', uz: 'Viloyat'),
-                              filled: true,
-                              fillColor: _card,
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                              suffixIcon: _regionSlug == null
-                                  ? null
-                                  : IconButton(
-                                      onPressed: () {
-                                        setState(() {
-                                          _regionSlug = null;
-                                          _cityName = null;
-                                          _districtName = null;
-                                        });
-                                        _applyClientFilters();
-                                      },
-                                      icon: Image.asset('assets/icons/clear-filter.png', width: 16, height: 16),
-                                    ),
-                            ),
-                            items: _regionItems(),
-                            onChanged: (v) {
-                              setState(() {
-                                _regionSlug = v;
-                                _cityName = null;
-                                _districtName = null;
-                              });
-                              _applyClientFilters();
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: DropdownButtonFormField<String?>(
-                            value: _cityName,
-                            decoration: InputDecoration(
-                              labelText: _tr(ru: 'Город', uz: 'Shahar'),
-                              filled: true,
-                              fillColor: _card,
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                              suffixIcon: _cityName == null
-                                  ? null
-                                  : IconButton(
-                                      onPressed: () {
-                                        setState(() {
-                                          _cityName = null;
-                                          _districtName = null;
-                                        });
-                                        _applyClientFilters();
-                                      },
-                                      icon: Image.asset('assets/icons/clear-filter.png', width: 16, height: 16),
-                                    ),
-                            ),
-                            items: _cityItems(),
-                            onChanged: (v) {
-                              setState(() {
-                                _cityName = v;
-                                _districtName = null;
-                              });
-                              _applyClientFilters();
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: DropdownButtonFormField<String?>(
-                            value: _districtName,
-                            decoration: InputDecoration(
-                              labelText: _tr(ru: 'Район', uz: 'Tuman'),
-                              filled: true,
-                              fillColor: _card,
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                              suffixIcon: _districtName == null
-                                  ? null
-                                  : IconButton(
-                                      onPressed: () {
-                                        setState(() => _districtName = null);
-                                        _applyClientFilters();
-                                      },
-                                      icon: Image.asset('assets/icons/clear-filter.png', width: 16, height: 16),
-                                    ),
-                            ),
-                            items: _districtItems(),
-                            onChanged: (v) {
-                              setState(() => _districtName = v);
-                              _applyClientFilters();
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: DropdownButtonFormField<String?>(
-                            value: _roomType,
-                            decoration: InputDecoration(
-                              labelText: _tr(ru: 'Тип комнаты', uz: 'Xona turi'),
-                              filled: true,
-                              fillColor: _card,
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                              suffixIcon: _roomType == null
-                                  ? null
-                                  : IconButton(
-                                      onPressed: () {
-                                        setState(() => _roomType = null);
-                                        _applyClientFilters();
-                                      },
-                                      icon: Image.asset('assets/icons/clear-filter.png', width: 16, height: 16),
-                                    ),
-                            ),
-                            items: _roomTypeItems(),
-                            onChanged: (v) {
-                              setState(() => _roomType = v);
-                              _applyClientFilters();
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
-                            value: _priceMode,
-                            decoration: InputDecoration(
-                              labelText: _tr(ru: 'Режим цены', uz: 'Narx turi'),
-                              filled: true,
-                              fillColor: _card,
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                            ),
-                            items: [
-                              DropdownMenuItem(value: 'day', child: Text(_tr(ru: 'Сутки', uz: 'Kunlik'))),
-                              DropdownMenuItem(value: 'hour', child: Text(_tr(ru: 'Час', uz: 'Soatlik'))),
-                              DropdownMenuItem(value: 'month', child: Text(_tr(ru: 'Месяц', uz: 'Oylik'))),
-                            ],
-                            onChanged: (v) {
-                              setState(() => _priceMode = v ?? 'day');
-                              _loadBranches();
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(_tr(ru: 'Мин. рейтинг', uz: 'Reyting')),
-                              Slider(
-                                value: _minRating,
-                                min: 0,
-                                max: 5,
-                                divisions: 10,
-                                label: _minRating.toStringAsFixed(1),
-                                onChanged: (v) {
-                                  setState(() => _minRating = v);
-                                  _applyClientFilters();
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(_tr(ru: 'Диапазон цены', uz: 'Narx oralig\'i')),
-                        RangeSlider(
-                          min: _priceMinBound,
-                          max: rangeMax,
-                          values: range,
-                          onChanged: (v) {
-                            setState(() => _priceRange = v);
-                            _applyClientFilters();
-                          },
-                        ),
-                        Row(
-                          children: [
-                            Text('${range.start.toStringAsFixed(0)}'),
-                            const Spacer(),
-                            Text('${range.end.toStringAsFixed(0)}'),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ],
                 ),
               ),
-              secondChild: const SizedBox.shrink(),
-            ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: _loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _filtered.isEmpty
-                      ? Center(child: Text(_tr(ru: 'Ничего не найдено.', uz: 'Natija topilmadi.')))
-                      : ListView.separated(
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                          itemCount: _filtered.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 12),
-                          itemBuilder: (_, i) => _buildBranchCard(_filtered[i]),
-                        ),
-            ),
           ],
         ),
       ),
