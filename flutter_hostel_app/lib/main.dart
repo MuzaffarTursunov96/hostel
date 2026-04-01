@@ -514,6 +514,7 @@ class _LoginScreenState extends State<LoginScreen> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(clientVerifiedKey, true);
       await prefs.setString(clientLangKey, _uiLang);
+      await prefs.setString('client_email', email);
 
       final existingPin = prefs.getString(pinKey) ?? '';
       if (existingPin.trim().isEmpty) {

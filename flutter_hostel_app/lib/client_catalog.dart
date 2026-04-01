@@ -1222,6 +1222,31 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                       ),
                   ],
                 ),
+                if (_prepay != null && _prepay!.enabled) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFECFDF3),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFBBF7D0)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.verified, size: 16, color: Color(0xFF15803D)),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            _prepay!.label(_lang),
+                            style: const TextStyle(fontSize: 12, color: Color(0xFF166534), fontWeight: FontWeight.w600),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 10),
                 Row(
                   children: [
@@ -1904,15 +1929,34 @@ class _ClientBranchDetailsScreenState extends State<ClientBranchDetailsScreen> {
                           ),
                         ),
                         if (_branch!.contactPhone != null && _branch!.contactPhone!.isNotEmpty)
-                          OutlinedButton(
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              minimumSize: const Size(0, 32),
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              visualDensity: VisualDensity.compact,
+                          Padding(
+                            padding: const EdgeInsets.only(left: 8),
+                            child: InkWell(
+                              onTap: () => _launchPhone(_branch!.contactPhone!),
+                              borderRadius: BorderRadius.circular(18),
+                              child: Ink(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [Color(0xFF34D399), Color(0xFF16A34A)],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                  borderRadius: BorderRadius.circular(18),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Color(0x3322C55E),
+                                      blurRadius: 8,
+                                      offset: Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: Text(
+                                  _tr('Qo\'ng\'iroq', 'Qo\'ng\'iroq'),
+                                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Colors.white),
+                                ),
+                              ),
                             ),
-                            onPressed: () => _launchPhone(_branch!.contactPhone!),
-                            child: Text(_tr('Qo\'ng\'iroq', 'Qo\'ng\'iroq'), style: const TextStyle(fontSize: 12)),
                           ),
                       ],
                     ),
@@ -2107,6 +2151,14 @@ class _ClientBranchDetailsScreenState extends State<ClientBranchDetailsScreen> {
                 lang: widget.lang,
               ),
             ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () => _openBooking(r),
+                child: Text(_tr('Bron qilish', 'Bron qilish')),
+              ),
+            ),
           ],
         ),
       );
@@ -2160,6 +2212,276 @@ class _ClientBranchDetailsScreenState extends State<ClientBranchDetailsScreen> {
     return '$total (${_tr("Bir kishilik", "Bir kishilik")}: $single, '
         '${_tr("Ikki kishilik", "Ikki kishilik")}: $dbl, '
         '${_tr("Bolalar", "Bolalar")}: $child)';
+  }
+
+  Future<void> _openBooking(RoomSummary room) async {
+    if (_branch == null) return;
+    final roomLabel = room.roomName ?? room.roomNumber ?? '';
+    final rentType = _bookingModeLabel(room.bookingMode);
+    final display = roomLabel.isEmpty ? rentType : '$roomLabel ($rentType)';
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => BookingRequestScreen(
+          lang: widget.lang,
+          branchId: _branch!.id,
+          branchName: _branch!.name,
+          prepay: widget.prepay,
+          roomLabel: display,
+          roomType: _roomTypeLabel(room.roomType),
+          rentType: rentType,
+        ),
+      ),
+    );
+  }
+}
+
+class BookingRequestScreen extends StatefulWidget {
+  const BookingRequestScreen({
+    super.key,
+    required this.lang,
+    required this.branchId,
+    required this.branchName,
+    this.prepay,
+    this.roomLabel,
+    this.roomType,
+    this.rentType,
+  });
+
+  final String lang;
+  final int branchId;
+  final String branchName;
+  final BookingPrepayConfig? prepay;
+  final String? roomLabel;
+  final String? roomType;
+  final String? rentType;
+
+  @override
+  State<BookingRequestScreen> createState() => _BookingRequestScreenState();
+}
+
+class _BookingRequestScreenState extends State<BookingRequestScreen> {
+  final _nameCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
+  final _roomCtrl = TextEditingController();
+  final _checkinCtrl = TextEditingController();
+  final _checkoutCtrl = TextEditingController();
+  final _msgCtrl = TextEditingController();
+  bool _busy = false;
+
+  String _tr(String ru, String uz) => widget.lang == 'ru' ? ru : uz;
+
+  @override
+  void initState() {
+    super.initState();
+    _roomCtrl.text = widget.roomLabel ?? '';
+    _loadEmail();
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _phoneCtrl.dispose();
+    _emailCtrl.dispose();
+    _roomCtrl.dispose();
+    _checkinCtrl.dispose();
+    _checkoutCtrl.dispose();
+    _msgCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadEmail() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final email = prefs.getString('client_email') ?? '';
+      if (email.isNotEmpty) {
+        setState(() => _emailCtrl.text = email);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _pickDate(TextEditingController ctrl) async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: now,
+      firstDate: now.subtract(const Duration(days: 0)),
+      lastDate: now.add(const Duration(days: 365)),
+    );
+    if (picked != null) {
+      ctrl.text = '${picked.year}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+    }
+  }
+
+  Future<void> _submit() async {
+    final phone = _phoneCtrl.text.trim();
+    if (phone.isEmpty) {
+      _showSnack(_tr('Телефон обязателен', 'Telefon majburiy'), error: true);
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      final payload = {
+        'branch_id': widget.branchId,
+        'full_name': _nameCtrl.text.trim().isEmpty ? null : _nameCtrl.text.trim(),
+        'phone': phone,
+        'email': _emailCtrl.text.trim().isEmpty ? null : _emailCtrl.text.trim(),
+        'room_or_bed': _roomCtrl.text.trim().isEmpty ? null : _roomCtrl.text.trim(),
+        'checkin': _checkinCtrl.text.trim().isEmpty ? null : _checkinCtrl.text.trim(),
+        'checkout': _checkoutCtrl.text.trim().isEmpty ? null : _checkoutCtrl.text.trim(),
+        'message': _msgCtrl.text.trim().isEmpty ? null : _msgCtrl.text.trim(),
+        'source': 'mobile_app',
+      };
+      final res = await http.post(
+        Uri.parse('$_publicApiBase/booking-request'),
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode(payload),
+      );
+      if (res.statusCode < 200 || res.statusCode >= 300) {
+        _showSnack(_tr('Не удалось отправить заявку', 'Ariza yuborilmadi'), error: true);
+        return;
+      }
+      _showSnack(_tr('Заявка отправлена', 'Ariza yuborildi'));
+      if (mounted) Navigator.of(context).pop();
+    } catch (e) {
+      _showSnack(e.toString(), error: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  void _showSnack(String msg, {bool error = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: error ? const Color(0xFFDC2626) : const Color(0xFF16A34A),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(_tr('Bron qilish', 'Bron qilish'))),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Text(widget.branchName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 10),
+          if (widget.prepay != null && widget.prepay!.enabled) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0FDF4),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFBBF7D0)),
+              ),
+              child: Text(
+                widget.prepay!.label(widget.lang),
+                style: const TextStyle(color: Color(0xFF166534), fontWeight: FontWeight.w600),
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+          if ((widget.roomType ?? '').isNotEmpty)
+            _infoLine(_tr('Xona turi', 'Xona turi'), widget.roomType!),
+          if ((widget.rentType ?? '').isNotEmpty)
+            _infoLine(_tr('Ijara turi', 'Ijara turi'), widget.rentType!),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _nameCtrl,
+            decoration: InputDecoration(
+              labelText: _tr('Ism (ixtiyoriy)', 'Ism (ixtiyoriy)'),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _phoneCtrl,
+            keyboardType: TextInputType.phone,
+            decoration: InputDecoration(
+              labelText: _tr('Telefon (majburiy)', 'Telefon (majburiy)'),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _emailCtrl,
+            keyboardType: TextInputType.emailAddress,
+            decoration: InputDecoration(
+              labelText: _tr('Email (ixtiyoriy)', 'Email (ixtiyoriy)'),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _roomCtrl,
+            decoration: InputDecoration(
+              labelText: _tr('Xona/Yotoq', 'Xona/Yotoq'),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _checkinCtrl,
+                  readOnly: true,
+                  onTap: () => _pickDate(_checkinCtrl),
+                  decoration: InputDecoration(
+                    labelText: _tr('Kelish sanasi', 'Kelish sanasi'),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: TextField(
+                  controller: _checkoutCtrl,
+                  readOnly: true,
+                  onTap: () => _pickDate(_checkoutCtrl),
+                  decoration: InputDecoration(
+                    labelText: _tr('Ketish sanasi', 'Ketish sanasi'),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _msgCtrl,
+            maxLines: 3,
+            decoration: InputDecoration(
+              labelText: _tr('Izoh (ixtiyoriy)', 'Izoh (ixtiyoriy)'),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 48,
+            child: FilledButton(
+              onPressed: _busy ? null : _submit,
+              child: Text(_busy ? _tr('Yuborilmoqda...', 'Yuborilmoqda...') : _tr('Yuborish', 'Yuborish')),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _infoLine(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        children: [
+          Text('$label: ', style: const TextStyle(color: _textMuted)),
+          Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.w600))),
+        ],
+      ),
+    );
   }
 }
 
