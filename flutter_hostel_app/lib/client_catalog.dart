@@ -1192,7 +1192,34 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                     ),
                     const SizedBox(width: 8),
                     if (cardPrice.isNotEmpty)
-                      Text(cardPrice, style: const TextStyle(fontWeight: FontWeight.w600)),
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF1F5F9),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: _border),
+                              ),
+                              child: Text(
+                                _tr(ru: 'Нарх', uz: 'Narx'),
+                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _textMuted),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                cardPrice,
+                                style: const TextStyle(fontWeight: FontWeight.w600),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                softWrap: true,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -1338,6 +1365,8 @@ class BranchSummary {
       roomTypes: (json['room_types'] ?? json['roomTypes'] ?? '').toString(),
       coverPhoto: _photo(json['cover_photo'] ??
           json['coverPhoto'] ??
+          json['cover_image'] ??
+          json['coverImage'] ??
           json['cover_photo_url'] ??
           json['photo'] ??
           json['photo_url'] ??
@@ -1844,6 +1873,24 @@ class _ClientBranchDetailsScreenState extends State<ClientBranchDetailsScreen> {
               : ListView(
                   padding: const EdgeInsets.all(16),
                   children: [
+                    if (_branch!.coverPhoto != null && _branch!.coverPhoto!.trim().isNotEmpty) ...[
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: Image.network(
+                          _branch!.coverPhoto!,
+                          height: 190,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            height: 190,
+                            color: _surfaceSoft,
+                            alignment: Alignment.center,
+                            child: const Icon(Icons.image_not_supported_outlined),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                     Text(_branch!.name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
                     const SizedBox(height: 6),
                     Text(_branch!.address ?? '-', style: const TextStyle(color: _textMuted)),
@@ -1979,7 +2026,14 @@ class _ClientBranchDetailsScreenState extends State<ClientBranchDetailsScreen> {
                     children: [
                       Row(
                         children: [
-                          Expanded(child: Text(label, style: const TextStyle(fontWeight: FontWeight.w700))),
+                          Expanded(
+                            child: Text(
+                              label,
+                              style: const TextStyle(fontWeight: FontWeight.w700),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
@@ -2027,11 +2081,17 @@ class _ClientBranchDetailsScreenState extends State<ClientBranchDetailsScreen> {
 
   Widget _factRow(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(child: Text(label, style: const TextStyle(color: _textMuted))),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
+          Text(label, style: const TextStyle(color: _textMuted, fontSize: 12)),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+            softWrap: true,
+          ),
         ],
       ),
     );
@@ -2063,7 +2123,9 @@ class _ClientBranchDetailsScreenState extends State<ClientBranchDetailsScreen> {
     final single = r.singleCount ?? 0;
     final dbl = r.doubleCount ?? 0;
     final child = r.childCount ?? 0;
-    return '$total (${_tr("Bir kishilik", "Bir kishilik")}: $single, ${_tr("Ikki kishilik", "Ikki kishilik")}: $dbl, ${_tr("Bolalar", "Bolalar")}: $child)';
+    return '$total (${_tr("Bir kishilik", "Bir kishilik")}: $single, '
+        '${_tr("Ikki kishilik", "Ikki kishilik")}: $dbl, '
+        '${_tr("Bolalar", "Bolalar")}: $child)';
   }
 }
 
