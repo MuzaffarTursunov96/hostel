@@ -85,57 +85,18 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
     } catch (_) {}
   }
 
-  void _openLangPicker() {
-    showModalBottomSheet<void>(
+  void _openLangPicker() async {
+    final chosen = await showMenu<String>(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) {
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: _border,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(_tr(ru: 'Язык', uz: 'Til'), style: const TextStyle(fontWeight: FontWeight.w700)),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        _setLangAndSave('ru');
-                      },
-                      child: const Text('RU'),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        _setLangAndSave('uz');
-                      },
-                      child: const Text('UZ'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
+      position: const RelativeRect.fromLTRB(1000, 80, 16, 0),
+      items: [
+        CheckedPopupMenuItem(value: 'ru', checked: _lang == 'ru', child: const Text('RU')),
+        CheckedPopupMenuItem(value: 'uz', checked: _lang == 'uz', child: const Text('UZ')),
+      ],
     );
+    if (chosen != null) {
+      _setLangAndSave(chosen);
+    }
   }
 
   Future<void> _loadAll() async {
@@ -613,9 +574,15 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                       ),
                       const SizedBox(width: 8),
                       IconButton(
-                        onPressed: _toggleFilters,
-                        tooltip: _filtersOpen ? _tr(ru: 'Скрыть фильтры', uz: 'Filterni yopish') : _tr(ru: 'Фильтры', uz: 'Filtrlar'),
-                        icon: Image.asset('assets/icons/filter.png', width: 20, height: 20),
+                        onPressed: _filtersActive ? _resetFilters : _toggleFilters,
+                        tooltip: _filtersActive
+                            ? _tr(ru: 'Сбросить фильтры', uz: 'Filterni bekor qilish')
+                            : (_filtersOpen ? _tr(ru: 'Скрыть фильтры', uz: 'Filterni yopish') : _tr(ru: 'Фильтры', uz: 'Filtrlar')),
+                        icon: Image.asset(
+                          _filtersActive ? 'assets/icons/clear-filter.png' : 'assets/icons/filter.png',
+                          width: 20,
+                          height: 20,
+                        ),
                       ),
                     ],
                   ),
