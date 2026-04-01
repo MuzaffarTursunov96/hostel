@@ -587,20 +587,6 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                     ],
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    children: [
-                      const Spacer(),
-                      if (_filtersActive)
-                        IconButton(
-                          onPressed: _resetFilters,
-                          tooltip: _tr(ru: 'Сбросить', uz: 'Bekor qilish'),
-                          icon: Image.asset('assets/icons/clear-filter.png', width: 18, height: 18),
-                        ),
-                    ],
-                  ),
-                ),
                 const SizedBox(height: 8),
                 Expanded(
                   child: _loading
