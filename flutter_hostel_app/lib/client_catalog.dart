@@ -1895,30 +1895,25 @@ class _ClientBranchDetailsScreenState extends State<ClientBranchDetailsScreen> {
                     const SizedBox(height: 6),
                     Text(_branch!.address ?? '-', style: const TextStyle(color: _textMuted)),
                     const SizedBox(height: 6),
-                    Text(
-                      '⭐ ${_branch!.rating?.toStringAsFixed(1) ?? '-'} (${_branch!.ratingCount ?? 0})',
-                      style: const TextStyle(color: _textMuted),
-                    ),
-                    const SizedBox(height: 10),
                     Row(
                       children: [
                         Expanded(
-                          child: OutlinedButton(
-                            onPressed: _branch!.contactPhone == null || _branch!.contactPhone!.isEmpty
-                                ? null
-                                : () => _launchPhone(_branch!.contactPhone!),
-                            child: Text(_tr('Позвонить', 'Qo\'ng\'iroq')),
+                          child: Text(
+                            '⭐ ${_branch!.rating?.toStringAsFixed(1) ?? '-'} (${_branch!.ratingCount ?? 0})',
+                            style: const TextStyle(color: _textMuted),
                           ),
                         ),
-                        if (_branch!.contactTelegram != null && _branch!.contactTelegram!.trim().isNotEmpty) ...[
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: () => _openTelegram(_branch!.contactTelegram!),
-                              child: const Text('Telegram'),
+                        if (_branch!.contactPhone != null && _branch!.contactPhone!.isNotEmpty)
+                          OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              minimumSize: const Size(0, 32),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              visualDensity: VisualDensity.compact,
                             ),
+                            onPressed: () => _launchPhone(_branch!.contactPhone!),
+                            child: Text(_tr('Qo\'ng\'iroq', 'Qo\'ng\'iroq'), style: const TextStyle(fontSize: 12)),
                           ),
-                        ],
                       ],
                     ),
                     if (widget.prepay != null && widget.prepay!.enabled) ...[
@@ -1967,6 +1962,40 @@ class _ClientBranchDetailsScreenState extends State<ClientBranchDetailsScreen> {
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
+  Future<void> _openImageZoom(String url) async {
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (_) => Dialog(
+        insetPadding: const EdgeInsets.all(12),
+        backgroundColor: Colors.black,
+        child: Stack(
+          children: [
+            InteractiveViewer(
+              minScale: 1,
+              maxScale: 4,
+              child: Image.network(
+                url,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const Center(
+                  child: Icon(Icons.image_not_supported_outlined, color: Colors.white),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 6,
+              right: 6,
+              child: IconButton(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.close, color: Color(0xFFF59E0B)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   List<Widget> _buildRoomCards() {
     final visible = _rooms.where((r) => (r.availableBeds ?? 0) > 0).toList();
     if (visible.isEmpty) {
@@ -1997,27 +2026,32 @@ class _ClientBranchDetailsScreenState extends State<ClientBranchDetailsScreen> {
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
-                  child: r.coverImage != null && r.coverImage!.isNotEmpty
-                      ? Image.network(
-                          r.coverImage!,
-                          width: 90,
-                          height: 90,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
+                  child: GestureDetector(
+                    onTap: r.coverImage != null && r.coverImage!.isNotEmpty
+                        ? () => _openImageZoom(r.coverImage!)
+                        : null,
+                    child: r.coverImage != null && r.coverImage!.isNotEmpty
+                        ? Image.network(
+                            r.coverImage!,
+                            width: 90,
+                            height: 90,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              width: 90,
+                              height: 90,
+                              color: _surfaceSoft,
+                              alignment: Alignment.center,
+                              child: const Icon(Icons.image_not_supported_outlined),
+                            ),
+                          )
+                        : Container(
                             width: 90,
                             height: 90,
                             color: _surfaceSoft,
                             alignment: Alignment.center,
                             child: const Icon(Icons.image_not_supported_outlined),
                           ),
-                        )
-                      : Container(
-                          width: 90,
-                          height: 90,
-                          color: _surfaceSoft,
-                          alignment: Alignment.center,
-                          child: const Icon(Icons.image_not_supported_outlined),
-                        ),
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
