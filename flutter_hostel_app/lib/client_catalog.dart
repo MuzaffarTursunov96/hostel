@@ -36,6 +36,10 @@ class ClientCatalogScreen extends StatefulWidget {
 
 class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
   final _searchCtrl = TextEditingController();
+  final _regionCtrl = TextEditingController();
+  final _cityCtrl = TextEditingController();
+  final _districtCtrl = TextEditingController();
+  final _roomTypeCtrl = TextEditingController();
   bool _loading = false;
   bool _filtersOpen = false;
   bool _filtersActive = false;
@@ -64,6 +68,10 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
   @override
   void dispose() {
     _searchCtrl.dispose();
+    _regionCtrl.dispose();
+    _cityCtrl.dispose();
+    _districtCtrl.dispose();
+    _roomTypeCtrl.dispose();
     super.dispose();
   }
 
@@ -97,6 +105,49 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
     if (chosen != null) {
       _setLangAndSave(chosen);
     }
+  }
+
+  Future<void> _openProfileMenu() async {
+    final selected = await showMenu<String>(
+      context: context,
+      position: const RelativeRect.fromLTRB(1000, 80, 8, 0),
+      items: [
+        PopupMenuItem(value: 'account', child: Text(_tr(ru: 'Мой аккаунт', uz: 'Mening akkauntim'))),
+        PopupMenuItem(value: 'bookings', child: Text(_tr(ru: 'Мои брони', uz: 'Mening bronlarim'))),
+        PopupMenuItem(value: 'feedbacks', child: Text(_tr(ru: 'Мои отзывы', uz: 'Fikrlarim'))),
+        PopupMenuItem(value: 'settings', child: Text(_tr(ru: 'Настройки', uz: 'Sozlamalar'))),
+        PopupMenuItem(value: 'themes', child: Text(_tr(ru: 'Темы', uz: 'Temalar'))),
+        const PopupMenuDivider(),
+        PopupMenuItem(value: 'logout', child: Text(_tr(ru: 'Выйти', uz: 'Chiqish'))),
+      ],
+    );
+    if (selected == null) return;
+    switch (selected) {
+      case 'account':
+        await _openWebPath('/catalog/my-account');
+        break;
+      case 'bookings':
+        await _openWebPath('/catalog/booking-history');
+        break;
+      case 'feedbacks':
+        await _openWebPath('/catalog/feedbacks');
+        break;
+      case 'settings':
+        await _openWebPath('/catalog/settings');
+        break;
+      case 'themes':
+        await _openWebPath('/catalog/settings#themes');
+        break;
+      case 'logout':
+        await _openWebPath('/logout');
+        break;
+    }
+  }
+
+  Future<void> _openWebPath(String path) async {
+    final clean = path.startsWith('/') ? path : '/$path';
+    final uri = Uri.parse('$_publicHost$clean?lang=$_lang');
+    await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
   }
 
   Future<void> _loadAll() async {
@@ -217,6 +268,10 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
   void _resetFilters() {
     setState(() {
       _searchCtrl.clear();
+      _regionCtrl.clear();
+      _cityCtrl.clear();
+      _districtCtrl.clear();
+      _roomTypeCtrl.clear();
       _priceMode = 'day';
       _minRating = 0;
       _regionSlug = null;
@@ -243,6 +298,27 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
     ];
   }
 
+  List<String> _regionNames() {
+    final map = <String, String>{};
+    for (final b in _branches) {
+      final slug = (b.regionSlug ?? '').trim();
+      final name = (b.regionName ?? '').trim();
+      if (slug.isNotEmpty) map[slug] = name.isEmpty ? slug : name;
+    }
+    final names = map.values.toList()..sort();
+    return names;
+  }
+
+  String? _regionSlugByName(String name) {
+    for (final b in _branches) {
+      final slug = (b.regionSlug ?? '').trim();
+      final label = (b.regionName ?? '').trim();
+      final text = label.isEmpty ? slug : label;
+      if (text == name) return slug;
+    }
+    return null;
+  }
+
   List<DropdownMenuItem<String?>> _cityItems() {
     final set = <String>{};
     for (final b in _branches) {
@@ -255,6 +331,17 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
       DropdownMenuItem<String?>(value: null, child: Text(_tr(ru: 'Все города', uz: 'Barcha shaharlar'))),
       ...list.map((e) => DropdownMenuItem<String?>(value: e, child: Text(e))),
     ];
+  }
+
+  List<String> _cityNames() {
+    final set = <String>{};
+    for (final b in _branches) {
+      if (_regionSlug != null && _regionSlug!.isNotEmpty && b.regionSlug != _regionSlug) continue;
+      final name = (b.cityName ?? '').trim();
+      if (name.isNotEmpty) set.add(name);
+    }
+    final list = set.toList()..sort();
+    return list;
   }
 
   List<DropdownMenuItem<String?>> _districtItems() {
@@ -272,6 +359,18 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
     ];
   }
 
+  List<String> _districtNames() {
+    final set = <String>{};
+    for (final b in _branches) {
+      if (_regionSlug != null && _regionSlug!.isNotEmpty && b.regionSlug != _regionSlug) continue;
+      if (_cityName != null && _cityName!.isNotEmpty && b.cityName != _cityName) continue;
+      final name = (b.districtName ?? '').trim();
+      if (name.isNotEmpty) set.add(name);
+    }
+    final list = set.toList()..sort();
+    return list;
+  }
+
   List<DropdownMenuItem<String?>> _roomTypeItems() {
     final set = <String>{};
     for (final b in _branches) {
@@ -283,6 +382,16 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
       DropdownMenuItem<String?>(value: null, child: Text(_tr(ru: 'Все типы', uz: 'Barcha turlar'))),
       ...list.map((e) => DropdownMenuItem<String?>(value: e, child: Text(e))),
     ];
+  }
+
+  List<String> _roomTypeNames() {
+    final set = <String>{};
+    for (final b in _branches) {
+      final parts = b.roomTypes.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty);
+      set.addAll(parts);
+    }
+    final list = set.toList()..sort();
+    return list;
   }
 
   Future<void> _openHistory() async {
@@ -530,14 +639,14 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
             icon: Image.asset('assets/icons/map_show.png', width: 20, height: 20),
           ),
           IconButton(
-            tooltip: _tr(ru: 'История', uz: 'Tarix'),
-            onPressed: _openHistory,
-            icon: const Icon(Icons.history),
-          ),
-          IconButton(
             tooltip: _tr(ru: 'Язык', uz: 'Til'),
             onPressed: _openLangPicker,
             icon: Image.asset('assets/icons/language.png', width: 20, height: 20),
+          ),
+          IconButton(
+            tooltip: _tr(ru: 'Профиль', uz: 'Profil'),
+            onPressed: _openProfileMenu,
+            icon: Image.asset('assets/icons/user.png', width: 20, height: 20),
           ),
         ],
       ),
@@ -636,42 +745,118 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                           Row(
                             children: [
                               Expanded(
-                                child: DropdownButtonFormField<String?>(
-                                  value: _regionSlug,
-                                  decoration: InputDecoration(
-                                    labelText: _tr(ru: 'Область', uz: 'Viloyat'),
-                                    filled: true,
-                                    fillColor: _card,
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                                  ),
-                                  items: _regionItems(),
-                                  onChanged: (v) {
+                                child: Autocomplete<String>(
+                                  optionsBuilder: (text) {
+                                    if (_regionSlug != null &&
+                                        _regionCtrl.text.trim().isNotEmpty &&
+                                        text.text.trim() == _regionCtrl.text.trim()) {
+                                      return const Iterable<String>.empty();
+                                    }
+                                    final q = text.text.trim().toLowerCase();
+                                    final all = _regionNames();
+                                    if (q.isEmpty) return all;
+                                    return all.where((e) => e.toLowerCase().contains(q));
+                                  },
+                                  onSelected: (value) {
+                                    final slug = _regionSlugByName(value);
                                     setState(() {
-                                      _regionSlug = v;
+                                      _regionSlug = slug;
+                                      _regionCtrl.text = value;
                                       _cityName = null;
+                                      _cityCtrl.clear();
                                       _districtName = null;
+                                      _districtCtrl.clear();
                                     });
                                     _applyClientFilters();
+                                  },
+                                  fieldViewBuilder: (context, controller, focusNode, onSubmit) {
+                                    controller.text = _regionCtrl.text;
+                                    controller.selection = TextSelection.fromPosition(TextPosition(offset: controller.text.length));
+                                    return TextField(
+                                      controller: controller,
+                                      focusNode: focusNode,
+                                      decoration: InputDecoration(
+                                        hintText: _tr(ru: 'Область', uz: 'Viloyat'),
+                                        filled: true,
+                                        fillColor: _card,
+                                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                        suffixIcon: _regionCtrl.text.isEmpty
+                                            ? null
+                                            : IconButton(
+                                                onPressed: () {
+                                                  setState(() {
+                                                    _regionSlug = null;
+                                                    _regionCtrl.clear();
+                                                    _cityName = null;
+                                                    _cityCtrl.clear();
+                                                    _districtName = null;
+                                                    _districtCtrl.clear();
+                                                  });
+                                                  _applyClientFilters();
+                                                },
+                                                icon: Image.asset('assets/icons/clear-filter.png', width: 16, height: 16),
+                                              ),
+                                      ),
+                                      onChanged: (v) {
+                                        _regionCtrl.text = v;
+                                      },
+                                    );
                                   },
                                 ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
-                                child: DropdownButtonFormField<String?>(
-                                  value: _cityName,
-                                  decoration: InputDecoration(
-                                    labelText: _tr(ru: 'Город', uz: 'Shahar'),
-                                    filled: true,
-                                    fillColor: _card,
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                                  ),
-                                  items: _cityItems(),
-                                  onChanged: (v) {
+                                child: Autocomplete<String>(
+                                  optionsBuilder: (text) {
+                                    if (_cityName != null &&
+                                        _cityCtrl.text.trim().isNotEmpty &&
+                                        text.text.trim() == _cityCtrl.text.trim()) {
+                                      return const Iterable<String>.empty();
+                                    }
+                                    final q = text.text.trim().toLowerCase();
+                                    final all = _cityNames();
+                                    if (q.isEmpty) return all;
+                                    return all.where((e) => e.toLowerCase().contains(q));
+                                  },
+                                  onSelected: (value) {
                                     setState(() {
-                                      _cityName = v;
+                                      _cityName = value;
+                                      _cityCtrl.text = value;
                                       _districtName = null;
+                                      _districtCtrl.clear();
                                     });
                                     _applyClientFilters();
+                                  },
+                                  fieldViewBuilder: (context, controller, focusNode, onSubmit) {
+                                    controller.text = _cityCtrl.text;
+                                    controller.selection = TextSelection.fromPosition(TextPosition(offset: controller.text.length));
+                                    return TextField(
+                                      controller: controller,
+                                      focusNode: focusNode,
+                                      decoration: InputDecoration(
+                                        hintText: _tr(ru: 'Город', uz: 'Shahar'),
+                                        filled: true,
+                                        fillColor: _card,
+                                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                        suffixIcon: _cityCtrl.text.isEmpty
+                                            ? null
+                                            : IconButton(
+                                                onPressed: () {
+                                                  setState(() {
+                                                    _cityName = null;
+                                                    _cityCtrl.clear();
+                                                    _districtName = null;
+                                                    _districtCtrl.clear();
+                                                  });
+                                                  _applyClientFilters();
+                                                },
+                                                icon: Image.asset('assets/icons/clear-filter.png', width: 16, height: 16),
+                                              ),
+                                      ),
+                                      onChanged: (v) {
+                                        _cityCtrl.text = v;
+                                      },
+                                    );
                                   },
                                 ),
                               ),
@@ -681,35 +866,105 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                           Row(
                             children: [
                               Expanded(
-                                child: DropdownButtonFormField<String?>(
-                                  value: _districtName,
-                                  decoration: InputDecoration(
-                                    labelText: _tr(ru: 'Район', uz: 'Tuman'),
-                                    filled: true,
-                                    fillColor: _card,
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                                  ),
-                                  items: _districtItems(),
-                                  onChanged: (v) {
-                                    setState(() => _districtName = v);
+                                child: Autocomplete<String>(
+                                  optionsBuilder: (text) {
+                                    if (_districtName != null &&
+                                        _districtCtrl.text.trim().isNotEmpty &&
+                                        text.text.trim() == _districtCtrl.text.trim()) {
+                                      return const Iterable<String>.empty();
+                                    }
+                                    final q = text.text.trim().toLowerCase();
+                                    final all = _districtNames();
+                                    if (q.isEmpty) return all;
+                                    return all.where((e) => e.toLowerCase().contains(q));
+                                  },
+                                  onSelected: (value) {
+                                    setState(() {
+                                      _districtName = value;
+                                      _districtCtrl.text = value;
+                                    });
                                     _applyClientFilters();
+                                  },
+                                  fieldViewBuilder: (context, controller, focusNode, onSubmit) {
+                                    controller.text = _districtCtrl.text;
+                                    controller.selection = TextSelection.fromPosition(TextPosition(offset: controller.text.length));
+                                    return TextField(
+                                      controller: controller,
+                                      focusNode: focusNode,
+                                      decoration: InputDecoration(
+                                        hintText: _tr(ru: 'Район', uz: 'Tuman'),
+                                        filled: true,
+                                        fillColor: _card,
+                                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                        suffixIcon: _districtCtrl.text.isEmpty
+                                            ? null
+                                            : IconButton(
+                                                onPressed: () {
+                                                  setState(() {
+                                                    _districtName = null;
+                                                    _districtCtrl.clear();
+                                                  });
+                                                  _applyClientFilters();
+                                                },
+                                                icon: Image.asset('assets/icons/clear-filter.png', width: 16, height: 16),
+                                              ),
+                                      ),
+                                      onChanged: (v) {
+                                        _districtCtrl.text = v;
+                                      },
+                                    );
                                   },
                                 ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
-                                child: DropdownButtonFormField<String?>(
-                                  value: _roomType,
-                                  decoration: InputDecoration(
-                                    labelText: _tr(ru: 'Тип комнаты', uz: 'Xona turi'),
-                                    filled: true,
-                                    fillColor: _card,
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                                  ),
-                                  items: _roomTypeItems(),
-                                  onChanged: (v) {
-                                    setState(() => _roomType = v);
+                                child: Autocomplete<String>(
+                                  optionsBuilder: (text) {
+                                    if (_roomType != null &&
+                                        _roomTypeCtrl.text.trim().isNotEmpty &&
+                                        text.text.trim() == _roomTypeCtrl.text.trim()) {
+                                      return const Iterable<String>.empty();
+                                    }
+                                    final q = text.text.trim().toLowerCase();
+                                    final all = _roomTypeNames();
+                                    if (q.isEmpty) return all;
+                                    return all.where((e) => e.toLowerCase().contains(q));
+                                  },
+                                  onSelected: (value) {
+                                    setState(() {
+                                      _roomType = value;
+                                      _roomTypeCtrl.text = value;
+                                    });
                                     _applyClientFilters();
+                                  },
+                                  fieldViewBuilder: (context, controller, focusNode, onSubmit) {
+                                    controller.text = _roomTypeCtrl.text;
+                                    controller.selection = TextSelection.fromPosition(TextPosition(offset: controller.text.length));
+                                    return TextField(
+                                      controller: controller,
+                                      focusNode: focusNode,
+                                      decoration: InputDecoration(
+                                        hintText: _tr(ru: 'Тип комнаты', uz: 'Xona turi'),
+                                        filled: true,
+                                        fillColor: _card,
+                                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                        suffixIcon: _roomTypeCtrl.text.isEmpty
+                                            ? null
+                                            : IconButton(
+                                                onPressed: () {
+                                                  setState(() {
+                                                    _roomType = null;
+                                                    _roomTypeCtrl.clear();
+                                                  });
+                                                  _applyClientFilters();
+                                                },
+                                                icon: Image.asset('assets/icons/clear-filter.png', width: 16, height: 16),
+                                              ),
+                                      ),
+                                      onChanged: (v) {
+                                        _roomTypeCtrl.text = v;
+                                      },
+                                    );
                                   },
                                 ),
                               ),
@@ -719,22 +974,40 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                           Row(
                             children: [
                               Expanded(
-                                child: DropdownButtonFormField<String>(
-                                  value: _priceMode,
-                                  decoration: InputDecoration(
-                                    labelText: _tr(ru: 'Режим цены', uz: 'Narx turi'),
-                                    filled: true,
-                                    fillColor: _card,
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                                  ),
-                                  items: [
-                                    DropdownMenuItem(value: 'day', child: Text(_tr(ru: 'Сутки', uz: 'Kunlik'))),
-                                    DropdownMenuItem(value: 'hour', child: Text(_tr(ru: 'Час', uz: 'Soatlik'))),
-                                    DropdownMenuItem(value: 'month', child: Text(_tr(ru: 'Месяц', uz: 'Oylik'))),
-                                  ],
-                                  onChanged: (v) {
-                                    setState(() => _priceMode = v ?? 'day');
+                                child: Autocomplete<MapEntry<String, String>>(
+                                  optionsBuilder: (text) {
+                                    final opts = <MapEntry<String, String>>[
+                                      MapEntry('day', _tr(ru: 'Сутки', uz: 'Kunlik')),
+                                      MapEntry('hour', _tr(ru: 'Час', uz: 'Soatlik')),
+                                      MapEntry('month', _tr(ru: 'Месяц', uz: 'Oylik')),
+                                    ];
+                                    final q = text.text.trim().toLowerCase();
+                                    if (q.isEmpty) return opts;
+                                    return opts.where((e) => e.value.toLowerCase().contains(q));
+                                  },
+                                  displayStringForOption: (e) => e.value,
+                                  onSelected: (value) {
+                                    setState(() => _priceMode = value.key);
                                     _loadBranches();
+                                  },
+                                  fieldViewBuilder: (context, controller, focusNode, onSubmit) {
+                                    final currentLabel = _priceMode == 'hour'
+                                        ? _tr(ru: 'Час', uz: 'Soatlik')
+                                        : _priceMode == 'month'
+                                            ? _tr(ru: 'Месяц', uz: 'Oylik')
+                                            : _tr(ru: 'Сутки', uz: 'Kunlik');
+                                    controller.text = currentLabel;
+                                    controller.selection = TextSelection.fromPosition(TextPosition(offset: controller.text.length));
+                                    return TextField(
+                                      controller: controller,
+                                      focusNode: focusNode,
+                                      decoration: InputDecoration(
+                                        hintText: _tr(ru: 'Режим цены', uz: 'Narx turi'),
+                                        filled: true,
+                                        fillColor: _card,
+                                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                      ),
+                                    );
                                   },
                                 ),
                               ),
@@ -974,9 +1247,20 @@ class BranchSummary {
       if (v == null) return null;
       final raw = v.toString();
       if (raw.isEmpty) return null;
+      if (raw.startsWith('//')) return 'https:$raw';
       if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
       if (raw.startsWith('/')) return '$_publicHost$raw';
-      return raw;
+      return '$_publicHost/$raw';
+    }
+    String? _pickFromList(dynamic list) {
+      if (list is List && list.isNotEmpty) {
+        final first = list.first;
+        if (first is Map) {
+          return _photo(first['url'] ?? first['photo'] ?? first['image']);
+        }
+        return _photo(first);
+      }
+      return null;
     }
     return BranchSummary(
       id: (json['id'] is num) ? (json['id'] as num).toInt() : int.tryParse(json['id'].toString()) ?? 0,
@@ -993,7 +1277,14 @@ class BranchSummary {
       cityName: json['city_name']?.toString(),
       districtName: json['district_name']?.toString(),
       roomTypes: (json['room_types'] ?? json['roomTypes'] ?? '').toString(),
-      coverPhoto: _photo(json['cover_photo'] ?? json['coverPhoto'] ?? json['photo']),
+      coverPhoto: _photo(json['cover_photo'] ??
+          json['coverPhoto'] ??
+          json['cover_photo_url'] ??
+          json['photo'] ??
+          json['photo_url'] ??
+          json['image']) ??
+          _pickFromList(json['photos']) ??
+          _pickFromList(json['images']),
       status: json['status']?.toString(),
       statusCode: json['status_code']?.toString(),
       contactPhone: json['contact_phone']?.toString(),
@@ -1548,6 +1839,7 @@ class _ClientBranchDetailsScreenState extends State<ClientBranchDetailsScreen> {
     await launchUrl(uri);
   }
 }
+
 
 
 
