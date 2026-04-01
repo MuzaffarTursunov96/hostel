@@ -1133,6 +1133,7 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
     final rating = b.rating != null ? b.rating!.toStringAsFixed(1) : '-';
     final activeTab = _cardTabs[b.id] ?? 'rooms';
 
+    final cardPrice = _fmtMinMaxPrice(b.minPrice, b.maxPrice, _priceMode);
     final roomDaily = _fmtMinMaxPrice(b.roomPriceDaily, b.roomPriceDaily, 'day');
     final roomHourly = _fmtMinMaxPrice(b.roomPriceHourly, b.roomPriceHourly, 'hour');
     final roomMonthly = _fmtMinMaxPrice(b.roomPriceMonthly, b.roomPriceMonthly, 'month');
@@ -1197,8 +1198,8 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                       child: Text('⭐ $rating', style: const TextStyle(fontWeight: FontWeight.w600)),
                     ),
                     const SizedBox(width: 8),
-                    if (roomDaily.isNotEmpty)
-                      Text(roomDaily, style: const TextStyle(fontWeight: FontWeight.w600)),
+                    if (cardPrice.isNotEmpty)
+                      Text(cardPrice, style: const TextStyle(fontWeight: FontWeight.w600)),
                   ],
                 ),
                 const SizedBox(height: 10),
