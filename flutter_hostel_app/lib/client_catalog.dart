@@ -13,7 +13,9 @@ import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' as mb;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-const String _publicApiBase = 'https://hmsuz.com/api';
+import 'main.dart';
+
+const String _publicApiBase = 'https://hmsuz.com/public-api';
 const String _publicHost = 'https://hmsuz.com';
 const String _clientLastContactKey = 'client_last_contact';
 String _mapboxToken() => dotenv.get('MAPBOX_TOKEN', fallback: '');
@@ -56,6 +58,7 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
   List<BranchSummary> _filtered = [];
   BookingPrepayConfig? _prepay;
   late String _lang;
+  final Map<int, String> _cardTabs = {};
 
   @override
   void initState() {
@@ -139,7 +142,7 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
         await _openWebPath('/catalog/settings#themes');
         break;
       case 'logout':
-        await _openWebPath('/logout');
+        await _logoutToLogin();
         break;
     }
   }
@@ -148,6 +151,20 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
     final clean = path.startsWith('/') ? path : '/$path';
     final uri = Uri.parse('$_publicHost$clean?lang=$_lang');
     await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
+  }
+
+  Future<void> _logoutToLogin() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('access_token');
+      await prefs.remove('branch_id');
+      await prefs.remove('user_id');
+      await prefs.remove('is_admin');
+    } catch (_) {}
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+    );
   }
 
   Future<void> _loadAll() async {
@@ -595,6 +612,31 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
       return _tr(ru: 'Ошибка сети.', uz: 'Tarmoq xatosi.');
     }
     return _tr(ru: 'Произошла ошибка.', uz: 'Xatolik yuz berdi.');
+  }
+
+  String _priceModeLabel(String mode) {
+    if (mode == 'hour') return _tr(ru: 'За час', uz: 'Soatlik');
+    if (mode == 'month') return _tr(ru: 'За месяц', uz: 'Oylik');
+    return _tr(ru: 'За день', uz: 'Kunlik');
+  }
+
+  String _fmtPrice(num v) {
+    final s = v.toStringAsFixed(0);
+    final buf = StringBuffer();
+    for (int i = 0; i < s.length; i++) {
+      final idx = s.length - i;
+      buf.write(s[i]);
+      if (idx > 1 && idx % 3 == 1) buf.write(' ');
+    }
+    return '${buf.toString()} so\'m';
+  }
+
+  String _fmtMinMaxPrice(num? minPrice, num? maxPrice, String mode) {
+    if (minPrice == null) return _tr(ru: 'По договоренности', uz: 'Kelishiladi');
+    if (maxPrice == null) {
+      return '${_priceModeLabel(mode)}: ${_fmtPrice(minPrice)}';
+    }
+    return '${_tr(ru: "Мин цена", uz: "Min narx")}: ${_fmtPrice(minPrice)} | ${_tr(ru: "Макс цена", uz: "Max narx")}: ${_fmtPrice(maxPrice)}';
   }
 
   Future<void> _openMap() async {
@@ -1088,7 +1130,14 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
 
   Widget _buildBranchCard(BranchSummary b) {
     final rating = b.rating != null ? b.rating!.toStringAsFixed(1) : '-';
-    final price = b.priceLabel(_priceMode, _lang);
+    final activeTab = _cardTabs[b.id] ?? 'rooms';
+
+    final roomDaily = _fmtMinMaxPrice(b.roomPriceDaily, b.roomPriceDaily, 'day');
+    final roomHourly = _fmtMinMaxPrice(b.roomPriceHourly, b.roomPriceHourly, 'hour');
+    final roomMonthly = _fmtMinMaxPrice(b.roomPriceMonthly, b.roomPriceMonthly, 'month');
+    final bedDaily = _fmtMinMaxPrice(b.minBedDailyPrice, b.maxBedDailyPrice, 'day');
+    final bedHourly = _fmtMinMaxPrice(b.minBedHourlyPrice, b.maxBedHourlyPrice, 'hour');
+    final bedMonthly = _fmtMinMaxPrice(b.minBedMonthlyPrice, b.maxBedMonthlyPrice, 'month');
     return Container(
       decoration: BoxDecoration(
         color: _card,
@@ -1147,13 +1196,77 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                       child: Text('⭐ $rating', style: const TextStyle(fontWeight: FontWeight.w600)),
                     ),
                     const SizedBox(width: 8),
-                    if (price.isNotEmpty)
-                      Text(price, style: const TextStyle(fontWeight: FontWeight.w600)),
+                    if (roomDaily.isNotEmpty)
+                      Text(roomDaily, style: const TextStyle(fontWeight: FontWeight.w600)),
                   ],
                 ),
-                if (b.roomTypes.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _border),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => setState(() => _cardTabs[b.id] = 'rooms'),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            decoration: BoxDecoration(
+                              color: activeTab == 'rooms' ? const Color(0xFFEFF6FF) : Colors.transparent,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              _tr(ru: 'Комнаты', uz: 'Xonalar'),
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                color: activeTab == 'rooms' ? _brandBlue : _textMuted,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => setState(() => _cardTabs[b.id] = 'beds'),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            decoration: BoxDecoration(
+                              color: activeTab == 'beds' ? const Color(0xFFEFF6FF) : Colors.transparent,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              _tr(ru: 'Кровати', uz: 'Yotoqlar'),
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                color: activeTab == 'beds' ? _brandBlue : _textMuted,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                if (activeTab == 'rooms') ...[
+                  if (b.roomTypes.isNotEmpty)
+                    Text(b.roomTypes, style: const TextStyle(color: _textMuted)),
                   const SizedBox(height: 6),
-                  Text(b.roomTypes, style: const TextStyle(color: _textMuted)),
+                  Text('${_priceModeLabel("day")}: $roomDaily'),
+                  Text('${_priceModeLabel("hour")}: $roomHourly'),
+                  Text('${_priceModeLabel("month")}: $roomMonthly'),
+                ] else ...[
+                  Text(_tr(ru: 'Информация о кроватях', uz: 'Yotoqlar haqida maʼlumot'), style: const TextStyle(color: _textMuted)),
+                  const SizedBox(height: 6),
+                  Text('${_priceModeLabel("day")}: $bedDaily'),
+                  Text('${_priceModeLabel("hour")}: $bedHourly'),
+                  Text('${_priceModeLabel("month")}: $bedMonthly'),
                 ],
                 const SizedBox(height: 10),
                 Row(
@@ -1219,6 +1332,15 @@ class BranchSummary {
     this.statusCode,
     this.contactPhone,
     this.contactTelegram,
+    this.roomPriceDaily,
+    this.roomPriceHourly,
+    this.roomPriceMonthly,
+    this.minBedDailyPrice,
+    this.maxBedDailyPrice,
+    this.minBedHourlyPrice,
+    this.maxBedHourlyPrice,
+    this.minBedMonthlyPrice,
+    this.maxBedMonthlyPrice,
   });
 
   final int id;
@@ -1240,6 +1362,15 @@ class BranchSummary {
   final String? statusCode;
   final String? contactPhone;
   final String? contactTelegram;
+  final double? roomPriceDaily;
+  final double? roomPriceHourly;
+  final double? roomPriceMonthly;
+  final double? minBedDailyPrice;
+  final double? maxBedDailyPrice;
+  final double? minBedHourlyPrice;
+  final double? maxBedHourlyPrice;
+  final double? minBedMonthlyPrice;
+  final double? maxBedMonthlyPrice;
 
   factory BranchSummary.fromJson(Map<String, dynamic> json) {
     double? _num(dynamic v) => v == null ? null : (v is num ? v.toDouble() : double.tryParse(v.toString()));
@@ -1289,8 +1420,18 @@ class BranchSummary {
       statusCode: json['status_code']?.toString(),
       contactPhone: json['contact_phone']?.toString(),
       contactTelegram: json['contact_telegram']?.toString(),
+      roomPriceDaily: _num(json['room_price_daily']),
+      roomPriceHourly: _num(json['room_price_hourly']),
+      roomPriceMonthly: _num(json['room_price_monthly']),
+      minBedDailyPrice: _num(json['min_bed_daily_price']),
+      maxBedDailyPrice: _num(json['max_bed_daily_price']),
+      minBedHourlyPrice: _num(json['min_bed_hourly_price']),
+      maxBedHourlyPrice: _num(json['max_bed_hourly_price']),
+      minBedMonthlyPrice: _num(json['min_bed_monthly_price']),
+      maxBedMonthlyPrice: _num(json['max_bed_monthly_price']),
     );
   }
+
 
   String priceLabel(String mode, String lang) {
     final minV = minPrice;
