@@ -527,7 +527,7 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
           IconButton(
             tooltip: _tr(ru: 'Карта', uz: 'Xarita'),
             onPressed: _openMap,
-            icon: const Icon(Icons.map_outlined),
+            icon: Image.asset('assets/icons/map_show.png', width: 20, height: 20),
           ),
           IconButton(
             tooltip: _tr(ru: 'История', uz: 'Tarix'),
