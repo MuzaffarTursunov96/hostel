@@ -173,7 +173,7 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
 
   Future<void> _loadPrepay() async {
     try {
-      final res = await http.get(Uri.parse('$_publicApiBase/public/booking-prepayment'));
+      final res = await http.get(Uri.parse('$_publicApiBase/booking-prepayment'));
       if (res.statusCode != 200) return;
       final payload = jsonDecode(res.body);
       if (payload is Map<String, dynamic>) {
@@ -196,7 +196,7 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
       if (_regionSlug != null && _regionSlug!.trim().isNotEmpty) q['region_slug'] = _regionSlug!;
       if (_cityName != null && _cityName!.trim().isNotEmpty) q['city_name'] = _cityName!;
       if (_districtName != null && _districtName!.trim().isNotEmpty) q['district_name'] = _districtName!;
-      final uri = Uri.parse('$_publicApiBase/public/branches').replace(queryParameters: q);
+      final uri = Uri.parse('$_publicApiBase/branches').replace(queryParameters: q);
       final res = await http.get(uri, headers: const {'Cache-Control': 'no-cache'});
       if (res.statusCode != 200) {
         _showSnack(_tr(ru: 'Не удалось загрузить каталог.', uz: 'Katalogni yuklab bo\'lmadi.'), error: true);
@@ -507,7 +507,7 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
 
   Future<List<UserHistoryItem>> _fetchHistory(String contact) async {
     try {
-      final uri = Uri.parse('$_publicApiBase/public/user-history').replace(queryParameters: {
+      final uri = Uri.parse('$_publicApiBase/user-history').replace(queryParameters: {
         'contact': contact,
       });
       final res = await http.get(uri, headers: const {'Cache-Control': 'no-cache'});
@@ -566,7 +566,7 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
     final value = rating.clamp(1, 5);
     final comment = commentCtrl.text.trim();
     try {
-      final uri = Uri.parse('$_publicApiBase/public/branches/$branchId/ratings');
+      final uri = Uri.parse('$_publicApiBase/branches/$branchId/ratings');
       final payload = {
         'rating': value,
         'comment': comment,
@@ -652,6 +652,7 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                 builder: (_) => ClientBranchDetailsScreen(
                   lang: _lang,
                   branchId: b.id,
+                  priceMode: _priceMode,
                   prepay: _prepay,
                 ),
               ),
@@ -1278,6 +1279,7 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                             builder: (_) => ClientBranchDetailsScreen(
                               lang: _lang,
                               branchId: b.id,
+                              priceMode: _priceMode,
                               prepay: _prepay,
                             ),
                           ),
@@ -1825,11 +1827,13 @@ class ClientBranchDetailsScreen extends StatefulWidget {
     super.key,
     required this.lang,
     required this.branchId,
+    required this.priceMode,
     this.prepay,
   });
 
   final String lang;
   final int branchId;
+  final String priceMode;
   final BookingPrepayConfig? prepay;
 
   @override
@@ -1852,7 +1856,8 @@ class _ClientBranchDetailsScreenState extends State<ClientBranchDetailsScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final uri = Uri.parse('$_publicApiBase/public/branches/${widget.branchId}/details');
+      final uri = Uri.parse('$_publicApiBase/branches/${widget.branchId}/details')
+          .replace(queryParameters: {'price_mode': widget.priceMode});
       final res = await http.get(uri, headers: const {'Cache-Control': 'no-cache'});
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
@@ -1860,7 +1865,8 @@ class _ClientBranchDetailsScreenState extends State<ClientBranchDetailsScreen> {
           _details = BranchSummary.fromJson(data);
         }
       }
-      final photosUri = Uri.parse('$_publicApiBase/public/branches/${widget.branchId}/photos');
+      final photosUri = Uri.parse('$_publicApiBase/branches/${widget.branchId}/photos')
+          .replace(queryParameters: const {'limit': '80'});
       final photosRes = await http.get(photosUri, headers: const {'Cache-Control': 'no-cache'});
       if (photosRes.statusCode == 200) {
         final photosData = jsonDecode(photosRes.body);
@@ -1900,7 +1906,7 @@ class _ClientBranchDetailsScreenState extends State<ClientBranchDetailsScreen> {
                         _infoChip('⭐ ${_details!.rating?.toStringAsFixed(1) ?? '-'}'),
                         if (_details!.roomTypes.isNotEmpty) _infoChip(_details!.roomTypes),
                         if (_details!.minPrice != null || _details!.maxPrice != null)
-                          _infoChip(_details!.priceLabel('day', widget.lang)),
+                          _infoChip(_details!.priceLabel(widget.priceMode, widget.lang)),
                       ],
                     ),
                     if (widget.prepay != null && widget.prepay!.enabled) ...[
