@@ -1,14 +1,22 @@
-﻿import 'dart:convert';
+﻿import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:geolocator/geolocator.dart' as geo;
 import 'package:http/http.dart' as http;
+import 'package:latlong2/latlong.dart';
+import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' as mb;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 const String _publicApiBase = 'https://hmsuz.com/api';
 const String _publicHost = 'https://hmsuz.com';
 const String _clientLastContactKey = 'client_last_contact';
+String _mapboxToken() => dotenv.get('MAPBOX_TOKEN', fallback: '');
 
 const Color _bg = Color(0xFFF5F7FB);
 const Color _card = Color(0xFFFFFFFF);
@@ -458,6 +466,29 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
     return _tr(ru: 'Произошла ошибка.', uz: 'Xatolik yuz berdi.');
   }
 
+  Future<void> _openMap() async {
+    if (!mounted) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ClientMapScreen(
+          lang: _lang,
+          branches: _filtered,
+          onOpenBranch: (b) {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => ClientBranchDetailsScreen(
+                  lang: _lang,
+                  branchId: b.id,
+                  prepay: _prepay,
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final rangeMax = max(_priceMaxBound, _priceMinBound + 1);
@@ -472,13 +503,19 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
         title: Text(_tr(ru: 'Каталог', uz: 'Katalog')),
         actions: [
           IconButton(
+            tooltip: _tr(ru: 'Карта', uz: 'Xarita'),
+            onPressed: _openMap,
+            icon: const Icon(Icons.map_outlined),
+          ),
+          IconButton(
             tooltip: _tr(ru: 'История', uz: 'Tarix'),
             onPressed: _openHistory,
             icon: const Icon(Icons.history),
           ),
-          TextButton(
+          IconButton(
+            tooltip: _tr(ru: 'Язык', uz: 'Til'),
             onPressed: () => _setLang(_lang == 'ru' ? 'uz' : 'ru'),
-            child: Text(_lang.toUpperCase()),
+            icon: Image.asset('assets/icons/language.png', width: 20, height: 20),
           ),
         ],
       ),
@@ -487,36 +524,43 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-              child: TextField(
-                controller: _searchCtrl,
-                decoration: InputDecoration(
-                  hintText: _tr(ru: 'Поиск...', uz: 'Qidirish...'),
-                  prefixIcon: const Icon(Icons.search),
-                  suffixIcon: _searchCtrl.text.trim().isEmpty
-                      ? null
-                      : IconButton(
-                          onPressed: () {
-                            _searchCtrl.clear();
-                            _applyClientFilters();
-                          },
-                          icon: Image.asset('assets/icons/clear-filter.png', width: 18, height: 18),
-                        ),
-                  filled: true,
-                  fillColor: _card,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: _border)),
-                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: _border)),
-                ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _searchCtrl,
+                      decoration: InputDecoration(
+                        hintText: _tr(ru: 'Поиск...', uz: 'Qidirish...'),
+                        prefixIcon: const Icon(Icons.search),
+                        suffixIcon: _searchCtrl.text.trim().isEmpty
+                            ? null
+                            : IconButton(
+                                onPressed: () {
+                                  _searchCtrl.clear();
+                                  _applyClientFilters();
+                                },
+                                icon: Image.asset('assets/icons/clear-filter.png', width: 18, height: 18),
+                              ),
+                        filled: true,
+                        fillColor: _card,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: _border)),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: _border)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    onPressed: _toggleFilters,
+                    tooltip: _filtersOpen ? _tr(ru: 'Скрыть фильтры', uz: 'Filterni yopish') : _tr(ru: 'Фильтры', uz: 'Filtrlar'),
+                    icon: Image.asset('assets/icons/filter.png', width: 20, height: 20),
+                  ),
+                ],
               ),
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
                 children: [
-                  OutlinedButton.icon(
-                    onPressed: _toggleFilters,
-                    icon: Image.asset('assets/icons/filter.png', width: 18, height: 18),
-                    label: Text(_filtersOpen ? _tr(ru: 'Скрыть', uz: 'Yopish') : _tr(ru: 'Фильтры', uz: 'Filtrlar')),
-                  ),
                   const Spacer(),
                   if (_filtersActive)
                     IconButton(
@@ -1028,6 +1072,304 @@ class UserHistoryItem {
   }
 }
 
+class ClientMapScreen extends StatefulWidget {
+  const ClientMapScreen({
+    super.key,
+    required this.lang,
+    required this.branches,
+    required this.onOpenBranch,
+  });
+
+  final String lang;
+  final List<BranchSummary> branches;
+  final ValueChanged<BranchSummary> onOpenBranch;
+
+  @override
+  State<ClientMapScreen> createState() => _ClientMapScreenState();
+}
+
+class _ClientMapScreenState extends State<ClientMapScreen> {
+  mb.MapboxMap? _map;
+  mb.PointAnnotationManager? _pointManager;
+  mb.CircleAnnotationManager? _circleManager;
+  final Map<String, BranchSummary> _branchByAnnotation = {};
+  LatLng? _userPos;
+  String? _error;
+  double? _distanceKm;
+  Timer? _pulseTimer;
+  int _pulseStep = 0;
+
+  String _tr(String ru, String uz) => widget.lang == 'ru' ? ru : uz;
+
+  @override
+  void initState() {
+    super.initState();
+    _ensureLocation();
+  }
+
+  @override
+  void dispose() {
+    _pulseTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _ensureLocation() async {
+    try {
+      final serviceEnabled = await geo.Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        setState(() => _error = _tr('Включите GPS.', 'GPS yoqing.'));
+        return;
+      }
+      var permission = await geo.Geolocator.checkPermission();
+      if (permission == geo.LocationPermission.denied) {
+        permission = await geo.Geolocator.requestPermission();
+      }
+      if (permission == geo.LocationPermission.denied || permission == geo.LocationPermission.deniedForever) {
+        setState(() => _error = _tr('Нет доступа к GPS.', 'GPS ruxsati berilmadi.'));
+        return;
+      }
+      final pos = await geo.Geolocator.getCurrentPosition(
+        desiredAccuracy: geo.LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 12),
+      );
+      if (!mounted) return;
+      setState(() => _userPos = LatLng(pos.latitude, pos.longitude));
+      await _refreshMarkers();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _error = _tr('Не удалось получить GPS.', 'GPS olinmadi.'));
+    }
+  }
+
+  Future<Uint8List> _loadAssetBytes(String path) async {
+    final data = await rootBundle.load(path);
+    return data.buffer.asUint8List();
+  }
+
+  Future<mb.MbxImage> _loadMbxImage(String path) async {
+    final bytes = await _loadAssetBytes(path);
+    final codec = await ui.instantiateImageCodec(bytes);
+    final frame = await codec.getNextFrame();
+    final image = frame.image;
+    final rgba = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+    image.dispose();
+    return mb.MbxImage(
+      width: image.width,
+      height: image.height,
+      data: rgba!.buffer.asUint8List(),
+    );
+  }
+
+  String _iconForBranch(BranchSummary b) {
+    final code = (b.statusCode ?? b.status ?? '').toLowerCase();
+    if (code.contains('busy')) return 'hotel_busy';
+    if (code.contains('partial')) return 'hotel_partial_busy';
+    return 'hotel_free';
+  }
+
+  Future<void> _setupMap(mb.MapboxMap map) async {
+    _map = map;
+    _pointManager = await map.annotations.createPointAnnotationManager();
+    _circleManager = await map.annotations.createCircleAnnotationManager();
+
+    await map.style.addStyleImage('hotel_free', 1.0, await _loadMbxImage('assets/icons/hotel_free.png'), false, const [], const [], null);
+    await map.style.addStyleImage('hotel_busy', 1.0, await _loadMbxImage('assets/icons/hotel_busy.png'), false, const [], const [], null);
+    await map.style.addStyleImage('hotel_partial_busy', 1.0, await _loadMbxImage('assets/icons/hotel_partial_busy.png'), false, const [], const [], null);
+    await map.style.addStyleImage('user_loc', 1.0, await _loadMbxImage('assets/icons/navigation_human.png'), false, const [], const [], null);
+
+    _pointManager?.addOnPointAnnotationClickListener(_MapPointClickListener((annotation) {
+      final b = _branchByAnnotation[annotation.id];
+      if (b != null) widget.onOpenBranch(b);
+    }));
+
+    await _refreshMarkers();
+  }
+
+  Future<void> _refreshMarkers() async {
+    if (_map == null || _pointManager == null) return;
+    _branchByAnnotation.clear();
+    await _pointManager!.deleteAll();
+    await _circleManager?.deleteAll();
+
+    final list = _filteredBranches();
+    for (final b in list) {
+      if (b.latitude == null || b.longitude == null) continue;
+      final annotation = await _pointManager!.create(
+        mb.PointAnnotationOptions(
+          geometry: mb.Point(coordinates: mb.Position(b.longitude!, b.latitude!)),
+          iconImage: _iconForBranch(b),
+          iconSize: 0.8,
+        ),
+      );
+      _branchByAnnotation[annotation.id] = b;
+    }
+
+    if (_userPos != null) {
+      await _pointManager!.create(
+        mb.PointAnnotationOptions(
+          geometry: mb.Point(coordinates: mb.Position(_userPos!.longitude, _userPos!.latitude)),
+          iconImage: 'user_loc',
+          iconSize: 0.9,
+        ),
+      );
+      await _drawRadar();
+      await _map!.setCamera(
+        mb.CameraOptions(
+          center: mb.Point(coordinates: mb.Position(_userPos!.longitude, _userPos!.latitude)),
+          zoom: 12.5,
+        ),
+      );
+    }
+  }
+
+  List<BranchSummary> _filteredBranches() {
+    if (_distanceKm == null || _userPos == null) return widget.branches;
+    final distance = Distance();
+    return widget.branches.where((b) {
+      if (b.latitude == null || b.longitude == null) return false;
+      final d = distance.as(
+        LengthUnit.Kilometer,
+        _userPos!,
+        LatLng(b.latitude!, b.longitude!),
+      );
+      return d <= _distanceKm!;
+    }).toList();
+  }
+
+  Future<void> _drawRadar() async {
+    if (_circleManager == null || _userPos == null) return;
+    _pulseTimer?.cancel();
+    _pulseTimer = Timer.periodic(const Duration(milliseconds: 900), (_) async {
+      if (_circleManager == null || _userPos == null) return;
+      _pulseStep = (_pulseStep + 1) % 3;
+      final radius = _pulseStep == 0 ? 22.0 : _pulseStep == 1 ? 32.0 : 42.0;
+      await _circleManager!.deleteAll();
+      await _circleManager!.create(
+        mb.CircleAnnotationOptions(
+          geometry: mb.Point(coordinates: mb.Position(_userPos!.longitude, _userPos!.latitude)),
+          circleRadius: radius,
+          circleOpacity: 0.25,
+          circleColor: const Color(0xFF2563EB).value,
+          circleStrokeColor: const Color(0xFF60A5FA).value,
+          circleStrokeWidth: 1.5,
+        ),
+      );
+    });
+  }
+
+  void _setDistance(double? km) {
+    setState(() => _distanceKm = km);
+    _refreshMarkers();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final token = _mapboxToken();
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(_tr('Карта', 'Xarita')),
+      ),
+      body: Column(
+        children: [
+          Builder(
+            builder: (_) {
+              if (token.isEmpty) {
+                return Container(
+                  padding: const EdgeInsets.all(16),
+                  alignment: Alignment.center,
+                  child: Text(_tr('MAPBOX_TOKEN не задан.', 'MAPBOX_TOKEN yo‘q.')),
+                );
+              }
+              mb.MapboxOptions.setAccessToken(token);
+              return SizedBox(
+                height: 320,
+                child: mb.MapWidget(
+                  key: const ValueKey('client_map'),
+                  styleUri: mb.MapboxStyles.STANDARD,
+                  cameraOptions: _userPos == null
+                      ? mb.CameraOptions(center: mb.Point(coordinates: mb.Position(69.2797, 41.3111)), zoom: 11)
+                      : mb.CameraOptions(
+                          center: mb.Point(coordinates: mb.Position(_userPos!.longitude, _userPos!.latitude)),
+                          zoom: 12.5,
+                        ),
+                  onMapCreated: _setupMap,
+                ),
+              );
+            },
+          ),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: Text(_error!, style: const TextStyle(color: Color(0xFFDC2626))),
+            ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+            child: Row(
+              children: [
+                Text(_tr('Дистанция', 'Masofa')),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        ChoiceChip(
+                          label: Text(_tr('Все', 'Hammasi')),
+                          selected: _distanceKm == null,
+                          onSelected: (_) => _setDistance(null),
+                        ),
+                        const SizedBox(width: 8),
+                        ChoiceChip(label: const Text('3 km'), selected: _distanceKm == 3, onSelected: (_) => _setDistance(3)),
+                        const SizedBox(width: 8),
+                        ChoiceChip(label: const Text('5 km'), selected: _distanceKm == 5, onSelected: (_) => _setDistance(5)),
+                        const SizedBox(width: 8),
+                        ChoiceChip(label: const Text('10 km'), selected: _distanceKm == 10, onSelected: (_) => _setDistance(10)),
+                        const SizedBox(width: 8),
+                        ChoiceChip(label: const Text('20 km'), selected: _distanceKm == 20, onSelected: (_) => _setDistance(20)),
+                        const SizedBox(width: 8),
+                        ChoiceChip(label: const Text('50 km'), selected: _distanceKm == 50, onSelected: (_) => _setDistance(50)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: ListView.separated(
+              padding: const EdgeInsets.fromLTRB(16, 6, 16, 24),
+              itemCount: _filteredBranches().length,
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              itemBuilder: (_, i) {
+                final b = _filteredBranches()[i];
+                return ListTile(
+                  tileColor: _card,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: const BorderSide(color: _border)),
+                  title: Text(b.name),
+                  subtitle: Text(b.address ?? ''),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => widget.onOpenBranch(b),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MapPointClickListener implements mb.OnPointAnnotationClickListener {
+  _MapPointClickListener(this.onClick);
+
+  final void Function(mb.PointAnnotation) onClick;
+
+  @override
+  void onPointAnnotationClick(mb.PointAnnotation annotation) {
+    onClick(annotation);
+  }
+}
+
 class ClientBranchDetailsScreen extends StatefulWidget {
   const ClientBranchDetailsScreen({
     super.key,
@@ -1188,3 +1530,12 @@ class _ClientBranchDetailsScreenState extends State<ClientBranchDetailsScreen> {
     await launchUrl(uri);
   }
 }
+
+
+
+
+
+
+
+
+

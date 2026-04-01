@@ -5,11 +5,14 @@ import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+
+import 'client_catalog.dart';
 
 const String kLanguageKey = 'language';
 final ValueNotifier<String> appLang = ValueNotifier<String>('uz');
@@ -73,6 +76,9 @@ String friendlyErrorText(String raw, {String? lang}) {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await dotenv.load(fileName: ".env");
+  } catch (_) {}
   final prefs = await SharedPreferences.getInstance();
   appLang.value = normLang(prefs.getString(kLanguageKey));
   runApp(const HostelApp());
@@ -194,8 +200,12 @@ class AppEntry extends StatefulWidget {
 
 class _AppEntryState extends State<AppEntry> {
   static const String pinKey = 'app_pin';
+  static const String clientVerifiedKey = 'client_verified';
+  static const String clientLangKey = 'client_lang';
   bool _loading = true;
   bool _hasPin = false;
+  bool _clientVerified = false;
+  String _clientLang = 'uz';
 
   @override
   void initState() {
@@ -208,6 +218,8 @@ class _AppEntryState extends State<AppEntry> {
       final prefs = await SharedPreferences.getInstance();
       final pin = prefs.getString(pinKey) ?? '';
       _hasPin = pin.trim().isNotEmpty;
+      _clientVerified = prefs.getBool(clientVerifiedKey) ?? false;
+      _clientLang = normLang(prefs.getString(clientLangKey) ?? prefs.getString(kLanguageKey));
     } catch (_) {
       _hasPin = false;
     } finally {
@@ -215,7 +227,13 @@ class _AppEntryState extends State<AppEntry> {
     }
   }
 
-  void _openLogin() {
+  void _openAfterPin() {
+    if (_clientVerified) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => ClientCatalogScreen(lang: _clientLang)),
+      );
+      return;
+    }
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => const LoginScreen()),
     );
@@ -229,7 +247,7 @@ class _AppEntryState extends State<AppEntry> {
       );
     }
     if (_hasPin) {
-      return PinLockScreen(onVerified: _openLogin);
+      return PinLockScreen(onVerified: _openAfterPin);
     }
     return const LoginScreen();
   }
@@ -258,8 +276,8 @@ class _PinLockScreenState extends State<PinLockScreen> {
 
   Future<void> _checkPin() async {
     final pin = _pinCtrl.text.trim();
-    if (pin.length < 4) {
-      setState(() => _error = 'PIN is too short');
+    if (!RegExp(r'^\d{4}$').hasMatch(pin)) {
+      setState(() => _error = 'PIN must be 4 digits');
       return;
     }
     setState(() {
@@ -347,16 +365,26 @@ class _LoginScreenState extends State<LoginScreen> {
   static const String isAdminKey = 'is_admin';
   static const String branchIdKey = 'branch_id';
   static const String pinKey = 'app_pin';
+  static const String clientVerifiedKey = 'client_verified';
+  static const String clientLangKey = 'client_lang';
 
   final _formKey = GlobalKey<FormState>();
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _clientEmailController = TextEditingController();
+  final _clientCodeController = TextEditingController();
+  final _clientPasswordController = TextEditingController();
 
   bool _loading = false;
   bool _checkingSession = true;
   String? _error;
   String _uiLang = 'uz';
   String _entryMode = 'staff';
+  bool _clientBusy = false;
+  String? _clientError;
+  int _clientStep = 0;
+  bool _clientExists = false;
+  String? _clientCookie;
 
   @override
   void initState() {
@@ -369,6 +397,9 @@ class _LoginScreenState extends State<LoginScreen> {
   void dispose() {
     _usernameController.dispose();
     _passwordController.dispose();
+    _clientEmailController.dispose();
+    _clientCodeController.dispose();
+    _clientPasswordController.dispose();
     super.dispose();
   }
 
@@ -427,6 +458,139 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         error: true,
       );
+    }
+  }
+
+  void _resetClientFlow() {
+    _clientEmailController.clear();
+    _clientCodeController.clear();
+    _clientPasswordController.clear();
+    _clientError = null;
+    _clientStep = 0;
+    _clientExists = false;
+    _clientCookie = null;
+  }
+
+  String? _extractCookie(String? header) {
+    if (header == null || header.isEmpty) return null;
+    final first = header.split(';').first.trim();
+    return first.isEmpty ? null : first;
+  }
+
+  Future<Map<String, dynamic>> _clientPost(String path, Map<String, dynamic> body) async {
+    final headers = <String, String>{'Content-Type': 'application/json'};
+    if (_clientCookie != null) headers['Cookie'] = _clientCookie!;
+    final r = await http
+        .post(
+          Uri.parse('https://hmsuz.com$path'),
+          headers: headers,
+          body: jsonEncode(body),
+        )
+        .timeout(requestTimeout);
+    final cookie = _extractCookie(r.headers['set-cookie']);
+    if (cookie != null) _clientCookie = cookie;
+    final payload = r.body.isEmpty ? <String, dynamic>{} : jsonDecode(r.body);
+    if (r.statusCode < 200 || r.statusCode >= 300) {
+      final msg = (payload is Map<String, dynamic> ? (payload['error'] ?? payload['detail']) : null) ?? 'Request failed';
+      throw Exception(msg.toString());
+    }
+    return payload is Map<String, dynamic> ? payload : <String, dynamic>{'data': payload};
+  }
+
+  Future<void> _clientSendCode() async {
+    final email = _clientEmailController.text.trim();
+    if (email.isEmpty) {
+      setState(() => _clientError = _tr(ru: 'Введите email.', uz: 'Email kiriting.'));
+      return;
+    }
+    setState(() {
+      _clientBusy = true;
+      _clientError = null;
+    });
+    try {
+      await _clientPost('/auth/email/send-code', {'email': email});
+      if (!mounted) return;
+      setState(() => _clientStep = 1);
+      showAppAlert(context, _tr(ru: 'Код отправлен на почту.', uz: 'Kod emailga yuborildi.'));
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _clientError = friendlyErrorText(e.toString(), lang: _uiLang));
+    } finally {
+      if (mounted) setState(() => _clientBusy = false);
+    }
+  }
+
+  Future<void> _clientVerifyCode() async {
+    final email = _clientEmailController.text.trim();
+    final code = _clientCodeController.text.trim();
+    if (email.isEmpty || code.isEmpty) {
+      setState(() => _clientError = _tr(ru: 'Введите код.', uz: 'Kod kiriting.'));
+      return;
+    }
+    setState(() {
+      _clientBusy = true;
+      _clientError = null;
+    });
+    try {
+      await _clientPost('/auth/email/verify-code', {'email': email, 'code': code});
+      final status = await _clientPost('/auth/email/account-status', {'email': email});
+      final exists = status['exists'] == true;
+      if (!mounted) return;
+      setState(() {
+        _clientExists = exists;
+        _clientStep = 2;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _clientError = friendlyErrorText(e.toString(), lang: _uiLang));
+    } finally {
+      if (mounted) setState(() => _clientBusy = false);
+    }
+  }
+
+  Future<void> _clientAuth() async {
+    final email = _clientEmailController.text.trim();
+    final pass = _clientPasswordController.text.trim();
+    if (pass.isEmpty) {
+      setState(() => _clientError = _tr(ru: 'Введите пароль.', uz: 'Parol kiriting.'));
+      return;
+    }
+    setState(() {
+      _clientBusy = true;
+      _clientError = null;
+    });
+    try {
+      final path = _clientExists ? '/auth/email/account-login' : '/auth/email/account-register';
+      await _clientPost(path, {'email': email, 'password': pass});
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(clientVerifiedKey, true);
+      await prefs.setString(clientLangKey, _uiLang);
+
+      final existingPin = prefs.getString(pinKey) ?? '';
+      if (existingPin.trim().isEmpty) {
+        final newPin = await _promptSetPin();
+        if (newPin == null || !RegExp(r'^\d{4}$').hasMatch(newPin.trim())) {
+          final msg = _tr(
+            ru: 'Нужно установить PIN.',
+            uz: 'PIN o‘rnatish kerak.',
+          );
+          setState(() => _clientError = msg);
+          if (mounted) showAppAlert(context, msg, error: true);
+          return;
+        }
+        await prefs.setString(pinKey, newPin.trim());
+      }
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => ClientCatalogScreen(lang: _uiLang),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _clientError = friendlyErrorText(e.toString(), lang: _uiLang));
+    } finally {
+      if (mounted) setState(() => _clientBusy = false);
     }
   }
 
@@ -508,7 +672,7 @@ class _LoginScreenState extends State<LoginScreen> {
       final existingPin = prefs.getString(pinKey) ?? '';
       if (existingPin.trim().isEmpty) {
         final newPin = await _promptSetPin();
-        if (newPin == null || newPin.trim().length < 4) {
+        if (newPin == null || !RegExp(r'^\d{4}$').hasMatch(newPin.trim())) {
           final msg = _tr(
             ru: 'Нужно установить PIN.',
             uz: 'PIN o‘rnatish kerak.',
@@ -590,7 +754,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 FilledButton(
                   onPressed: () {
                     final v = ctrl.text.trim();
-                    if (v.length < 4) {
+                    if (!RegExp(r'^\d{4}$').hasMatch(v)) {
                       setLocal(() => error = _tr(ru: 'Слишком короткий PIN', uz: 'PIN juda qisqa'));
                       return;
                     }
@@ -725,6 +889,10 @@ class _LoginScreenState extends State<LoginScreen> {
                               setState(() {
                                 _entryMode = v.first;
                                 _error = null;
+                                _clientError = null;
+                                if (_entryMode == 'client') {
+                                  _resetClientFlow();
+                                }
                               });
                             },
                           ),
@@ -802,25 +970,98 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                               child: Text(
                                 _tr(
-                                  ru: 'Режим клиента: войдите через Google и продолжайте как клиент.',
-                                  uz: 'Mijoz rejimi: Google orqali kirib, client sifatida davom eting.',
+                                  ru: 'Режим клиента: подтвердите email кодом и продолжайте.',
+                                  uz: 'Mijoz rejimi: email kodini tasdiqlang va davom eting.',
                                 ),
                                 style: const TextStyle(height: 1.3, color: Color(0xFF334155)),
                               ),
                             ),
                             const SizedBox(height: 10),
-                            SizedBox(
-                              width: double.infinity,
-                              child: FilledButton.icon(
-                                style: FilledButton.styleFrom(
-                                  minimumSize: const Size.fromHeight(50),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                                ),
-                                onPressed: _openClientGoogleLogin,
-                                icon: const Icon(Icons.login_rounded),
-                                label: Text(_tr(ru: 'Продолжить через Google', uz: 'Google orqali davom etish')),
+                            TextField(
+                              controller: _clientEmailController,
+                              keyboardType: TextInputType.emailAddress,
+                              decoration: InputDecoration(
+                                labelText: _tr(ru: 'Email', uz: 'Email'),
+                                prefixIcon: const Icon(Icons.email_outlined),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
                               ),
                             ),
+                            const SizedBox(height: 8),
+                            SizedBox(
+                              width: double.infinity,
+                              child: FilledButton(
+                                onPressed: _clientBusy ? null : _clientSendCode,
+                                child: _clientBusy
+                                    ? const SizedBox(
+                                        height: 18,
+                                        width: 18,
+                                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                      )
+                                    : Text(_tr(ru: 'Отправить код', uz: 'Kodni yuborish')),
+                              ),
+                            ),
+                            if (_clientStep >= 1) ...[
+                              const SizedBox(height: 12),
+                              TextField(
+                                controller: _clientCodeController,
+                                keyboardType: TextInputType.number,
+                                decoration: InputDecoration(
+                                  labelText: _tr(ru: 'Код подтверждения', uz: 'Tasdiqlash kodi'),
+                                  prefixIcon: const Icon(Icons.verified_outlined),
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              SizedBox(
+                                width: double.infinity,
+                                child: FilledButton(
+                                  onPressed: _clientBusy ? null : _clientVerifyCode,
+                                  child: _clientBusy
+                                      ? const SizedBox(
+                                          height: 18,
+                                          width: 18,
+                                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                        )
+                                      : Text(_tr(ru: 'Подтвердить код', uz: 'Kodni tasdiqlash')),
+                                ),
+                              ),
+                            ],
+                            if (_clientStep >= 2) ...[
+                              const SizedBox(height: 12),
+                              TextField(
+                                controller: _clientPasswordController,
+                                obscureText: true,
+                                decoration: InputDecoration(
+                                  labelText: _tr(ru: 'Пароль', uz: 'Parol'),
+                                  prefixIcon: const Icon(Icons.lock_outline_rounded),
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              SizedBox(
+                                width: double.infinity,
+                                child: FilledButton(
+                                  onPressed: _clientBusy ? null : _clientAuth,
+                                  child: _clientBusy
+                                      ? const SizedBox(
+                                          height: 18,
+                                          width: 18,
+                                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                        )
+                                      : Text(_clientExists
+                                          ? _tr(ru: 'Войти', uz: 'Kirish')
+                                          : _tr(ru: 'Создать аккаунт', uz: 'Akkaunt yaratish')),
+                                ),
+                              ),
+                            ],
+                            if (_clientError != null) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                _clientError!,
+                                style: const TextStyle(color: Color(0xFFDC2626), fontWeight: FontWeight.w600),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
                           ],
                         ],
                       ),
