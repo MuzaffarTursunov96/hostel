@@ -664,6 +664,127 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
     );
   }
 
+  void _openImageGallery(List<String> photos, int initialIndex) {
+    if (photos.isEmpty) return;
+    final start = initialIndex.clamp(0, photos.length - 1);
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.85),
+      builder: (_) {
+        int index = start;
+        final controller = PageController(initialPage: start);
+        return StatefulBuilder(
+          builder: (context, setState) => Material(
+            color: Colors.transparent,
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: PageView.builder(
+                          controller: controller,
+                          itemCount: photos.length,
+                          onPageChanged: (i) => setState(() => index = i),
+                          itemBuilder: (_, i) => InteractiveViewer(
+                            minScale: 0.8,
+                            maxScale: 4,
+                            child: Center(
+                              child: Image.network(
+                                photos[i],
+                                fit: BoxFit.contain,
+                                errorBuilder: (_, __, ___) => const Icon(
+                                  Icons.image_not_supported_outlined,
+                                  color: Colors.white70,
+                                  size: 48,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (photos.length > 1)
+                        Container(
+                          padding: const EdgeInsets.fromLTRB(12, 8, 12, 18),
+                          height: 90,
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: photos.length,
+                            separatorBuilder: (_, __) => const SizedBox(width: 8),
+                            itemBuilder: (_, i) => GestureDetector(
+                              onTap: () {
+                                controller.jumpToPage(i);
+                                setState(() => index = i);
+                              },
+                              child: Container(
+                                width: 88,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: i == index ? const Color(0xFFF97316) : Colors.white24,
+                                    width: 2,
+                                  ),
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Image.network(
+                                    photos[i],
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => const ColoredBox(
+                                      color: Color(0xFF1F2937),
+                                      child: Icon(Icons.broken_image, color: Colors.white70),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                Positioned(
+                  top: 24,
+                  right: 16,
+                  child: InkWell(
+                    onTap: () => Navigator.of(context).pop(),
+                    child: Container(
+                      height: 38,
+                      width: 38,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF97316),
+                        shape: BoxShape.circle,
+                        boxShadow: const [
+                          BoxShadow(color: Color(0x33000000), blurRadius: 8, offset: Offset(0, 4)),
+                        ],
+                      ),
+                      child: const Icon(Icons.close, color: Colors.white),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 26,
+                  left: 16,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.45),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '${index + 1}/${photos.length}',
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   String _friendlyError(String raw) {
     final text = raw.toLowerCase();
     if (text.contains('timeout')) {
@@ -1233,6 +1354,12 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
 
     final cardPrice = _fmtMinMaxPrice(b.minPrice, b.maxPrice, _priceMode);
     final prepayLabel = _prepay?.label(_lang) ?? '';
+    final hasPrepay = prepayLabel.trim().isNotEmpty && RegExp(r'[1-9]').hasMatch(prepayLabel);
+    final photos = b.photos.isNotEmpty
+        ? List<String>.from(b.photos)
+        : (b.coverPhoto != null && b.coverPhoto!.trim().isNotEmpty
+            ? <String>[b.coverPhoto!]
+            : const <String>[]);
     return Container(
       decoration: BoxDecoration(
         color: _card,
@@ -1243,7 +1370,7 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (b.coverPhoto != null && b.coverPhoto!.trim().isNotEmpty)
+          if (photos.isNotEmpty)
             ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
               child: SizedBox(
@@ -1252,13 +1379,16 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    Image.network(
-                      b.coverPhoto!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                        color: _surfaceSoft,
-                        alignment: Alignment.center,
-                        child: const Icon(Icons.image_not_supported_outlined),
+                    GestureDetector(
+                      onTap: () => _openImageGallery(photos, 0),
+                      child: Image.network(
+                        photos.first,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          color: _surfaceSoft,
+                          alignment: Alignment.center,
+                          child: const Icon(Icons.image_not_supported_outlined),
+                        ),
                       ),
                     ),
                     const DecoratedBox(
@@ -1285,12 +1415,77 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
               alignment: Alignment.center,
               child: const Icon(Icons.hotel_outlined, size: 44, color: _textMuted),
             ),
+          if (photos.length > 1)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+              child: Row(
+                children: List.generate(
+                  photos.length > 3 ? 3 : photos.length,
+                  (i) => Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(right: i == 2 || i == photos.length - 1 ? 0 : 6),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: AspectRatio(
+                          aspectRatio: 4 / 3,
+                          child: InkWell(
+                            onTap: () => _openImageGallery(photos, i),
+                            child: Image.network(
+                              photos[i],
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Container(
+                                color: _surfaceSoft,
+                                alignment: Alignment.center,
+                                child: const Icon(Icons.image_not_supported_outlined, size: 18),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.all(12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(b.name.isNotEmpty ? b.name : '#${b.id}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        b.name.isNotEmpty ? b.name : '#${b.id}',
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    if (hasPrepay)
+                      Container(
+                        margin: const EdgeInsets.only(left: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFECFDF3),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFBBF7D0)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.verified, size: 14, color: Color(0xFF15803D)),
+                            const SizedBox(width: 4),
+                            Text(
+                              prepayLabel,
+                              style: const TextStyle(fontSize: 11, color: Color(0xFF166534), fontWeight: FontWeight.w600),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
                 const SizedBox(height: 4),
                 Text(b.address ?? '-', style: const TextStyle(color: _textMuted)),
                 const SizedBox(height: 8),
@@ -1337,31 +1532,6 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                       ),
                   ],
                 ),
-                if (prepayLabel.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFECFDF3),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFFBBF7D0)),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.verified, size: 16, color: Color(0xFF15803D)),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            prepayLabel,
-                            style: const TextStyle(fontSize: 12, color: Color(0xFF166534), fontWeight: FontWeight.w600),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
                 const SizedBox(height: 10),
                 Row(
                   children: [
@@ -1423,6 +1593,7 @@ class BranchSummary {
     this.districtName,
     this.roomTypes = '',
     this.coverPhoto,
+    this.photos = const [],
     this.status,
     this.statusCode,
     this.contactPhone,
@@ -1453,6 +1624,7 @@ class BranchSummary {
   final String? districtName;
   final String roomTypes;
   final String? coverPhoto;
+  final List<String> photos;
   final String? status;
   final String? statusCode;
   final String? contactPhone;
@@ -1517,6 +1689,22 @@ class BranchSummary {
       }
       return null;
     }
+    List<String> _photoList(dynamic list) {
+      if (list is! List) return const [];
+      final out = <String>[];
+      for (final item in list) {
+        String? url;
+        if (item is Map) {
+          url = _photo(item['url'] ?? item['photo'] ?? item['image']);
+        } else {
+          url = _photo(item);
+        }
+        if (url != null && url.isNotEmpty) {
+          out.add(url);
+        }
+      }
+      return out;
+    }
     final coords = _coords(json['coordinates'] ?? json['coords'] ?? json['location']);
     double? lat = _num(json['latitude'] ?? json['lat']) ?? (coords != null ? coords[1] : null);
     double? lon = _num(json['longitude'] ?? json['lng'] ?? json['lon'] ?? json['long']) ?? (coords != null ? coords[0] : null);
@@ -1525,6 +1713,29 @@ class BranchSummary {
       lat = lon;
       lon = tmp;
     }
+    final cover = _photo(json['cover_photo'] ??
+            json['coverPhoto'] ??
+            json['cover_image'] ??
+            json['coverImage'] ??
+            json['cover_photo_url'] ??
+            json['photo'] ??
+            json['photo_url'] ??
+            json['image']) ??
+        _pickFromList(json['photos']) ??
+        _pickFromList(json['images']);
+
+    final list = [
+      ..._photoList(json['photos']),
+      ..._photoList(json['images']),
+    ];
+    if (cover != null && cover.isNotEmpty) {
+      list.insert(0, cover);
+    }
+    final unique = <String>[];
+    for (final url in list) {
+      if (!unique.contains(url)) unique.add(url);
+    }
+
     return BranchSummary(
       id: (json['id'] is num) ? (json['id'] as num).toInt() : int.tryParse(json['id'].toString()) ?? 0,
       name: (json['name'] ?? '').toString(),
@@ -1540,16 +1751,8 @@ class BranchSummary {
       cityName: json['city_name']?.toString(),
       districtName: json['district_name']?.toString(),
       roomTypes: (json['room_types'] ?? json['roomTypes'] ?? '').toString(),
-      coverPhoto: _photo(json['cover_photo'] ??
-          json['coverPhoto'] ??
-          json['cover_image'] ??
-          json['coverImage'] ??
-          json['cover_photo_url'] ??
-          json['photo'] ??
-          json['photo_url'] ??
-          json['image']) ??
-          _pickFromList(json['photos']) ??
-          _pickFromList(json['images']),
+      coverPhoto: cover,
+      photos: unique,
       status: json['status']?.toString(),
       statusCode: json['status_code']?.toString(),
       contactPhone: json['contact_phone']?.toString(),
