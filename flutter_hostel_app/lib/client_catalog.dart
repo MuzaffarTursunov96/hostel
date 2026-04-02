@@ -1066,38 +1066,13 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                               ),
                   ),
                 ),
-                if (totalPages > 1)
+                if (totalPages >= 1 && _filtered.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 6, 16, 14),
-                    child: Wrap(
-                      alignment: WrapAlignment.center,
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: List.generate(totalPages, (i) {
-                        final page = i + 1;
-                        final selected = page == effectivePage;
-                        return InkWell(
-                          onTap: () => setState(() => _page = page),
-                          borderRadius: BorderRadius.circular(18),
-                          child: Container(
-                            height: 34,
-                            width: 34,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: selected ? _brandBlue : _card,
-                              border: Border.all(color: selected ? _brandBlue : _border),
-                            ),
-                            child: Text(
-                              '$page',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                color: selected ? Colors.white : _textMuted,
-                              ),
-                            ),
-                          ),
-                        );
-                      }),
+                    child: _PaginationBar(
+                      totalPages: totalPages,
+                      currentPage: effectivePage,
+                      onPageChanged: (p) => setState(() => _page = p),
                     ),
                   ),
               ],
@@ -1518,7 +1493,12 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
   Widget _buildBranchCard(BranchSummary b) {
     final rating = b.rating != null ? b.rating!.toStringAsFixed(1) : '-';
 
-    final cardPrice = _fmtMinMaxPrice(b.minPrice, b.maxPrice, _priceMode);
+    final minLine = b.minPrice != null
+        ? '${_tr(ru: 'Мин цена', uz: 'Min narx')}: ${_fmtPrice(b.minPrice!)} so\'m'
+        : null;
+    final maxLine = b.maxPrice != null
+        ? '${_tr(ru: 'Макс цена', uz: 'Max narx')}: ${_fmtPrice(b.maxPrice!)} so\'m'
+        : null;
     final prepayLabel = _prepay?.label(_lang) ?? '';
     final hasPrepay = prepayLabel.trim().isNotEmpty && RegExp(r'[1-9]').hasMatch(prepayLabel);
     final photos = b.photos.isNotEmpty
@@ -1629,8 +1609,10 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                       ),
                   ],
                 ),
-                const SizedBox(height: 4),
-                Text(b.address ?? '-', style: const TextStyle(color: _textMuted)),
+                  if ((b.address ?? '').trim().isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(b.address!, style: const TextStyle(color: _textMuted)),
+                  ],
                 const SizedBox(height: 8),
                 Row(
                   children: [
@@ -1643,38 +1625,46 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                       ),
                       child: Text('⭐ $rating', style: const TextStyle(fontWeight: FontWeight.w600)),
                     ),
-                    const SizedBox(width: 8),
-                    if (cardPrice.isNotEmpty)
+                  ],
+                ),
+                if (minLine != null || maxLine != null) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: _border),
+                        ),
+                        child: Text(
+                          _tr(ru: 'Нарх', uz: 'Narx'),
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _textMuted),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
                       Expanded(
-                        child: Row(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF1F5F9),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: _border),
-                              ),
-                              child: Text(
-                                _tr(ru: 'Нарх', uz: 'Narx'),
-                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _textMuted),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                cardPrice,
+                            if (minLine != null)
+                              Text(
+                                minLine,
                                 style: const TextStyle(fontWeight: FontWeight.w600),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                softWrap: true,
                               ),
-                            ),
+                            if (maxLine != null)
+                              Text(
+                                maxLine,
+                                style: const TextStyle(fontWeight: FontWeight.w600),
+                              ),
                           ],
                         ),
                       ),
-                  ],
-                ),
+                    ],
+                  ),
+                ],
                 if (distanceLabel != null) ...[
                   const SizedBox(height: 8),
                   Row(
@@ -1979,6 +1969,117 @@ class BookingPrepayConfig {
       return note!;
     }
     return '';
+  }
+}
+
+class _PaginationBar extends StatelessWidget {
+  const _PaginationBar({
+    required this.totalPages,
+    required this.currentPage,
+    required this.onPageChanged,
+  });
+
+  final int totalPages;
+  final int currentPage;
+  final ValueChanged<int> onPageChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    if (totalPages <= 0) return const SizedBox.shrink();
+
+    if (totalPages == 1) {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _pageChip(1, selected: true, onTap: () {}),
+        ],
+      );
+    }
+
+    final pages = <int>{};
+    pages.add(1);
+    pages.add(totalPages);
+    for (int i = currentPage - 2; i <= currentPage + 2; i++) {
+      if (i >= 1 && i <= totalPages) pages.add(i);
+    }
+    final ordered = pages.toList()..sort();
+
+    Widget buildDot() => const SizedBox(
+          width: 18,
+          child: Text('• • •', textAlign: TextAlign.center, style: TextStyle(color: _textMuted)),
+        );
+
+    List<Widget> items = [];
+    items.add(_pageIcon(
+      Icons.keyboard_arrow_left,
+      enabled: currentPage > 1,
+      onTap: () => onPageChanged(currentPage - 1),
+    ));
+
+    int? prev;
+    for (final p in ordered) {
+      if (prev != null && p - prev! > 1) {
+        items.add(buildDot());
+      }
+      items.add(_pageChip(p, selected: p == currentPage, onTap: () => onPageChanged(p)));
+      prev = p;
+    }
+
+    items.add(_pageIcon(
+      Icons.keyboard_arrow_right,
+      enabled: currentPage < totalPages,
+      onTap: () => onPageChanged(currentPage + 1),
+    ));
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: items
+          .expand((w) => [w, const SizedBox(width: 8)])
+          .toList()
+        ..removeLast(),
+    );
+  }
+
+  Widget _pageChip(int page, {required bool selected, required VoidCallback onTap}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        height: 32,
+        width: 32,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: selected ? _brandBlue : _card,
+          border: Border.all(color: selected ? _brandBlue : _border),
+        ),
+        child: Text(
+          '$page',
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            color: selected ? Colors.white : _textMuted,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _pageIcon(IconData icon, {required bool enabled, required VoidCallback onTap}) {
+    return InkWell(
+      onTap: enabled ? onTap : null,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        height: 32,
+        width: 32,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: enabled ? _card : const Color(0xFFE2E8F0),
+          border: Border.all(color: _border),
+        ),
+        child: Icon(icon, size: 18, color: enabled ? _textMuted : const Color(0xFF94A3B8)),
+      ),
+    );
   }
 }
 
