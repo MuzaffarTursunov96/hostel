@@ -47,6 +47,8 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
   bool _filtersActive = false;
   String _priceMode = 'day';
   double _minRating = 0;
+  double? _distanceKm;
+  LatLng? _catalogUserPos;
   String? _regionSlug;
   String? _cityName;
   String? _districtName;
@@ -239,6 +241,7 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
     final needle = _searchCtrl.text.trim().toLowerCase();
     final min = _priceRange.start;
     final max = _priceRange.end;
+    final distanceFilter = _distanceKm;
     final list = _branches.where((b) {
       if (needle.isNotEmpty) {
         final text = '${b.name} ${b.address ?? ''}'.toLowerCase();
@@ -258,6 +261,17 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
         final a = rowMin ?? rowMax!;
         final c = rowMax ?? rowMin!;
         if (a > max || c < min) return false;
+      }
+      if (distanceFilter != null) {
+        if (b.latitude == null || b.longitude == null) return false;
+        if (_catalogUserPos == null) return false;
+        final distance = Distance();
+        final d = distance.as(
+          LengthUnit.Kilometer,
+          _catalogUserPos!,
+          LatLng(b.latitude!, b.longitude!),
+        );
+        if (d > distanceFilter) return false;
       }
       return true;
     }).toList();
@@ -279,6 +293,7 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
     if (_roomType != null && _roomType!.trim().isNotEmpty) return true;
     if (_priceMode != 'day') return true;
     if (_minRating > 0) return true;
+    if (_distanceKm != null) return true;
     return false;
   }
 
@@ -296,8 +311,54 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
       _districtName = null;
       _roomType = null;
       _priceRange = RangeValues(_priceMinBound, _priceMaxBound);
+      _distanceKm = null;
       _filtersActive = false;
     });
+    _applyClientFilters();
+  }
+
+  Future<bool> _ensureCatalogLocation() async {
+    try {
+      final serviceEnabled = await geo.Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        await geo.Geolocator.openLocationSettings();
+        return false;
+      }
+      var permission = await geo.Geolocator.checkPermission();
+      if (permission == geo.LocationPermission.denied) {
+        permission = await geo.Geolocator.requestPermission();
+      }
+      if (permission == geo.LocationPermission.denied || permission == geo.LocationPermission.deniedForever) {
+        return false;
+      }
+      final pos = await geo.Geolocator.getCurrentPosition(
+        desiredAccuracy: geo.LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 8),
+      );
+      if (!mounted) return false;
+      setState(() => _catalogUserPos = LatLng(pos.latitude, pos.longitude));
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> _setDistanceFilter(double? km) async {
+    if (km == null) {
+      setState(() => _distanceKm = null);
+      _applyClientFilters();
+      return;
+    }
+    if (_catalogUserPos == null) {
+      final ok = await _ensureCatalogLocation();
+      if (!ok) {
+        if (mounted) {
+          _showSnack(_tr(ru: 'Сначала включите GPS.', uz: 'Avval GPS ni yoqing.'), error: true);
+        }
+        return;
+      }
+    }
+    setState(() => _distanceKm = km);
     _applyClientFilters();
   }
 
@@ -780,7 +841,7 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                               const Spacer(),
                               IconButton(
                                 onPressed: _toggleFilters,
-                                icon: Image.asset('assets/icons/clear-filter.png', width: 18, height: 18),
+                                icon: const Icon(Icons.close),
                               ),
                             ],
                           ),
@@ -818,8 +879,10 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                                     return TextField(
                                       controller: controller,
                                       focusNode: focusNode,
+                                      style: const TextStyle(fontSize: 13),
                                       decoration: InputDecoration(
                                         hintText: _tr(ru: 'Область', uz: 'Viloyat'),
+                                        hintStyle: const TextStyle(fontSize: 12, color: _textMuted),
                                         filled: true,
                                         fillColor: _card,
                                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -876,8 +939,10 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                                     return TextField(
                                       controller: controller,
                                       focusNode: focusNode,
+                                      style: const TextStyle(fontSize: 13),
                                       decoration: InputDecoration(
                                         hintText: _tr(ru: 'Город', uz: 'Shahar'),
+                                        hintStyle: const TextStyle(fontSize: 12, color: _textMuted),
                                         filled: true,
                                         fillColor: _card,
                                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -934,8 +999,10 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                                     return TextField(
                                       controller: controller,
                                       focusNode: focusNode,
+                                      style: const TextStyle(fontSize: 13),
                                       decoration: InputDecoration(
                                         hintText: _tr(ru: 'Район', uz: 'Tuman'),
+                                        hintStyle: const TextStyle(fontSize: 12, color: _textMuted),
                                         filled: true,
                                         fillColor: _card,
                                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -986,8 +1053,10 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                                     return TextField(
                                       controller: controller,
                                       focusNode: focusNode,
+                                      style: const TextStyle(fontSize: 13),
                                       decoration: InputDecoration(
                                         hintText: _tr(ru: 'Тип комнаты', uz: 'Xona turi'),
+                                        hintStyle: const TextStyle(fontSize: 12, color: _textMuted),
                                         filled: true,
                                         fillColor: _card,
                                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -1044,8 +1113,10 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                                     return TextField(
                                       controller: controller,
                                       focusNode: focusNode,
+                                      style: const TextStyle(fontSize: 13),
                                       decoration: InputDecoration(
                                         hintText: _tr(ru: 'Режим цены', uz: 'Narx turi'),
+                                        hintStyle: const TextStyle(fontSize: 12, color: _textMuted),
                                         filled: true,
                                         fillColor: _card,
                                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -1073,6 +1144,34 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                                     ),
                                   ],
                                 ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(_tr(ru: 'Дистанция', uz: 'Masofa')),
+                              const SizedBox(height: 6),
+                              Wrap(
+                                spacing: 8,
+                                children: [
+                                  ChoiceChip(
+                                    label: Text(_tr(ru: 'Все', uz: 'Hammasi')),
+                                    selected: _distanceKm == null,
+                                    onSelected: (_) {
+                                      _setDistanceFilter(null);
+                                    },
+                                  ),
+                                  for (final km in [1, 3, 5, 10, 20, 50])
+                                    ChoiceChip(
+                                      label: Text('$km km'),
+                                      selected: _distanceKm == km.toDouble(),
+                                      onSelected: (_) {
+                                        _setDistanceFilter(km.toDouble());
+                                      },
+                                    ),
+                                ],
                               ),
                             ],
                           ),
@@ -1934,7 +2033,6 @@ class _ClientMapScreenState extends State<ClientMapScreen> {
                         highlightElevation: 0,
                         focusElevation: 0,
                         hoverElevation: 0,
-                        shadowColor: Colors.transparent,
                         onPressed: _togglePickLocation,
                         child: _pickLocation
                             ? Image.asset('assets/icons/arrows.png', width: 18, height: 18)

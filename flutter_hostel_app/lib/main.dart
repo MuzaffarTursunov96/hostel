@@ -207,6 +207,11 @@ class _PinLockScreenState extends State<PinLockScreen> {
   String? _error;
   bool _busy = false;
 
+  String _tr({required String ru, required String uz}) {
+    final lang = appLang.value == 'ru' ? 'ru' : 'uz';
+    return lang == 'ru' ? ru : uz;
+  }
+
   @override
   void dispose() {
     _pinCtrl.dispose();
@@ -234,7 +239,7 @@ class _PinLockScreenState extends State<PinLockScreen> {
           );
         }
       } else {
-        setState(() => _error = 'Wrong PIN');
+        setState(() => _error = _tr(ru: 'Noto‘g‘ri PIN', uz: 'Noto‘g‘ri PIN'));
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -254,7 +259,8 @@ class _PinLockScreenState extends State<PinLockScreen> {
               children: [
                 const Icon(Icons.lock_outline_rounded, size: 48, color: Color(0xFF1D4ED8)),
                 const SizedBox(height: 12),
-                const Text('Enter PIN', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+                Text(_tr(ru: 'PIN kiriting', uz: 'PIN kiriting'),
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 12),
                 TextField(
                   controller: _pinCtrl,
@@ -281,7 +287,7 @@ class _PinLockScreenState extends State<PinLockScreen> {
                             width: 18,
                             child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                           )
-                        : const Text('Unlock'),
+                        : Text(_tr(ru: 'Ochish', uz: 'Ochish')),
                   ),
                 ),
               ],
