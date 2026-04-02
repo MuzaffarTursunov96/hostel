@@ -249,6 +249,19 @@ class _PinLockScreenState extends State<PinLockScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () async {
+            final popped = await Navigator.of(context).maybePop();
+            if (!popped && mounted) {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (_) => const LoginScreen()),
+              );
+            }
+          },
+        ),
+      ),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -394,6 +407,37 @@ class _LoginScreenState extends State<LoginScreen> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(kLanguageKey, lang);
     appLang.value = lang;
+  }
+
+  Future<void> _openLoginLangMenu(BuildContext anchor) async {
+    final overlay = Overlay.of(anchor).context.findRenderObject() as RenderBox;
+    final box = anchor.findRenderObject() as RenderBox?;
+    final origin = box?.localToGlobal(Offset.zero, ancestor: overlay) ?? Offset.zero;
+    final rect = RelativeRect.fromLTRB(
+      origin.dx,
+      origin.dy + (box?.size.height ?? 0),
+      overlay.size.width - origin.dx - (box?.size.width ?? 0),
+      overlay.size.height - origin.dy - (box?.size.height ?? 0),
+    );
+    final chosen = await showMenu<String>(
+      context: anchor,
+      position: rect,
+      items: [
+        CheckedPopupMenuItem(
+          checked: _uiLang == 'ru',
+          value: 'ru',
+          child: const Text('RU'),
+        ),
+        CheckedPopupMenuItem(
+          checked: _uiLang == 'uz',
+          value: 'uz',
+          child: const Text('UZ'),
+        ),
+      ],
+    );
+    if (chosen != null) {
+      await _setLoginLanguage(chosen);
+    }
   }
 
   String _tr({required String ru, required String uz}) {
@@ -772,258 +816,262 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     child: Form(
                       key: _formKey,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
+                      child: Stack(
                         children: [
-                          Container(
-                            height: 58,
-                            width: 58,
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: LinearGradient(
-                                colors: [Color(0xFF1D4ED8), Color(0xFF0284C7)],
-                              ),
-                            ),
-                            alignment: Alignment.center,
-                            child: const Text(
-                              'HMS',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.6,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          const Text(
-                            'HMS',
-                            style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, letterSpacing: 1.1),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            _tr(
-                              ru: 'Система управления отелем',
-                              uz: 'Hotel boshqaruv tizimi',
-                            ),
-                            style: const TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w500),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 12),
-                          SegmentedButton<String>(
-                            segments: const [
-                              ButtonSegment<String>(value: 'ru', label: Text('RU')),
-                              ButtonSegment<String>(value: 'uz', label: Text('UZ')),
-                            ],
-                            selected: {_uiLang},
-                            onSelectionChanged: (v) {
-                              if (v.isNotEmpty) _setLoginLanguage(v.first);
-                            },
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            _tr(
-                              ru: 'Войдите, чтобы продолжить',
-                              uz: 'Davom etish uchun kiring',
-                            ),
-                            style: const TextStyle(color: Color(0xFF475569)),
-                          ),
-                          const SizedBox(height: 12),
-                          SegmentedButton<String>(
-                            segments: [
-                              ButtonSegment<String>(
-                                value: 'staff',
-                                icon: const Icon(Icons.badge_outlined),
-                                label: Text(_tr(ru: 'Сотрудник', uz: 'Xodim')),
-                              ),
-                              ButtonSegment<String>(
-                                value: 'client',
-                                icon: const Icon(Icons.travel_explore_outlined),
-                                label: Text(_tr(ru: 'Клиент', uz: 'Mijoz')),
-                              ),
-                            ],
-                            selected: {_entryMode},
-                            onSelectionChanged: (v) {
-                              if (v.isEmpty) return;
-                              setState(() {
-                                _entryMode = v.first;
-                                _error = null;
-                                _clientError = null;
-                                if (_entryMode == 'client') {
-                                  _resetClientFlow();
-                                }
-                              });
-                              if (_entryMode == 'client') {
-                                _maybeOpenClientPin();
-                              }
-                            },
-                          ),
-                          const SizedBox(height: 18),
-                          if (_entryMode == 'staff') ...[
-                            TextFormField(
-                              controller: _usernameController,
-                              decoration: InputDecoration(
-                                labelText: _tr(
-                                  ru: 'Имя пользователя',
-                                  uz: 'Foydalanuvchi nomi',
+                          Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                height: 58,
+                                width: 58,
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  gradient: LinearGradient(
+                                    colors: [Color(0xFF1D4ED8), Color(0xFF0284C7)],
+                                  ),
                                 ),
-                                prefixIcon: const Icon(Icons.person_outline_rounded),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(14),
+                                alignment: Alignment.center,
+                                child: const Text(
+                                  'HMS',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.6,
+                                  ),
                                 ),
                               ),
-                              validator: (v) => (v == null || v.trim().isEmpty)
-                                  ? _tr(
-                                      ru: 'Введите имя пользователя',
-                                      uz: 'Foydalanuvchi nomini kiriting',
-                                    )
-                                  : null,
-                            ),
-                            const SizedBox(height: 12),
-                            TextFormField(
-                              controller: _passwordController,
-                              obscureText: true,
-                              decoration: InputDecoration(
-                                labelText: _tr(ru: 'Пароль', uz: 'Parol'),
-                                prefixIcon: const Icon(Icons.lock_outline_rounded),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
+                              const SizedBox(height: 12),
+                              const Text(
+                                'HMS',
+                                style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, letterSpacing: 1.1),
                               ),
-                              validator: (v) => (v == null || v.isEmpty)
-                                  ? _tr(ru: 'Введите пароль', uz: 'Parolni kiriting')
-                                  : null,
-                            ),
-                            const SizedBox(height: 12),
-                            if (_error != null)
+                              const SizedBox(height: 6),
                               Text(
-                                _error!,
-                                style: const TextStyle(color: Color(0xFFDC2626), fontWeight: FontWeight.w600),
-                                textAlign: TextAlign.center,
-                              ),
-                            const SizedBox(height: 8),
-                            SizedBox(
-                              width: double.infinity,
-                              child: FilledButton(
-                                style: FilledButton.styleFrom(
-                                  backgroundColor: const Color(0xFF1D4ED8),
-                                  foregroundColor: Colors.white,
-                                  minimumSize: const Size.fromHeight(50),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                                ),
-                                onPressed: _loading ? null : _login,
-                                child: _loading
-                                    ? const SizedBox(
-                                        height: 18,
-                                        width: 18,
-                                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                      )
-                                    : Text(_tr(ru: 'Войти', uz: 'Kirish')),
-                              ),
-                            ),
-                          ] else ...[
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF8FAFC),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: const Color(0xFFE2E8F0)),
-                              ),
-                              child: Text(
                                 _tr(
-                                  ru: 'Режим клиента: подтвердите email кодом и продолжайте.',
-                                  uz: 'Mijoz rejimi: email kodini tasdiqlang va davom eting.',
+                                  ru: 'Система управления отелем',
+                                  uz: 'Hotel boshqaruv tizimi',
                                 ),
-                                style: const TextStyle(height: 1.3, color: Color(0xFF334155)),
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            TextField(
-                              controller: _clientEmailController,
-                              keyboardType: TextInputType.emailAddress,
-                              decoration: InputDecoration(
-                                labelText: _tr(ru: 'Email', uz: 'Email'),
-                                prefixIcon: const Icon(Icons.email_outlined),
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            SizedBox(
-                              width: double.infinity,
-                              child: FilledButton(
-                                onPressed: _clientBusy ? null : _clientSendCode,
-                                child: _clientBusy
-                                    ? const SizedBox(
-                                        height: 18,
-                                        width: 18,
-                                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                      )
-                                    : Text(_tr(ru: 'Отправить код', uz: 'Kodni yuborish')),
-                              ),
-                            ),
-                            if (_clientStep >= 1) ...[
-                              const SizedBox(height: 12),
-                              TextField(
-                                controller: _clientCodeController,
-                                keyboardType: TextInputType.number,
-                                decoration: InputDecoration(
-                                  labelText: _tr(ru: 'Код подтверждения', uz: 'Tasdiqlash kodi'),
-                                  prefixIcon: const Icon(Icons.verified_outlined),
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              SizedBox(
-                                width: double.infinity,
-                                child: FilledButton(
-                                  onPressed: _clientBusy ? null : _clientVerifyCode,
-                                  child: _clientBusy
-                                      ? const SizedBox(
-                                          height: 18,
-                                          width: 18,
-                                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                        )
-                                      : Text(_tr(ru: 'Подтвердить код', uz: 'Kodni tasdiqlash')),
-                                ),
-                              ),
-                            ],
-                            if (_clientStep >= 2) ...[
-                              const SizedBox(height: 12),
-                              TextField(
-                                controller: _clientPasswordController,
-                                obscureText: true,
-                                decoration: InputDecoration(
-                                  labelText: _tr(ru: 'Пароль', uz: 'Parol'),
-                                  prefixIcon: const Icon(Icons.lock_outline_rounded),
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              SizedBox(
-                                width: double.infinity,
-                                child: FilledButton(
-                                  onPressed: _clientBusy ? null : _clientAuth,
-                                  child: _clientBusy
-                                      ? const SizedBox(
-                                          height: 18,
-                                          width: 18,
-                                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                        )
-                                      : Text(_clientExists
-                                          ? _tr(ru: 'Войти', uz: 'Kirish')
-                                          : _tr(ru: 'Создать аккаунт', uz: 'Akkaunt yaratish')),
-                                ),
-                              ),
-                            ],
-                            if (_clientError != null) ...[
-                              const SizedBox(height: 8),
-                              Text(
-                                _clientError!,
-                                style: const TextStyle(color: Color(0xFFDC2626), fontWeight: FontWeight.w600),
+                                style: const TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w500),
                                 textAlign: TextAlign.center,
                               ),
+                              const SizedBox(height: 8),
+                              Text(
+                                _tr(
+                                  ru: 'Войдите, чтобы продолжить',
+                                  uz: 'Davom etish uchun kiring',
+                                ),
+                                style: const TextStyle(color: Color(0xFF475569)),
+                              ),
+                              const SizedBox(height: 12),
+                              SegmentedButton<String>(
+                                segments: [
+                                  ButtonSegment<String>(
+                                    value: 'staff',
+                                    icon: const Icon(Icons.badge_outlined),
+                                    label: Text(_tr(ru: 'Сотрудник', uz: 'Xodim')),
+                                  ),
+                                  ButtonSegment<String>(
+                                    value: 'client',
+                                    icon: const Icon(Icons.travel_explore_outlined),
+                                    label: Text(_tr(ru: 'Клиент', uz: 'Mijoz')),
+                                  ),
+                                ],
+                                selected: {_entryMode},
+                                onSelectionChanged: (v) {
+                                  if (v.isEmpty) return;
+                                  setState(() {
+                                    _entryMode = v.first;
+                                    _error = null;
+                                    _clientError = null;
+                                    if (_entryMode == 'client') {
+                                      _resetClientFlow();
+                                    }
+                                  });
+                                  if (_entryMode == 'client') {
+                                    _maybeOpenClientPin();
+                                  }
+                                },
+                              ),
+                              const SizedBox(height: 18),
+                              if (_entryMode == 'staff') ...[
+                                TextFormField(
+                                  controller: _usernameController,
+                                  decoration: InputDecoration(
+                                    labelText: _tr(
+                                      ru: 'Имя пользователя',
+                                      uz: 'Foydalanuvchi nomi',
+                                    ),
+                                    prefixIcon: const Icon(Icons.person_outline_rounded),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                  ),
+                                  validator: (v) => (v == null || v.trim().isEmpty)
+                                      ? _tr(
+                                          ru: 'Введите имя пользователя',
+                                          uz: 'Foydalanuvchi nomini kiriting',
+                                        )
+                                      : null,
+                                ),
+                                const SizedBox(height: 12),
+                                TextFormField(
+                                  controller: _passwordController,
+                                  obscureText: true,
+                                  decoration: InputDecoration(
+                                    labelText: _tr(ru: 'Пароль', uz: 'Parol'),
+                                    prefixIcon: const Icon(Icons.lock_outline_rounded),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                  ),
+                                  validator: (v) => (v == null || v.isEmpty)
+                                      ? _tr(ru: 'Введите пароль', uz: 'Parolni kiriting')
+                                      : null,
+                                ),
+                                const SizedBox(height: 12),
+                                if (_error != null)
+                                  Text(
+                                    _error!,
+                                    style: const TextStyle(color: Color(0xFFDC2626), fontWeight: FontWeight.w600),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                const SizedBox(height: 8),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: FilledButton(
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: const Color(0xFF1D4ED8),
+                                      foregroundColor: Colors.white,
+                                      minimumSize: const Size.fromHeight(50),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                    ),
+                                    onPressed: _loading ? null : _login,
+                                    child: _loading
+                                        ? const SizedBox(
+                                            height: 18,
+                                            width: 18,
+                                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                          )
+                                        : Text(_tr(ru: 'Войти', uz: 'Kirish')),
+                                  ),
+                                ),
+                              ] else ...[
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF8FAFC),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                                  ),
+                                  child: Text(
+                                    _tr(
+                                      ru: 'Режим клиента: подтвердите email кодом и продолжайте.',
+                                      uz: 'Mijoz rejimi: email kodini tasdiqlang va davom eting.',
+                                    ),
+                                    style: const TextStyle(height: 1.3, color: Color(0xFF334155)),
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                TextField(
+                                  controller: _clientEmailController,
+                                  keyboardType: TextInputType.emailAddress,
+                                  decoration: InputDecoration(
+                                    labelText: _tr(ru: 'Email', uz: 'Email'),
+                                    prefixIcon: const Icon(Icons.email_outlined),
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: FilledButton(
+                                    onPressed: _clientBusy ? null : _clientSendCode,
+                                    child: _clientBusy
+                                        ? const SizedBox(
+                                            height: 18,
+                                            width: 18,
+                                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                          )
+                                        : Text(_tr(ru: 'Отправить код', uz: 'Kodni yuborish')),
+                                  ),
+                                ),
+                                if (_clientStep >= 1) ...[
+                                  const SizedBox(height: 12),
+                                  TextField(
+                                    controller: _clientCodeController,
+                                    keyboardType: TextInputType.number,
+                                    decoration: InputDecoration(
+                                      labelText: _tr(ru: 'Код подтверждения', uz: 'Tasdiqlash kodi'),
+                                      prefixIcon: const Icon(Icons.verified_outlined),
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: FilledButton(
+                                      onPressed: _clientBusy ? null : _clientVerifyCode,
+                                      child: _clientBusy
+                                          ? const SizedBox(
+                                              height: 18,
+                                              width: 18,
+                                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                            )
+                                          : Text(_tr(ru: 'Подтвердить код', uz: 'Kodni tasdiqlash')),
+                                    ),
+                                  ),
+                                ],
+                                if (_clientStep >= 2) ...[
+                                  const SizedBox(height: 12),
+                                  TextField(
+                                    controller: _clientPasswordController,
+                                    obscureText: true,
+                                    decoration: InputDecoration(
+                                      labelText: _tr(ru: 'Пароль', uz: 'Parol'),
+                                      prefixIcon: const Icon(Icons.lock_outline_rounded),
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: FilledButton(
+                                      onPressed: _clientBusy ? null : _clientAuth,
+                                      child: _clientBusy
+                                          ? const SizedBox(
+                                              height: 18,
+                                              width: 18,
+                                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                            )
+                                          : Text(_clientExists
+                                              ? _tr(ru: 'Войти', uz: 'Kirish')
+                                              : _tr(ru: 'Создать аккаунт', uz: 'Akkaunt yaratish')),
+                                    ),
+                                  ),
+                                ],
+                                if (_clientError != null) ...[
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    _clientError!,
+                                    style: const TextStyle(color: Color(0xFFDC2626), fontWeight: FontWeight.w600),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              ],
                             ],
-                          ],
+                          ),
+                          Positioned(
+                            right: 2,
+                            top: 2,
+                            child: Builder(
+                              builder: (iconContext) => IconButton(
+                                onPressed: () => _openLoginLangMenu(iconContext),
+                                icon: Image.asset('assets/icons/language.png', width: 20, height: 20),
+                                tooltip: _uiLang == 'ru' ? 'RU' : 'UZ',
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),
