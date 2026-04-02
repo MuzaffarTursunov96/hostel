@@ -8,6 +8,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' as mb;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -1628,6 +1630,22 @@ class _ApiClient {
     return r.body.isEmpty ? <String, dynamic>{} : jsonDecode(r.body);
   }
 
+  Future<dynamic> putJson(String path, Map<String, dynamic> body) async {
+    final uri = Uri.parse('$baseApi$path');
+    final r = await _runWithRetry(() => http.put(
+          uri,
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode(body),
+        ));
+    if (r.statusCode < 200 || r.statusCode >= 300) {
+      throw Exception('status ${r.statusCode}: ${r.body}');
+    }
+    return r.body.isEmpty ? <String, dynamic>{} : jsonDecode(r.body);
+  }
+
   Future<dynamic> deleteJson(
     String path, {
     Map<String, String>? query,
@@ -1705,6 +1723,35 @@ class _ApiClient {
       },
       files: [file],
     );
+  }
+
+  Future<List<Map<String, dynamic>>> listBranchImages(int branchId) async {
+    final data = await getJson('/branches/admin/$branchId/images') as Map;
+    final rows = (data['images'] as List?) ?? const [];
+    return rows.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+  }
+
+  Future<void> uploadBranchImage(
+    int branchId, {
+    required String filePath,
+    bool isCover = false,
+  }) async {
+    final file = await http.MultipartFile.fromPath('files', filePath);
+    await postMultipart(
+      '/branches/admin/$branchId/images',
+      fields: {
+        'is_cover': isCover ? 'true' : 'false',
+      },
+      files: [file],
+    );
+  }
+
+  Future<void> setBranchImageCover(int branchId, int imageId) async {
+    await putQuery('/branches/admin/$branchId/images/$imageId/cover', {});
+  }
+
+  Future<void> deleteBranchImage(int branchId, int imageId) async {
+    await deleteJson('/branches/admin/$branchId/images/$imageId');
   }
 
   Future<void> setRoomImageCover(int roomId, int imageId) async {
@@ -6780,6 +6827,7 @@ class _SettingsPageState extends State<_SettingsPage> {
   final _newBranchAddressCtrl = TextEditingController();
   final _newBranchLatCtrl = TextEditingController();
   final _newBranchLngCtrl = TextEditingController();
+  final ImagePicker _imagePicker = ImagePicker();
 
   List<Map<String, dynamic>> _users = [];
   List<Map<String, dynamic>> _branches = [];
@@ -6931,6 +6979,51 @@ class _SettingsPageState extends State<_SettingsPage> {
       } catch (_) {}
     }
     return out;
+  }
+
+  Map<String, String> _collectNameSlug(String nameKey, String slugKey) {
+    final map = <String, String>{};
+    for (final b in _branches) {
+      final name = '${b[nameKey] ?? ''}'.trim();
+      final slug = '${b[slugKey] ?? ''}'.trim();
+      if (name.isNotEmpty && slug.isNotEmpty) {
+        map[name] = slug;
+      }
+    }
+    return map;
+  }
+
+  String _slugify(String input) {
+    final raw = input.trim().toLowerCase();
+    final slug = raw.replaceAll(RegExp(r'[^a-z0-9]+'), '-').replaceAll(RegExp(r'^-+|-+$'), '');
+    return slug.isEmpty ? raw : slug;
+  }
+
+  Future<void> _openBranchEditor({Map<String, dynamic>? branch}) async {
+    final regions = _collectNameSlug('region_name', 'region_slug');
+    final cities = _collectNameSlug('city_name', 'city_slug');
+    final districts = _collectNameSlug('district_name', 'district_slug');
+
+    final ok = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => _BranchEditorSheet(
+        api: widget.api,
+        imagePicker: _imagePicker,
+        initialBranch: branch,
+        regionMap: regions,
+        cityMap: cities,
+        districtMap: districts,
+        slugify: _slugify,
+      ),
+    );
+    if (ok == true) {
+      await _loadRole();
+    }
   }
 
   Future<void> _loadSelectedUserNotify() async {
@@ -7352,26 +7445,32 @@ class _SettingsPageState extends State<_SettingsPage> {
                         .toList(),
                     onChanged: (v) => setState(() => _selectedBranchId = v),
                   ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: _selectedBranchId == null
+                          ? null
+                          : () {
+                              final branch = _branches.firstWhere(
+                                (b) => _toInt(b['id']) == _selectedBranchId,
+                                orElse: () => <String, dynamic>{},
+                              );
+                              _openBranchEditor(branch: branch);
+                            },
+                      child: Text(_t('Редактировать выбранный филиал', 'Tanlangan filialni tahrirlash')),
+                    ),
+                  ),
                   const SizedBox(height: 8),
-                  TextField(controller: _newBranchNameCtrl, decoration: InputDecoration(hintText: _t('Название нового филиала', 'Yangi filial nomi'), border: const OutlineInputBorder())),
-                  const SizedBox(height: 8),
-                  TextField(controller: _newBranchAddressCtrl, decoration: InputDecoration(hintText: _t('Адрес (необязательно)', 'Manzil (ixtiyoriy)'), border: const OutlineInputBorder())),
-                  const SizedBox(height: 8),
-                  TextField(controller: _newBranchLatCtrl, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(hintText: _t('Широта (необязательно)', 'Kenglik (ixtiyoriy)'), border: const OutlineInputBorder())),
-                  const SizedBox(height: 8),
-                  TextField(controller: _newBranchLngCtrl, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(hintText: _t('Долгота (необязательно)', 'Uzunlik (ixtiyoriy)'), border: const OutlineInputBorder())),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      style: FilledButton.styleFrom(backgroundColor: const Color(0xFF3B82F6)),
+                      onPressed: () => _openBranchEditor(),
+                      child: Text(_t('Добавить новый филиал', "Yangi filial qo'shish")),
+                    ),
+                  ),
                 ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            SizedBox(width: double.infinity, child: FilledButton(onPressed: _saving ? null : _createBranch, child: Text(_t('Добавить', "Qo'shish")))),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE5534B)),
-                onPressed: _saving ? null : _deleteBranch,
-                child: Text(_t("Удалить", "O'chirish")),
               ),
             ),
             const SizedBox(height: 12),
@@ -7616,6 +7715,513 @@ class _SettingsPageState extends State<_SettingsPage> {
                       ),
                     ),
                   ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BranchEditorSheet extends StatefulWidget {
+  const _BranchEditorSheet({
+    required this.api,
+    required this.imagePicker,
+    required this.regionMap,
+    required this.cityMap,
+    required this.districtMap,
+    required this.slugify,
+    this.initialBranch,
+  });
+
+  final _ApiClient api;
+  final ImagePicker imagePicker;
+  final Map<String, String> regionMap;
+  final Map<String, String> cityMap;
+  final Map<String, String> districtMap;
+  final String Function(String) slugify;
+  final Map<String, dynamic>? initialBranch;
+
+  @override
+  State<_BranchEditorSheet> createState() => _BranchEditorSheetState();
+}
+
+class _BranchEditorSheetState extends State<_BranchEditorSheet> {
+  final _nameCtrl = TextEditingController();
+  final _addressCtrl = TextEditingController();
+  final _regionCtrl = TextEditingController();
+  final _cityCtrl = TextEditingController();
+  final _districtCtrl = TextEditingController();
+  final _latCtrl = TextEditingController();
+  final _lngCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
+  final _telegramCtrl = TextEditingController();
+
+  String? _regionSlug;
+  String? _citySlug;
+  String? _districtSlug;
+  int? _branchId;
+  bool _saving = false;
+  bool _loadingImages = false;
+  bool _uploadingImage = false;
+  List<Map<String, dynamic>> _images = [];
+
+  String _t(String ru, String uz) => trPair(ru: ru, uz: uz, lang: appLang.value);
+
+  @override
+  void initState() {
+    super.initState();
+    final b = widget.initialBranch;
+    if (b != null && b.isNotEmpty) {
+      _branchId = b['id'] is int ? b['id'] as int : int.tryParse('${b['id']}');
+      _nameCtrl.text = '${b['name'] ?? b['branch_name'] ?? ''}';
+      _addressCtrl.text = '${b['address'] ?? ''}';
+      _regionCtrl.text = '${b['region_name'] ?? ''}';
+      _cityCtrl.text = '${b['city_name'] ?? ''}';
+      _districtCtrl.text = '${b['district_name'] ?? ''}';
+      _latCtrl.text = '${b['latitude'] ?? ''}';
+      _lngCtrl.text = '${b['longitude'] ?? ''}';
+      _phoneCtrl.text = '${b['contact_phone'] ?? ''}';
+      _telegramCtrl.text = '${b['contact_telegram'] ?? ''}';
+      _regionSlug = '${b['region_slug'] ?? ''}';
+      _citySlug = '${b['city_slug'] ?? ''}';
+      _districtSlug = '${b['district_slug'] ?? ''}';
+      _loadImages();
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _addressCtrl.dispose();
+    _regionCtrl.dispose();
+    _cityCtrl.dispose();
+    _districtCtrl.dispose();
+    _latCtrl.dispose();
+    _lngCtrl.dispose();
+    _phoneCtrl.dispose();
+    _telegramCtrl.dispose();
+    super.dispose();
+  }
+
+  String _imgUrl(dynamic imagePath) {
+    final raw = '${imagePath ?? ''}'.trim();
+    if (raw.isEmpty) return '';
+    if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+    if (raw.startsWith('/')) return 'https://hmsuz.com$raw';
+    return 'https://hmsuz.com/$raw';
+  }
+
+  Future<void> _loadImages() async {
+    final id = _branchId;
+    if (id == null) return;
+    setState(() => _loadingImages = true);
+    try {
+      final rows = await widget.api.listBranchImages(id);
+      if (!mounted) return;
+      setState(() => _images = rows);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _images = []);
+    } finally {
+      if (mounted) setState(() => _loadingImages = false);
+    }
+  }
+
+  String? _slugFor(String name, Map<String, String> map) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return null;
+    return map[trimmed] ?? widget.slugify(trimmed);
+  }
+
+  Future<void> _pickLocation() async {
+    final lat = double.tryParse(_latCtrl.text.trim());
+    final lng = double.tryParse(_lngCtrl.text.trim());
+    final picked = await showModalBottomSheet<LatLng>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (_) => _BranchMapPickerSheet(
+        initial: (lat != null && lng != null) ? LatLng(lat, lng) : null,
+      ),
+    );
+    if (picked != null) {
+      setState(() {
+        _latCtrl.text = picked.latitude.toStringAsFixed(6);
+        _lngCtrl.text = picked.longitude.toStringAsFixed(6);
+      });
+    }
+  }
+
+  Future<void> _save() async {
+    final name = _nameCtrl.text.trim();
+    final region = _regionCtrl.text.trim();
+    final city = _cityCtrl.text.trim();
+    final lat = double.tryParse(_latCtrl.text.trim());
+    final lng = double.tryParse(_lngCtrl.text.trim());
+    if (name.isEmpty) {
+      showAppAlert(context, _t('Введите название филиала', 'Filial nomini kiriting'), error: true);
+      return;
+    }
+    if (region.isEmpty || city.isEmpty) {
+      showAppAlert(context, _t('Выберите область и город', 'Viloyat va shaharni tanlang'), error: true);
+      return;
+    }
+    if (lat == null || lng == null) {
+      showAppAlert(context, _t('Укажите координаты', 'Koordinatalarni kiriting'), error: true);
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      _regionSlug = _slugFor(region, widget.regionMap) ?? region;
+      _citySlug = _slugFor(city, widget.cityMap) ?? city;
+      _districtSlug = _districtCtrl.text.trim().isEmpty
+          ? null
+          : (_slugFor(_districtCtrl.text.trim(), widget.districtMap) ?? _districtCtrl.text.trim());
+
+      final payload = {
+        'name': name,
+        'address': _addressCtrl.text.trim().isEmpty ? null : _addressCtrl.text.trim(),
+        'latitude': lat,
+        'longitude': lng,
+        'region_name': region,
+        'region_slug': _regionSlug,
+        'city_name': city,
+        'city_slug': _citySlug,
+        'district_name': _districtCtrl.text.trim().isEmpty ? null : _districtCtrl.text.trim(),
+        'district_slug': _districtSlug,
+        'contact_phone': _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
+        'contact_telegram': _telegramCtrl.text.trim().isEmpty ? null : _telegramCtrl.text.trim(),
+      };
+
+      if (_branchId == null) {
+        final res = await widget.api.postJson('/branches/branches-admin', payload);
+        final newId = res is Map ? int.tryParse('${res['branch_id']}') : null;
+        if (newId != null) {
+          setState(() => _branchId = newId);
+          await _loadImages();
+        }
+      } else {
+        await widget.api.putJson('/branches/admin/$_branchId', payload);
+      }
+
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      showAppAlert(context, '$e', error: true);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _pickAndUploadImage() async {
+    final id = _branchId;
+    if (id == null) {
+      showAppAlert(context, _t('Сначала сохраните филиал', 'Avval filialni saqlang'), error: true);
+      return;
+    }
+    final picked = await widget.imagePicker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 88,
+      maxWidth: 1800,
+    );
+    if (picked == null) return;
+    setState(() => _uploadingImage = true);
+    try {
+      await widget.api.uploadBranchImage(id, filePath: picked.path, isCover: _images.isEmpty);
+      await _loadImages();
+      showAppAlert(context, _t('Фото загружено', 'Rasm yuklandi'));
+    } catch (e) {
+      showAppAlert(context, '$e', error: true);
+    } finally {
+      if (mounted) setState(() => _uploadingImage = false);
+    }
+  }
+
+  Future<void> _setCover(Map<String, dynamic> img) async {
+    final id = _branchId;
+    final imgId = img['id'] is int ? img['id'] as int : int.tryParse('${img['id']}');
+    if (id == null || imgId == null) return;
+    await widget.api.setBranchImageCover(id, imgId);
+    await _loadImages();
+  }
+
+  Future<void> _deleteImage(Map<String, dynamic> img) async {
+    final id = _branchId;
+    final imgId = img['id'] is int ? img['id'] as int : int.tryParse('${img['id']}');
+    if (id == null || imgId == null) return;
+    await widget.api.deleteBranchImage(id, imgId);
+    await _loadImages();
+  }
+
+  Future<void> _deleteBranch() async {
+    final id = _branchId;
+    if (id == null) return;
+    final ok = await confirmAction(
+      context,
+      title: _t('Удалить филиал', 'Filialni o‘chirish'),
+      message: _t('Вы уверены, что хотите удалить филиал?', 'Filialni o‘chirmoqchimisiz?'),
+      confirmText: _t('Удалить', "O'chirish"),
+      cancelText: _t('Отмена', 'Bekor'),
+    );
+    if (!ok) return;
+    try {
+      await widget.api.deleteJson('/branches/admin/$id');
+      if (mounted) Navigator.of(context).pop(true);
+    } catch (e) {
+      showAppAlert(context, '$e', error: true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isEdit = _branchId != null;
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: 16,
+          right: 16,
+          top: 12,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    isEdit ? _t('Редактирование филиала', 'Filial tahrirlash') : _t('Новый филиал', 'Yangi filial'),
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                  ),
+                  const Spacer(),
+                  IconButton(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.close)),
+                ],
+              ),
+              const SizedBox(height: 8),
+              TextField(controller: _nameCtrl, decoration: InputDecoration(hintText: _t('Название', 'Nomi'), border: const OutlineInputBorder())),
+              const SizedBox(height: 8),
+              TextField(controller: _addressCtrl, decoration: InputDecoration(hintText: _t('Адрес (необязательно)', 'Manzil (ixtiyoriy)'), border: const OutlineInputBorder())),
+              const SizedBox(height: 8),
+              TextField(controller: _regionCtrl, decoration: InputDecoration(hintText: _t('Область', 'Viloyat'), border: const OutlineInputBorder())),
+              const SizedBox(height: 8),
+              TextField(controller: _cityCtrl, decoration: InputDecoration(hintText: _t('Город', 'Shahar'), border: const OutlineInputBorder())),
+              const SizedBox(height: 8),
+              TextField(controller: _districtCtrl, decoration: InputDecoration(hintText: _t('Район', 'Tuman'), border: const OutlineInputBorder())),
+              const SizedBox(height: 8),
+              TextField(controller: _latCtrl, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(hintText: _t('Широта', 'Kenglik'), border: const OutlineInputBorder())),
+              const SizedBox(height: 8),
+              TextField(controller: _lngCtrl, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(hintText: _t('Долгота', 'Uzunlik'), border: const OutlineInputBorder())),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: _pickLocation,
+                  child: Text(_t('Выбрать точку на карте', 'Xaritadan tanlash')),
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextField(controller: _phoneCtrl, decoration: const InputDecoration(hintText: '+998...', border: OutlineInputBorder())),
+              const SizedBox(height: 8),
+              TextField(controller: _telegramCtrl, decoration: InputDecoration(hintText: _t('Telegram филиала (необязательно)', 'Filial Telegram (ixtiyoriy)'), border: const OutlineInputBorder())),
+              const SizedBox(height: 12),
+              Text(_t('Основные фото филиала', 'Filial fotosi'), style: const TextStyle(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  FilledButton(
+                    onPressed: _uploadingImage ? null : _pickAndUploadImage,
+                    child: _uploadingImage
+                        ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                        : Text(_t('Загрузить', 'Yuklash')),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(_t('Максимум 3 фото', 'Maksimum 3 foto'), style: const TextStyle(color: Color(0xFF64748B))),
+                ],
+              ),
+              const SizedBox(height: 8),
+              if (_loadingImages)
+                const Center(child: CircularProgressIndicator())
+              else if (_images.isEmpty)
+                Text(_t('Фото пока нет', 'Hali rasm yo‘q'), style: const TextStyle(color: Color(0xFF64748B)))
+              else
+                Column(
+                  children: _images.map((img) {
+                    final isCover = img['is_cover'] == true;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: Column(
+                          children: [
+                            ClipRRect(
+                              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                              child: Image.network(
+                                _imgUrl(img['image_path']),
+                                height: 160,
+                                width: double.infinity,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.all(8),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: FilledButton(
+                                      onPressed: isCover ? null : () => _setCover(img),
+                                      child: Text(isCover ? _t('Основное', 'Asosiy') : _t('Сделать основным', 'Asosiy qilish')),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: OutlinedButton(
+                                      onPressed: () => _deleteImage(img),
+                                      child: Text(_t('Удалить', "O'chirish")),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: Text(_t('Отмена', 'Bekor')),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: _saving ? null : _save,
+                      child: _saving
+                          ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                          : Text(_t('Сохранить', 'Saqlash')),
+                    ),
+                  ),
+                ],
+              ),
+              if (isEdit) ...[
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE5534B)),
+                    onPressed: _deleteBranch,
+                    child: Text(_t('Удалить', "O'chirish")),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BranchMapPickerSheet extends StatefulWidget {
+  const _BranchMapPickerSheet({this.initial});
+  final LatLng? initial;
+
+  @override
+  State<_BranchMapPickerSheet> createState() => _BranchMapPickerSheetState();
+}
+
+class _BranchMapPickerSheetState extends State<_BranchMapPickerSheet> {
+  mb.MapboxMap? _map;
+  LatLng? _selected;
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = widget.initial;
+  }
+
+  void _onTap(mb.MapContentGestureContext ctx) async {
+    final coords = ctx.point.coordinates;
+    setState(() => _selected = LatLng(coords.lat.toDouble(), coords.lng.toDouble()));
+    if (_map != null) {
+      await _map!.setCamera(
+        mb.CameraOptions(center: mb.Point(coordinates: mb.Position(coords.lng, coords.lat)), zoom: 13),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final token = dotenv.get('MAPBOX_TOKEN', fallback: '');
+    return SafeArea(
+      child: Column(
+        children: [
+          const SizedBox(height: 8),
+          Text(trPair(ru: 'Выбор точки', uz: 'Nuqtani tanlash', lang: appLang.value),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          Expanded(
+            child: token.isEmpty
+                ? Center(child: Text(trPair(ru: 'MAPBOX_TOKEN не задан.', uz: 'MAPBOX_TOKEN yo‘q.', lang: appLang.value)))
+                : Stack(
+                    children: [
+                      Builder(
+                        builder: (_) {
+                          mb.MapboxOptions.setAccessToken(token);
+                          return const SizedBox.shrink();
+                        },
+                      ),
+                      mb.MapWidget(
+                        key: const ValueKey('branch_map_picker'),
+                        styleUri: mb.MapboxStyles.STANDARD,
+                        cameraOptions: _selected == null
+                            ? mb.CameraOptions(center: mb.Point(coordinates: mb.Position(69.2797, 41.3111)), zoom: 11)
+                            : mb.CameraOptions(
+                                center: mb.Point(coordinates: mb.Position(_selected!.longitude, _selected!.latitude)),
+                                zoom: 13,
+                              ),
+                        onMapCreated: (map) {
+                          _map = map;
+                        },
+                        onTapListener: _onTap,
+                      ),
+                      const Center(
+                        child: Icon(Icons.place, size: 32, color: Color(0xFFEF4444)),
+                      ),
+                    ],
+                  ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: Text(trPair(ru: 'Отмена', uz: 'Bekor', lang: appLang.value)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: _selected == null ? null : () => Navigator.of(context).pop(_selected),
+                    child: Text(trPair(ru: 'Выбрать', uz: 'Tanlash', lang: appLang.value)),
+                  ),
                 ),
               ],
             ),
