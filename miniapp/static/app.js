@@ -23,6 +23,7 @@ window.t = function (key) {
 };
 
 let __expiryAlertShown = false;
+let __telegramReauthInFlight = false;
 
 function isExpiryErrorMessage(msg) {
   const m = String(msg || "").toLowerCase();
@@ -34,6 +35,42 @@ function isExpiryErrorMessage(msg) {
     m.includes("срок") ||
     m.includes("доступ")
   );
+}
+
+function isInvalidTokenMessage(msg) {
+  const m = String(msg || "").toLowerCase();
+  return (
+    m.includes("invalid token") ||
+    m.includes("jwt") ||
+    m.includes("unauthorized") ||
+    m.includes("invalid signature")
+  );
+}
+
+function tryTelegramReauth() {
+  if (__telegramReauthInFlight) return true;
+  const tg = window.Telegram && Telegram.WebApp ? Telegram.WebApp : null;
+  if (!tg || !tg.initData) return false;
+  __telegramReauthInFlight = true;
+  fetch("/auth/telegram", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ initData: tg.initData })
+  })
+    .then((r) => r.json())
+    .then((payload) => {
+      if (payload && payload.ok) {
+        window.location.reload();
+        return;
+      }
+      __telegramReauthInFlight = false;
+      window.location.href = "/login";
+    })
+    .catch(() => {
+      __telegramReauthInFlight = false;
+      window.location.href = "/login";
+    });
+  return true;
 }
 
 function buildExpiryContactMessage(baseMessage) {
@@ -168,7 +205,17 @@ function handleApiError(xhr) {
 
   console.error(t("api_error"), msg);
 
+  if (
+    isInvalidTokenMessage(msg) ||
+    (xhr && (xhr.status === 401 || xhr.status === 403) && isInvalidTokenMessage(msg))
+  ) {
+    if (tryTelegramReauth()) return;
+    window.location.href = "/login";
+    return;
+  }
+
   if ((xhr && xhr.status === 403 && isExpiryErrorMessage(msg)) || isExpiryErrorMessage(msg)) {
+    if (tryTelegramReauth()) return;
     if (!__expiryAlertShown) {
       __expiryAlertShown = true;
       alert(buildExpiryContactMessage(msg));
