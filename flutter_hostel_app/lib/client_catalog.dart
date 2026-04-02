@@ -664,6 +664,15 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
     );
   }
 
+  double? _distanceKmBetween(LatLng from, double lat, double lon) {
+    try {
+      final distance = Distance();
+      return distance.as(LengthUnit.Kilometer, from, LatLng(lat, lon));
+    } catch (_) {
+      return null;
+    }
+  }
+
   String? _normalizePhoto(dynamic v) {
     if (v == null) return null;
     final raw = v.toString();
@@ -989,7 +998,7 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                                       _searchCtrl.clear();
                                       _applyClientFilters();
                                     },
-                                    icon: Image.asset('assets/icons/clear-filter.png', width: 18, height: 18),
+                                    icon: const Icon(Icons.close),
                                   ),
                             filled: true,
                             fillColor: _card,
@@ -1470,6 +1479,13 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
         : (b.coverPhoto != null && b.coverPhoto!.trim().isNotEmpty
             ? <String>[b.coverPhoto!]
             : const <String>[]);
+    String? distanceLabel;
+    if (_distanceKm != null && _catalogUserPos != null && b.latitude != null && b.longitude != null) {
+      final d = _distanceKmBetween(_catalogUserPos!, b.latitude!, b.longitude!);
+      if (d != null) {
+        distanceLabel = '${d.toStringAsFixed(1)} km';
+      }
+    }
     return Container(
       decoration: BoxDecoration(
         color: _card,
@@ -1610,6 +1626,19 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                       ),
                   ],
                 ),
+                if (distanceLabel != null) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(Icons.place_outlined, size: 16, color: _textMuted),
+                      const SizedBox(width: 6),
+                      Text(
+                        distanceLabel,
+                        style: const TextStyle(fontWeight: FontWeight.w600, color: _textMuted),
+                      ),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: 10),
                 Row(
                   children: [
