@@ -923,16 +923,34 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                 ),
                 const SizedBox(height: 8),
                 Expanded(
-                  child: _loading
-                      ? const Center(child: CircularProgressIndicator())
-                      : _filtered.isEmpty
-                          ? Center(child: Text(_tr(ru: 'Ничего не найдено.', uz: 'Natija topilmadi.')))
-                          : ListView.separated(
-                              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                              itemCount: _filtered.length,
-                              separatorBuilder: (_, __) => const SizedBox(height: 12),
-                              itemBuilder: (_, i) => _buildBranchCard(_filtered[i]),
-                            ),
+                  child: RefreshIndicator(
+                    onRefresh: () async {
+                      await _loadAll();
+                    },
+                    child: _loading
+                        ? ListView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            children: const [
+                              SizedBox(height: 220),
+                              Center(child: CircularProgressIndicator()),
+                            ],
+                          )
+                        : _filtered.isEmpty
+                            ? ListView(
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                children: [
+                                  const SizedBox(height: 120),
+                                  Center(child: Text(_tr(ru: 'Ничего не найдено.', uz: 'Natija topilmadi.'))),
+                                ],
+                              )
+                            : ListView.separated(
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                                itemCount: _filtered.length,
+                                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                                itemBuilder: (_, i) => _buildBranchCard(_filtered[i]),
+                              ),
+                  ),
                 ),
               ],
             ),
@@ -1414,38 +1432,6 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
               ),
               alignment: Alignment.center,
               child: const Icon(Icons.hotel_outlined, size: 44, color: _textMuted),
-            ),
-          if (photos.length > 1)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-              child: Row(
-                children: List.generate(
-                  photos.length > 3 ? 3 : photos.length,
-                  (i) => Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.only(right: i == 2 || i == photos.length - 1 ? 0 : 6),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: AspectRatio(
-                          aspectRatio: 4 / 3,
-                          child: InkWell(
-                            onTap: () => _openImageGallery(photos, i),
-                            child: Image.network(
-                              photos[i],
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Container(
-                                color: _surfaceSoft,
-                                alignment: Alignment.center,
-                                child: const Icon(Icons.image_not_supported_outlined, size: 18),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
             ),
           Padding(
             padding: const EdgeInsets.all(12),
