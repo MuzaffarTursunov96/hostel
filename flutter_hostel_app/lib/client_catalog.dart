@@ -1113,11 +1113,6 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                               Expanded(
                                 child: Autocomplete<String>(
                                   optionsBuilder: (text) {
-                                    if (_regionSlug != null &&
-                                        _regionCtrl.text.trim().isNotEmpty &&
-                                        text.text.trim() == _regionCtrl.text.trim()) {
-                                      return const Iterable<String>.empty();
-                                    }
                                     final q = text.text.trim().toLowerCase();
                                     final all = _regionNames();
                                     if (q.isEmpty) return all;
@@ -1166,7 +1161,21 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                                               ),
                                       ),
                                       onChanged: (v) {
-                                        _regionCtrl.text = v;
+                                        setState(() {
+                                          _regionCtrl.text = v;
+                                          final slug = _regionSlugByName(v);
+                                          if (slug != null) {
+                                            _regionSlug = slug;
+                                          } else {
+                                            _regionSlug = null;
+                                          }
+                                          if (v.isEmpty) {
+                                            _cityName = null;
+                                            _cityCtrl.clear();
+                                            _districtName = null;
+                                            _districtCtrl.clear();
+                                          }
+                                        });
                                       },
                                     );
                                   },
@@ -1176,11 +1185,6 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                               Expanded(
                                 child: Autocomplete<String>(
                                   optionsBuilder: (text) {
-                                    if (_cityName != null &&
-                                        _cityCtrl.text.trim().isNotEmpty &&
-                                        text.text.trim() == _cityCtrl.text.trim()) {
-                                      return const Iterable<String>.empty();
-                                    }
                                     final q = text.text.trim().toLowerCase();
                                     final all = _cityNames();
                                     if (q.isEmpty) return all;
@@ -1224,7 +1228,14 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                                               ),
                                       ),
                                       onChanged: (v) {
-                                        _cityCtrl.text = v;
+                                        setState(() {
+                                          _cityCtrl.text = v;
+                                          _cityName = null;
+                                          if (v.isEmpty) {
+                                            _districtName = null;
+                                            _districtCtrl.clear();
+                                          }
+                                        });
                                       },
                                     );
                                   },
@@ -1238,11 +1249,6 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                               Expanded(
                                 child: Autocomplete<String>(
                                   optionsBuilder: (text) {
-                                    if (_districtName != null &&
-                                        _districtCtrl.text.trim().isNotEmpty &&
-                                        text.text.trim() == _districtCtrl.text.trim()) {
-                                      return const Iterable<String>.empty();
-                                    }
                                     final q = text.text.trim().toLowerCase();
                                     final all = _districtNames();
                                     if (q.isEmpty) return all;
@@ -1282,7 +1288,10 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                                               ),
                                       ),
                                       onChanged: (v) {
-                                        _districtCtrl.text = v;
+                                        setState(() {
+                                          _districtCtrl.text = v;
+                                          _districtName = null;
+                                        });
                                       },
                                     );
                                   },

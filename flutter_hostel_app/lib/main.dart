@@ -7862,6 +7862,7 @@ class _BranchEditorSheetState extends State<_BranchEditorSheet> {
     final name = _nameCtrl.text.trim();
     final region = _regionCtrl.text.trim();
     final city = _cityCtrl.text.trim();
+    final district = _districtCtrl.text.trim();
     final lat = double.tryParse(_latCtrl.text.trim());
     final lng = double.tryParse(_lngCtrl.text.trim());
     if (name.isEmpty) {
@@ -7870,6 +7871,10 @@ class _BranchEditorSheetState extends State<_BranchEditorSheet> {
     }
     if (region.isEmpty || city.isEmpty) {
       showAppAlert(context, _t('Выберите область и город', 'Viloyat va shaharni tanlang'), error: true);
+      return;
+    }
+    if (district.isEmpty) {
+      showAppAlert(context, _t('Выберите район', 'Tumanni tanlang'), error: true);
       return;
     }
     if (lat == null || lng == null) {
@@ -7893,8 +7898,8 @@ class _BranchEditorSheetState extends State<_BranchEditorSheet> {
         'region_slug': _regionSlug,
         'city_name': city,
         'city_slug': _citySlug,
-        'district_name': _districtCtrl.text.trim().isEmpty ? null : _districtCtrl.text.trim(),
-        'district_slug': _districtSlug,
+        'district_name': district,
+        'district_slug': _districtSlug ?? district,
         'contact_phone': _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
         'contact_telegram': _telegramCtrl.text.trim().isEmpty ? null : _telegramCtrl.text.trim(),
       };
@@ -7986,7 +7991,7 @@ class _BranchEditorSheetState extends State<_BranchEditorSheet> {
         padding: EdgeInsets.only(
           left: 16,
           right: 16,
-          top: 12,
+          top: 20,
           bottom: MediaQuery.of(context).viewInsets.bottom + 16,
         ),
         child: SingleChildScrollView(
@@ -8004,15 +8009,82 @@ class _BranchEditorSheetState extends State<_BranchEditorSheet> {
                 ],
               ),
               const SizedBox(height: 8),
-              TextField(controller: _nameCtrl, decoration: InputDecoration(hintText: _t('Название', 'Nomi'), border: const OutlineInputBorder())),
+              TextField(controller: _nameCtrl, decoration: InputDecoration(hintText: _t('Название *', 'Nomi *'), border: const OutlineInputBorder())),
               const SizedBox(height: 8),
-              TextField(controller: _addressCtrl, decoration: InputDecoration(hintText: _t('Адрес (необязательно)', 'Manzil (ixtiyoriy)'), border: const OutlineInputBorder())),
+              Autocomplete<String>(
+                optionsBuilder: (text) {
+                  final q = text.text.trim().toLowerCase();
+                  final all = widget.regionMap.keys.toList();
+                  if (q.isEmpty) return all;
+                  return all.where((e) => e.toLowerCase().contains(q));
+                },
+                onSelected: (value) {
+                  setState(() {
+                    _regionCtrl.text = value;
+                    _regionSlug = widget.regionMap[value] ?? widget.slugify(value);
+                  });
+                },
+                fieldViewBuilder: (context, controller, focusNode, onSubmit) {
+                  controller.text = _regionCtrl.text;
+                  controller.selection = TextSelection.fromPosition(TextPosition(offset: controller.text.length));
+                  return TextField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    decoration: InputDecoration(hintText: _t('Область *', 'Viloyat *'), border: const OutlineInputBorder()),
+                    onChanged: (v) => _regionCtrl.text = v,
+                  );
+                },
+              ),
               const SizedBox(height: 8),
-              TextField(controller: _regionCtrl, decoration: InputDecoration(hintText: _t('Область', 'Viloyat'), border: const OutlineInputBorder())),
+              Autocomplete<String>(
+                optionsBuilder: (text) {
+                  final q = text.text.trim().toLowerCase();
+                  final all = widget.cityMap.keys.toList();
+                  if (q.isEmpty) return all;
+                  return all.where((e) => e.toLowerCase().contains(q));
+                },
+                onSelected: (value) {
+                  setState(() {
+                    _cityCtrl.text = value;
+                    _citySlug = widget.cityMap[value] ?? widget.slugify(value);
+                  });
+                },
+                fieldViewBuilder: (context, controller, focusNode, onSubmit) {
+                  controller.text = _cityCtrl.text;
+                  controller.selection = TextSelection.fromPosition(TextPosition(offset: controller.text.length));
+                  return TextField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    decoration: InputDecoration(hintText: _t('Город *', 'Shahar *'), border: const OutlineInputBorder()),
+                    onChanged: (v) => _cityCtrl.text = v,
+                  );
+                },
+              ),
               const SizedBox(height: 8),
-              TextField(controller: _cityCtrl, decoration: InputDecoration(hintText: _t('Город', 'Shahar'), border: const OutlineInputBorder())),
-              const SizedBox(height: 8),
-              TextField(controller: _districtCtrl, decoration: InputDecoration(hintText: _t('Район', 'Tuman'), border: const OutlineInputBorder())),
+              Autocomplete<String>(
+                optionsBuilder: (text) {
+                  final q = text.text.trim().toLowerCase();
+                  final all = widget.districtMap.keys.toList();
+                  if (q.isEmpty) return all;
+                  return all.where((e) => e.toLowerCase().contains(q));
+                },
+                onSelected: (value) {
+                  setState(() {
+                    _districtCtrl.text = value;
+                    _districtSlug = widget.districtMap[value] ?? widget.slugify(value);
+                  });
+                },
+                fieldViewBuilder: (context, controller, focusNode, onSubmit) {
+                  controller.text = _districtCtrl.text;
+                  controller.selection = TextSelection.fromPosition(TextPosition(offset: controller.text.length));
+                  return TextField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    decoration: InputDecoration(hintText: _t('Район *', 'Tuman *'), border: const OutlineInputBorder()),
+                    onChanged: (v) => _districtCtrl.text = v,
+                  );
+                },
+              ),
               const SizedBox(height: 8),
               TextField(controller: _latCtrl, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(hintText: _t('Широта', 'Kenglik'), border: const OutlineInputBorder())),
               const SizedBox(height: 8),
@@ -8148,11 +8220,19 @@ class _BranchMapPickerSheet extends StatefulWidget {
 class _BranchMapPickerSheetState extends State<_BranchMapPickerSheet> {
   mb.MapboxMap? _map;
   LatLng? _selected;
+  LatLng? _pendingCenter;
+  Timer? _cameraDebounce;
 
   @override
   void initState() {
     super.initState();
     _selected = widget.initial;
+  }
+
+  @override
+  void dispose() {
+    _cameraDebounce?.cancel();
+    super.dispose();
   }
 
   void _onTap(mb.MapContentGestureContext ctx) async {
@@ -8163,6 +8243,18 @@ class _BranchMapPickerSheetState extends State<_BranchMapPickerSheet> {
         mb.CameraOptions(center: mb.Point(coordinates: mb.Position(coords.lng, coords.lat)), zoom: 13),
       );
     }
+  }
+
+  void _onCameraChanged(mb.CameraChangedEventData data) {
+    final center = data.cameraState.center.coordinates;
+    _pendingCenter = LatLng(center.lat.toDouble(), center.lng.toDouble());
+    _cameraDebounce?.cancel();
+    _cameraDebounce = Timer(const Duration(milliseconds: 150), () {
+      if (!mounted) return;
+      if (_pendingCenter != null) {
+        setState(() => _selected = _pendingCenter);
+      }
+    });
   }
 
   @override
@@ -8199,6 +8291,7 @@ class _BranchMapPickerSheetState extends State<_BranchMapPickerSheet> {
                           _map = map;
                         },
                         onTapListener: _onTap,
+                        onCameraChangeListener: _onCameraChanged,
                       ),
                       const Center(
                         child: Icon(Icons.place, size: 32, color: Color(0xFFEF4444)),
