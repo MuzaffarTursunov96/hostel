@@ -1823,9 +1823,9 @@ class _ClientMapScreenState extends State<ClientMapScreen> {
       mb.CircleAnnotationOptions(
         geometry: mb.Point(coordinates: mb.Position(_userPos!.longitude, _userPos!.latitude)),
         circleRadius: radiusPixels,
-        circleOpacity: 0.1,
-        circleColor: const Color(0xFF2563EB).value,
-        circleStrokeColor: const Color(0xFF2563EB).value,
+        circleOpacity: 0.12,
+        circleColor: const Color(0xFFF59E0B).value,
+        circleStrokeColor: const Color(0xFFF59E0B).value,
         circleStrokeWidth: 2.5,
       ),
     );
@@ -1919,8 +1919,8 @@ class _ClientMapScreenState extends State<ClientMapScreen> {
                       Center(
                         child: Image.asset(
                           'assets/icons/arrows.png',
-                          width: 46,
-                          height: 46,
+                          width: 32,
+                          height: 32,
                         ),
                       ),
                     Positioned(
@@ -1930,9 +1930,14 @@ class _ClientMapScreenState extends State<ClientMapScreen> {
                         heroTag: 'gps_btn',
                         mini: true,
                         backgroundColor: Colors.white,
+                        elevation: 0,
+                        highlightElevation: 0,
+                        focusElevation: 0,
+                        hoverElevation: 0,
+                        shadowColor: Colors.transparent,
                         onPressed: _togglePickLocation,
                         child: _pickLocation
-                            ? Image.asset('assets/icons/arrows.png', width: 22, height: 22)
+                            ? Image.asset('assets/icons/arrows.png', width: 18, height: 18)
                             : const Icon(Icons.my_location, color: Color(0xFF1D4ED8)),
                       ),
                     ),
