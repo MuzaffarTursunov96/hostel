@@ -45,6 +45,8 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
   bool _loading = false;
   bool _filtersOpen = false;
   bool _filtersActive = false;
+  int _page = 1;
+  static const int _pageSize = 12;
   String _priceMode = 'day';
   double _minRating = 0;
   double? _distanceKm;
@@ -277,7 +279,8 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
     }).toList();
     setState(() {
       _filtered = list;
-      _filtersActive = _hasActiveFilters();
+      _filtersActive = _hasActiveFilters(includeSearch: false);
+      _page = 1;
     });
   }
 
@@ -285,8 +288,8 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
     setState(() => _filtersOpen = !_filtersOpen);
   }
 
-  bool _hasActiveFilters() {
-    if (_searchCtrl.text.trim().isNotEmpty) return true;
+  bool _hasActiveFilters({bool includeSearch = true}) {
+    if (includeSearch && _searchCtrl.text.trim().isNotEmpty) return true;
     if (_regionSlug != null && _regionSlug!.trim().isNotEmpty) return true;
     if (_cityName != null && _cityName!.trim().isNotEmpty) return true;
     if (_districtName != null && _districtName!.trim().isNotEmpty) return true;
@@ -313,6 +316,7 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
       _priceRange = RangeValues(_priceMinBound, _priceMaxBound);
       _distanceKm = null;
       _filtersActive = false;
+      _page = 1;
     });
     _applyClientFilters();
   }
@@ -953,6 +957,15 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
       _priceRange.start.clamp(_priceMinBound, rangeMax),
       _priceRange.end.clamp(_priceMinBound, rangeMax),
     );
+    final totalPages = (_filtered.length / _pageSize).ceil();
+    final effectivePage = totalPages == 0 ? 1 : _page.clamp(1, totalPages);
+    if (effectivePage != _page) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _page = effectivePage);
+      });
+    }
+    final pageStart = (effectivePage - 1) * _pageSize;
+    final pageItems = _filtered.skip(pageStart).take(_pageSize).toList();
     return Scaffold(
       backgroundColor: _bg,
       appBar: AppBar(
@@ -1047,12 +1060,46 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                             : ListView.separated(
                                 physics: const AlwaysScrollableScrollPhysics(),
                                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                                itemCount: _filtered.length,
+                                itemCount: pageItems.length,
                                 separatorBuilder: (_, __) => const SizedBox(height: 12),
-                                itemBuilder: (_, i) => _buildBranchCard(_filtered[i]),
+                                itemBuilder: (_, i) => _buildBranchCard(pageItems[i]),
                               ),
                   ),
                 ),
+                if (totalPages > 1)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 6, 16, 14),
+                    child: Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: List.generate(totalPages, (i) {
+                        final page = i + 1;
+                        final selected = page == effectivePage;
+                        return InkWell(
+                          onTap: () => setState(() => _page = page),
+                          borderRadius: BorderRadius.circular(18),
+                          child: Container(
+                            height: 34,
+                            width: 34,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: selected ? _brandBlue : _card,
+                              border: Border.all(color: selected ? _brandBlue : _border),
+                            ),
+                            child: Text(
+                              '$page',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: selected ? Colors.white : _textMuted,
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                  ),
               ],
             ),
             if (_filtersOpen)
@@ -1517,12 +1564,14 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                         ),
                       ),
                     ),
-                    const DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.bottomCenter,
-                          end: Alignment.topCenter,
-                          colors: [Color(0x44000000), Colors.transparent],
+                    const IgnorePointer(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.bottomCenter,
+                            end: Alignment.topCenter,
+                            colors: [Color(0x44000000), Colors.transparent],
+                          ),
                         ),
                       ),
                     ),
