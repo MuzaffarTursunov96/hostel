@@ -1133,6 +1133,7 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
     final rating = b.rating != null ? b.rating!.toStringAsFixed(1) : '-';
 
     final cardPrice = _fmtMinMaxPrice(b.minPrice, b.maxPrice, _priceMode);
+    final prepayLabel = _prepay?.label(_lang) ?? '';
     return Container(
       decoration: BoxDecoration(
         color: _card,
@@ -1222,7 +1223,6 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                       ),
                   ],
                 ),
-                final prepayLabel = _prepay?.label(_lang) ?? '';
                 if (prepayLabel.isNotEmpty) ...[
                   const SizedBox(height: 8),
                   Container(
@@ -1354,7 +1354,36 @@ class BranchSummary {
   final double? maxBedMonthlyPrice;
 
   factory BranchSummary.fromJson(Map<String, dynamic> json) {
-    double? _num(dynamic v) => v == null ? null : (v is num ? v.toDouble() : double.tryParse(v.toString()));
+    double? _num(dynamic v) {
+      if (v == null) return null;
+      if (v is num) return v.toDouble();
+      final s = v.toString().trim().replaceAll(' ', '').replaceAll(',', '.');
+      return double.tryParse(s);
+    }
+    List<double>? _coords(dynamic v) {
+      if (v is List && v.length >= 2) {
+        final lon = _num(v[0]);
+        final lat = _num(v[1]);
+        if (lon == null || lat == null) return null;
+        return [lon, lat];
+      }
+      if (v is Map) {
+        final lat = _num(v['lat'] ?? v['latitude']);
+        final lon = _num(v['lng'] ?? v['lon'] ?? v['longitude'] ?? v['long']);
+        if (lon == null || lat == null) return null;
+        return [lon, lat];
+      }
+      if (v is String) {
+        final parts = v.split(',');
+        if (parts.length >= 2) {
+          final lat = _num(parts[0]);
+          final lon = _num(parts[1]);
+          if (lon == null || lat == null) return null;
+          return [lon, lat];
+        }
+      }
+      return null;
+    }
     String? _photo(dynamic v) {
       if (v == null) return null;
       final raw = v.toString();
@@ -1374,6 +1403,14 @@ class BranchSummary {
       }
       return null;
     }
+    final coords = _coords(json['coordinates'] ?? json['coords'] ?? json['location']);
+    double? lat = _num(json['latitude'] ?? json['lat']) ?? (coords != null ? coords[1] : null);
+    double? lon = _num(json['longitude'] ?? json['lng'] ?? json['lon'] ?? json['long']) ?? (coords != null ? coords[0] : null);
+    if (lat != null && lon != null && lat.abs() > 50 && lon.abs() < 50) {
+      final tmp = lat;
+      lat = lon;
+      lon = tmp;
+    }
     return BranchSummary(
       id: (json['id'] is num) ? (json['id'] as num).toInt() : int.tryParse(json['id'].toString()) ?? 0,
       name: (json['name'] ?? '').toString(),
@@ -1382,8 +1419,8 @@ class BranchSummary {
       ratingCount: (json['rating_count'] is num) ? (json['rating_count'] as num).toInt() : null,
       minPrice: _num(json['min_price'] ?? json['minPrice']),
       maxPrice: _num(json['max_price'] ?? json['maxPrice']),
-      latitude: _num(json['latitude'] ?? json['lat']),
-      longitude: _num(json['longitude'] ?? json['lng']),
+      latitude: lat,
+      longitude: lon,
       regionSlug: json['region_slug']?.toString(),
       regionName: json['region_name']?.toString(),
       cityName: json['city_name']?.toString(),
@@ -1531,6 +1568,14 @@ class _ClientMapScreenState extends State<ClientMapScreen> {
   double? _distanceKm;
   Timer? _pulseTimer;
   int _pulseStep = 0;
+  bool _styleReady = false;
+  Uint8List? _iconFreeBytes;
+  Uint8List? _iconBusyBytes;
+  Uint8List? _iconPartialBytes;
+  Uint8List? _userBytes;
+  double _iconScale = 0.26;
+  double _textSize = 10;
+  double? _lastZoom;
 
   String _tr(String ru, String uz) => widget.lang == 'ru' ? ru : uz;
 
@@ -1550,6 +1595,7 @@ class _ClientMapScreenState extends State<ClientMapScreen> {
     try {
       final serviceEnabled = await geo.Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
+        await geo.Geolocator.openLocationSettings();
         setState(() => _error = _tr('Включите GPS.', 'GPS yoqing.'));
         return;
       }
@@ -1600,26 +1646,59 @@ class _ClientMapScreenState extends State<ClientMapScreen> {
     return 'hotel_free';
   }
 
+  Uint8List? _iconBytesForBranch(BranchSummary b) {
+    final code = (b.statusCode ?? b.status ?? '').toLowerCase();
+    if (code.contains('busy')) return _iconBusyBytes;
+    if (code.contains('partial')) return _iconPartialBytes;
+    return _iconFreeBytes;
+  }
+
   Future<void> _setupMap(mb.MapboxMap map) async {
     _map = map;
     _pointManager = await map.annotations.createPointAnnotationManager();
     _circleManager = await map.annotations.createCircleAnnotationManager();
-
-    await map.style.addStyleImage('hotel_free', 1.0, await _loadMbxImage('assets/icons/hotel_free.png'), false, const [], const [], null);
-    await map.style.addStyleImage('hotel_busy', 1.0, await _loadMbxImage('assets/icons/hotel_busy.png'), false, const [], const [], null);
-    await map.style.addStyleImage('hotel_partial_busy', 1.0, await _loadMbxImage('assets/icons/hotel_partial_busy.png'), false, const [], const [], null);
-    await map.style.addStyleImage('user_loc', 1.0, await _loadMbxImage('assets/icons/navigation_human.png'), false, const [], const [], null);
-
     _pointManager?.addOnPointAnnotationClickListener(_MapPointClickListener((annotation) {
       final b = _branchByAnnotation[annotation.id];
       if (b != null) widget.onOpenBranch(b);
     }));
-
     await _refreshMarkers();
+  }
+
+  Future<void> _onStyleLoaded(mb.StyleLoadedEventData data) async {
+    if (_map == null) return;
+    _styleReady = true;
+    _iconFreeBytes ??= await _loadAssetBytes('assets/icons/hotel_free.png');
+    _iconBusyBytes ??= await _loadAssetBytes('assets/icons/hotel_busy.png');
+    _iconPartialBytes ??= await _loadAssetBytes('assets/icons/hotel_partial_busy.png');
+    _userBytes ??= await _loadAssetBytes('assets/icons/navigation_human.png');
+    await _map!.style.addStyleImage('hotel_free', 1.0, await _loadMbxImage('assets/icons/hotel_free.png'), false, const [], const [], null);
+    await _map!.style.addStyleImage('hotel_busy', 1.0, await _loadMbxImage('assets/icons/hotel_busy.png'), false, const [], const [], null);
+    await _map!.style.addStyleImage('hotel_partial_busy', 1.0, await _loadMbxImage('assets/icons/hotel_partial_busy.png'), false, const [], const [], null);
+    await _map!.style.addStyleImage('user_loc', 1.0, await _loadMbxImage('assets/icons/navigation_human.png'), false, const [], const [], null);
+    await _refreshMarkers();
+  }
+
+  void _onCameraChanged(mb.CameraChangedEventData data) {
+    final zoom = data.cameraState.zoom;
+    if (_lastZoom != null && (zoom - _lastZoom!).abs() < 0.3) return;
+    _lastZoom = zoom;
+    final scale = (zoom / 13) * 0.26;
+    final text = (zoom / 13) * 10;
+    final nextScale = scale.clamp(0.16, 0.45);
+    final nextText = text.clamp(8, 12).toDouble();
+    if ((nextScale - _iconScale).abs() > 0.01 || (nextText - _textSize).abs() > 0.2) {
+      _iconScale = nextScale;
+      _textSize = nextText;
+      _refreshMarkers();
+    }
   }
 
   Future<void> _refreshMarkers() async {
     if (_map == null || _pointManager == null) return;
+    _iconFreeBytes ??= await _loadAssetBytes('assets/icons/hotel_free.png');
+    _iconBusyBytes ??= await _loadAssetBytes('assets/icons/hotel_busy.png');
+    _iconPartialBytes ??= await _loadAssetBytes('assets/icons/hotel_partial_busy.png');
+    _userBytes ??= await _loadAssetBytes('assets/icons/navigation_human.png');
     _branchByAnnotation.clear();
     await _pointManager!.deleteAll();
     await _circleManager?.deleteAll();
@@ -1630,8 +1709,16 @@ class _ClientMapScreenState extends State<ClientMapScreen> {
       final annotation = await _pointManager!.create(
         mb.PointAnnotationOptions(
           geometry: mb.Point(coordinates: mb.Position(b.longitude!, b.latitude!)),
-          iconImage: _iconForBranch(b),
-          iconSize: 0.8,
+          image: _iconBytesForBranch(b),
+          iconSize: _iconScale,
+          iconAnchor: mb.IconAnchor.BOTTOM,
+          textField: b.name,
+          textSize: _textSize,
+          textAnchor: mb.TextAnchor.TOP,
+          textOffset: const [0, 1.2],
+          textColor: const Color(0xFF111827).value,
+          textHaloColor: const Color(0xFFFFFFFF).value,
+          textHaloWidth: 1.2,
         ),
       );
       _branchByAnnotation[annotation.id] = b;
@@ -1641,8 +1728,8 @@ class _ClientMapScreenState extends State<ClientMapScreen> {
       await _pointManager!.create(
         mb.PointAnnotationOptions(
           geometry: mb.Point(coordinates: mb.Position(_userPos!.longitude, _userPos!.latitude)),
-          iconImage: 'user_loc',
-          iconSize: 0.9,
+          image: _userBytes,
+          iconSize: _iconScale * 0.9,
         ),
       );
       await _drawRadar();
@@ -1704,31 +1791,47 @@ class _ClientMapScreenState extends State<ClientMapScreen> {
       ),
       body: Column(
         children: [
-          Builder(
-            builder: (_) {
-              if (token.isEmpty) {
-                return Container(
-                  padding: const EdgeInsets.all(16),
-                  alignment: Alignment.center,
-                  child: Text(_tr('MAPBOX_TOKEN не задан.', 'MAPBOX_TOKEN yo‘q.')),
+          Expanded(
+            child: Builder(
+              builder: (_) {
+                if (token.isEmpty) {
+                  return Container(
+                    padding: const EdgeInsets.all(16),
+                    alignment: Alignment.center,
+                    child: Text(_tr('MAPBOX_TOKEN не задан.', 'MAPBOX_TOKEN yo‘q.')),
+                  );
+                }
+                mb.MapboxOptions.setAccessToken(token);
+                return Stack(
+                  children: [
+                    mb.MapWidget(
+                      key: const ValueKey('client_map'),
+                      styleUri: mb.MapboxStyles.STANDARD,
+                      cameraOptions: _userPos == null
+                          ? mb.CameraOptions(center: mb.Point(coordinates: mb.Position(69.2797, 41.3111)), zoom: 11)
+                          : mb.CameraOptions(
+                              center: mb.Point(coordinates: mb.Position(_userPos!.longitude, _userPos!.latitude)),
+                              zoom: 12.5,
+                            ),
+                      onMapCreated: _setupMap,
+                      onStyleLoadedListener: _onStyleLoaded,
+                      onCameraChangeListener: _onCameraChanged,
+                    ),
+                    Positioned(
+                      right: 12,
+                      top: 12,
+                      child: FloatingActionButton(
+                        heroTag: 'gps_btn',
+                        mini: true,
+                        backgroundColor: Colors.white,
+                        onPressed: _ensureLocation,
+                        child: const Icon(Icons.my_location, color: Color(0xFF1D4ED8)),
+                      ),
+                    ),
+                  ],
                 );
-              }
-              mb.MapboxOptions.setAccessToken(token);
-              return SizedBox(
-                height: 320,
-                child: mb.MapWidget(
-                  key: const ValueKey('client_map'),
-                  styleUri: mb.MapboxStyles.STANDARD,
-                  cameraOptions: _userPos == null
-                      ? mb.CameraOptions(center: mb.Point(coordinates: mb.Position(69.2797, 41.3111)), zoom: 11)
-                      : mb.CameraOptions(
-                          center: mb.Point(coordinates: mb.Position(_userPos!.longitude, _userPos!.latitude)),
-                          zoom: 12.5,
-                        ),
-                  onMapCreated: _setupMap,
-                ),
-              );
-            },
+              },
+            ),
           ),
           if (_error != null)
             Padding(
@@ -1766,24 +1869,6 @@ class _ClientMapScreenState extends State<ClientMapScreen> {
                   ),
                 ),
               ],
-            ),
-          ),
-          Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.fromLTRB(16, 6, 16, 24),
-              itemCount: _filteredBranches().length,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
-              itemBuilder: (_, i) {
-                final b = _filteredBranches()[i];
-                return ListTile(
-                  tileColor: _card,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: const BorderSide(color: _border)),
-                  title: Text(b.name),
-                  subtitle: Text(b.address ?? ''),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => widget.onOpenBranch(b),
-                );
-              },
             ),
           ),
         ],
@@ -2377,6 +2462,7 @@ class _BookingRequestScreenState extends State<BookingRequestScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final prepayLabel = widget.prepay?.label(widget.lang) ?? '';
     return Scaffold(
       appBar: AppBar(title: Text(_tr('Bron qilish', 'Bron qilish'))),
       body: ListView(
@@ -2384,7 +2470,6 @@ class _BookingRequestScreenState extends State<BookingRequestScreen> {
         children: [
           Text(widget.branchName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
           const SizedBox(height: 10),
-          final prepayLabel = widget.prepay?.label(widget.lang) ?? '';
           if (prepayLabel.isNotEmpty) ...[
             Container(
               padding: const EdgeInsets.all(12),
