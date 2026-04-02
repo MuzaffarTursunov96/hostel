@@ -5462,6 +5462,8 @@ def list_public_branches_with_rating_db(
 
 def list_public_branch_photos_db(branch_id: int, limit: int = 50):
     ensure_room_images_table()
+    ensure_branch_images_table()
+    ensure_branch_cover_image_column()
     ensure_branch_publish_column()
     lim = int(limit or 50)
     if lim < 1:
@@ -5470,7 +5472,37 @@ def list_public_branch_photos_db(branch_id: int, limit: int = 50):
         lim = 300
 
     with get_connection() as conn:
-        rows = conn.execute(text("""
+        branch_count = conn.execute(text("""
+            SELECT COUNT(*) AS cnt
+            FROM branch_images bi
+            JOIN branches b ON b.id = bi.branch_id
+            WHERE bi.branch_id = :branch_id
+              AND COALESCE(b.is_published, TRUE) = TRUE
+        """), {
+            "branch_id": int(branch_id),
+        }).scalar() or 0
+
+        if int(branch_count) > 0:
+            rows = conn.execute(text("""
+                SELECT
+                    bi.id,
+                    NULL AS room_id,
+                    NULL AS room_name,
+                    bi.image_path,
+                    bi.is_cover,
+                    bi.created_at
+                FROM branch_images bi
+                JOIN branches b ON b.id = bi.branch_id
+                WHERE bi.branch_id = :branch_id
+                  AND COALESCE(b.is_published, TRUE) = TRUE
+                ORDER BY bi.is_cover DESC, bi.created_at DESC, bi.id DESC
+                LIMIT :lim
+            """), {
+                "branch_id": int(branch_id),
+                "lim": lim,
+            }).mappings().all()
+        else:
+            rows = conn.execute(text("""
             SELECT
                 ri.id,
                 ri.room_id,

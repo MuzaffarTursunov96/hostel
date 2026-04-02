@@ -664,6 +664,98 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
     );
   }
 
+  String? _normalizePhoto(dynamic v) {
+    if (v == null) return null;
+    final raw = v.toString();
+    if (raw.isEmpty) return null;
+    if (raw.startsWith('//')) return 'https:$raw';
+    if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+    if (raw.startsWith('/')) return '$_publicHost$raw';
+    return '$_publicHost/$raw';
+  }
+
+  Future<List<String>> _fetchBranchPhotos(int branchId) async {
+    try {
+      final uri = Uri.parse('$_publicApiBase/branches/$branchId/photos')
+          .replace(queryParameters: const {'limit': '80'});
+      final res = await http.get(uri, headers: const {'Cache-Control': 'no-cache'});
+      if (res.statusCode != 200) return const [];
+      final payload = jsonDecode(res.body);
+      final items = payload is Map<String, dynamic>
+          ? (payload['items'] ?? payload['photos'] ?? payload['data'] ?? [])
+          : payload;
+      if (items is! List) return const [];
+      final out = <String>[];
+      for (final item in items) {
+        String? url;
+        if (item is Map) {
+          url = _normalizePhoto(item['image_path'] ?? item['url'] ?? item['photo'] ?? item['image']);
+        } else {
+          url = _normalizePhoto(item);
+        }
+        if (url != null && url.isNotEmpty) out.add(url);
+      }
+      final unique = <String>[];
+      for (final u in out) {
+        if (!unique.contains(u)) unique.add(u);
+      }
+      if (unique.isNotEmpty) return unique;
+      // Fallback: try details endpoint (some servers return photos there)
+      final detailsUri = Uri.parse('$_publicApiBase/branches/$branchId/details')
+          .replace(queryParameters: {'price_mode': _priceMode});
+      final detailsRes = await http.get(detailsUri, headers: const {'Cache-Control': 'no-cache'});
+      if (detailsRes.statusCode != 200) return const [];
+      final detailsPayload = jsonDecode(detailsRes.body);
+      final branch = (detailsPayload is Map<String, dynamic>)
+          ? (detailsPayload['branch'] ?? detailsPayload)
+          : detailsPayload;
+      final fallback = <String>[];
+      void collect(dynamic v) {
+        if (v is List) {
+          for (final x in v) collect(x);
+        } else if (v is Map) {
+          final url = _normalizePhoto(v['image_path'] ?? v['url'] ?? v['photo'] ?? v['image']);
+          if (url != null && url.isNotEmpty) fallback.add(url);
+          for (final key in ['photos', 'images', 'gallery', 'files', 'media']) {
+            if (v.containsKey(key)) collect(v[key]);
+          }
+          if (v.containsKey('cover_image')) collect(v['cover_image']);
+          if (v.containsKey('cover_photo')) collect(v['cover_photo']);
+        } else {
+          final url = _normalizePhoto(v);
+          if (url != null && url.isNotEmpty) fallback.add(url);
+        }
+      }
+      collect(branch);
+      final uniqueFallback = <String>[];
+      for (final u in fallback) {
+        if (!uniqueFallback.contains(u)) uniqueFallback.add(u);
+      }
+      return uniqueFallback;
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<void> _openBranchGallery(BranchSummary b) async {
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+    var photos = await _fetchBranchPhotos(b.id);
+    if (mounted) Navigator.of(context).pop();
+    if (photos.isEmpty && b.coverPhoto != null && b.coverPhoto!.trim().isNotEmpty) {
+      photos = [b.coverPhoto!];
+    }
+    if (photos.isEmpty) {
+      _showSnack(_tr(ru: 'Фото не найдено.', uz: 'Rasm topilmadi.'));
+      return;
+    }
+    _openImageGallery(photos, 0);
+  }
+
   void _openImageGallery(List<String> photos, int initialIndex) {
     if (photos.isEmpty) return;
     final start = initialIndex.clamp(0, photos.length - 1);
@@ -1398,7 +1490,7 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                   fit: StackFit.expand,
                   children: [
                     GestureDetector(
-                      onTap: () => _openImageGallery(photos, 0),
+                      onTap: () => _openBranchGallery(b),
                       child: Image.network(
                         photos.first,
                         fit: BoxFit.cover,
