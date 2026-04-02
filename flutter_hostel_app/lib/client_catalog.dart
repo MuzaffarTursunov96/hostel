@@ -1606,9 +1606,18 @@ class BookingPrepayConfig {
 
   String label(String lang) {
     if (!enabled) return '';
-    if (note != null && note!.trim().isNotEmpty) return note!;
-    if (amount != null && amount! > 0) {
-      return lang == 'ru' ? 'Предоплата: ${amount!.toStringAsFixed(0)}' : 'Oldindan to\'lov: ${amount!.toStringAsFixed(0)}';
+    if (amount != null) {
+      if (amount! > 0) {
+        return lang == 'ru'
+            ? 'Предоплата: ${amount!.toStringAsFixed(0)}'
+            : 'Oldindan to\'lov: ${amount!.toStringAsFixed(0)}';
+      }
+      return '';
+    }
+    if (note != null && note!.trim().isNotEmpty) {
+      final hasNonZeroDigit = RegExp(r'[1-9]').hasMatch(note!);
+      if (!hasNonZeroDigit) return '';
+      return note!;
     }
     return '';
   }
