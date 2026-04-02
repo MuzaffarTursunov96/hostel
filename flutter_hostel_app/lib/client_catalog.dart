@@ -1576,6 +1576,8 @@ class _ClientMapScreenState extends State<ClientMapScreen> {
   double _iconScale = 0.26;
   double _textSize = 10;
   double? _lastZoom;
+  StreamSubscription<geo.Position>? _posSub;
+  bool _pickLocation = false;
 
   String _tr(String ru, String uz) => widget.lang == 'ru' ? ru : uz;
 
@@ -1587,12 +1589,14 @@ class _ClientMapScreenState extends State<ClientMapScreen> {
 
   @override
   void dispose() {
+    _posSub?.cancel();
     _pulseTimer?.cancel();
     super.dispose();
   }
 
   Future<void> _ensureLocation() async {
     try {
+      if (mounted) setState(() => _error = null);
       final serviceEnabled = await geo.Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         await geo.Geolocator.openLocationSettings();
@@ -1607,12 +1611,45 @@ class _ClientMapScreenState extends State<ClientMapScreen> {
         setState(() => _error = _tr('Нет доступа к GPS.', 'GPS ruxsati berilmadi.'));
         return;
       }
-      final pos = await geo.Geolocator.getCurrentPosition(
-        desiredAccuracy: geo.LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 12),
-      );
+      // Start listening to location updates to keep user marker visible.
+      _posSub?.cancel();
+      _posSub = geo.Geolocator.getPositionStream(
+        locationSettings: const geo.LocationSettings(
+          accuracy: geo.LocationAccuracy.high,
+          distanceFilter: 10,
+        ),
+      ).listen((pos) {
+        if (!mounted) return;
+        setState(() {
+          _userPos = LatLng(pos.latitude, pos.longitude);
+          _error = null;
+        });
+        _refreshMarkers();
+      });
+      geo.Position? pos;
+      try {
+        pos = await geo.Geolocator.getCurrentPosition(
+          desiredAccuracy: geo.LocationAccuracy.high,
+          timeLimit: const Duration(seconds: 12),
+        );
+      } catch (_) {
+        // Fallback to last known or lower accuracy if GPS is slow
+        pos = await geo.Geolocator.getLastKnownPosition();
+        pos ??= await geo.Geolocator.getCurrentPosition(
+          desiredAccuracy: geo.LocationAccuracy.low,
+          timeLimit: const Duration(seconds: 10),
+        );
+      }
       if (!mounted) return;
-      setState(() => _userPos = LatLng(pos.latitude, pos.longitude));
+      if (pos != null) {
+        setState(() {
+          _userPos = LatLng(pos!.latitude, pos!.longitude);
+          _error = null;
+        });
+      } else {
+        setState(() => _error = _tr('Не удалось получить GPS.', 'GPS olinmadi.'));
+        return;
+      }
       await _refreshMarkers();
     } catch (_) {
       if (!mounted) return;
@@ -1730,9 +1767,15 @@ class _ClientMapScreenState extends State<ClientMapScreen> {
           geometry: mb.Point(coordinates: mb.Position(_userPos!.longitude, _userPos!.latitude)),
           image: _userBytes,
           iconSize: _iconScale * 0.9,
+          iconAnchor: mb.IconAnchor.BOTTOM,
         ),
       );
-      await _drawRadar();
+      if (_distanceKm != null) {
+        await _drawRadar();
+      } else {
+        _pulseTimer?.cancel();
+        await _circleManager?.deleteAll();
+      }
       await _map!.setCamera(
         mb.CameraOptions(
           center: mb.Point(coordinates: mb.Position(_userPos!.longitude, _userPos!.latitude)),
@@ -1782,6 +1825,36 @@ class _ClientMapScreenState extends State<ClientMapScreen> {
     _refreshMarkers();
   }
 
+  void _togglePickLocation() async {
+    if (_map == null) return;
+    if (!_pickLocation) {
+      setState(() => _pickLocation = true);
+      return;
+    }
+    // Confirm selection at map center
+    final state = await _map!.getCameraState();
+    final center = state.center.coordinates;
+    if (!mounted) return;
+    setState(() {
+      _userPos = LatLng(center.lat.toDouble(), center.lng.toDouble());
+      _error = null;
+      _pickLocation = false;
+    });
+    _refreshMarkers();
+  }
+
+  void _onMapTap(mb.MapContentGestureContext context) {
+    if (!_pickLocation) return;
+    final coords = context.point.coordinates;
+    if (!mounted) return;
+    setState(() {
+      _userPos = LatLng(coords.lat.toDouble(), coords.lng.toDouble());
+      _error = null;
+      _pickLocation = false;
+    });
+    _refreshMarkers();
+  }
+
   @override
   Widget build(BuildContext context) {
     final token = _mapboxToken();
@@ -1816,7 +1889,16 @@ class _ClientMapScreenState extends State<ClientMapScreen> {
                       onMapCreated: _setupMap,
                       onStyleLoadedListener: _onStyleLoaded,
                       onCameraChangeListener: _onCameraChanged,
+                      onTapListener: _onMapTap,
                     ),
+                    if (_pickLocation)
+                      Center(
+                        child: Image.asset(
+                          'assets/icons/arrows.png',
+                          width: 46,
+                          height: 46,
+                        ),
+                      ),
                     Positioned(
                       right: 12,
                       top: 12,
@@ -1824,8 +1906,10 @@ class _ClientMapScreenState extends State<ClientMapScreen> {
                         heroTag: 'gps_btn',
                         mini: true,
                         backgroundColor: Colors.white,
-                        onPressed: _ensureLocation,
-                        child: const Icon(Icons.my_location, color: Color(0xFF1D4ED8)),
+                        onPressed: _togglePickLocation,
+                        child: _pickLocation
+                            ? Image.asset('assets/icons/arrows.png', width: 22, height: 22)
+                            : const Icon(Icons.my_location, color: Color(0xFF1D4ED8)),
                       ),
                     ),
                   ],
@@ -1833,7 +1917,7 @@ class _ClientMapScreenState extends State<ClientMapScreen> {
               },
             ),
           ),
-          if (_error != null)
+          if (_error != null && _userPos == null)
             Padding(
               padding: const EdgeInsets.all(8),
               child: Text(_error!, style: const TextStyle(color: Color(0xFFDC2626))),
