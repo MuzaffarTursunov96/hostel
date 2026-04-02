@@ -1576,6 +1576,8 @@ class _ClientMapScreenState extends State<ClientMapScreen> {
   double _iconScale = 0.26;
   double _textSize = 10;
   double? _lastZoom;
+  double? _currentZoom;
+  double? _lastRadiusZoom;
   StreamSubscription<geo.Position>? _posSub;
   bool _pickLocation = false;
 
@@ -1608,6 +1610,9 @@ class _ClientMapScreenState extends State<ClientMapScreen> {
         permission = await geo.Geolocator.requestPermission();
       }
       if (permission == geo.LocationPermission.denied || permission == geo.LocationPermission.deniedForever) {
+        if (permission == geo.LocationPermission.deniedForever) {
+          await geo.Geolocator.openAppSettings();
+        }
         setState(() => _error = _tr('Нет доступа к GPS.', 'GPS ruxsati berilmadi.'));
         return;
       }
@@ -1646,6 +1651,7 @@ class _ClientMapScreenState extends State<ClientMapScreen> {
           _userPos = LatLng(pos!.latitude, pos!.longitude);
           _error = null;
         });
+        await _centerOnUser();
       } else {
         setState(() => _error = _tr('Не удалось получить GPS.', 'GPS olinmadi.'));
         return;
@@ -1717,6 +1723,7 @@ class _ClientMapScreenState extends State<ClientMapScreen> {
 
   void _onCameraChanged(mb.CameraChangedEventData data) {
     final zoom = data.cameraState.zoom;
+    _currentZoom = zoom;
     if (_lastZoom != null && (zoom - _lastZoom!).abs() < 0.3) return;
     _lastZoom = zoom;
     final scale = (zoom / 13) * 0.26;
@@ -1727,6 +1734,12 @@ class _ClientMapScreenState extends State<ClientMapScreen> {
       _iconScale = nextScale;
       _textSize = nextText;
       _refreshMarkers();
+    }
+    if (_distanceKm != null) {
+      if (_lastRadiusZoom == null || (zoom - _lastRadiusZoom!).abs() >= 0.4) {
+        _lastRadiusZoom = zoom;
+        _drawRadius();
+      }
     }
   }
 
@@ -1771,17 +1784,11 @@ class _ClientMapScreenState extends State<ClientMapScreen> {
         ),
       );
       if (_distanceKm != null) {
-        await _drawRadar();
+        await _drawRadius();
       } else {
         _pulseTimer?.cancel();
         await _circleManager?.deleteAll();
       }
-      await _map!.setCamera(
-        mb.CameraOptions(
-          center: mb.Point(coordinates: mb.Position(_userPos!.longitude, _userPos!.latitude)),
-          zoom: 12.5,
-        ),
-      );
     }
   }
 
@@ -1799,30 +1806,35 @@ class _ClientMapScreenState extends State<ClientMapScreen> {
     }).toList();
   }
 
-  Future<void> _drawRadar() async {
+  Future<void> _drawRadius() async {
     if (_circleManager == null || _userPos == null) return;
+    if (_distanceKm == null) {
+      await _circleManager?.deleteAll();
+      return;
+    }
     _pulseTimer?.cancel();
-    _pulseTimer = Timer.periodic(const Duration(milliseconds: 900), (_) async {
-      if (_circleManager == null || _userPos == null) return;
-      _pulseStep = (_pulseStep + 1) % 3;
-      final radius = _pulseStep == 0 ? 22.0 : _pulseStep == 1 ? 32.0 : 42.0;
-      await _circleManager!.deleteAll();
-      await _circleManager!.create(
-        mb.CircleAnnotationOptions(
-          geometry: mb.Point(coordinates: mb.Position(_userPos!.longitude, _userPos!.latitude)),
-          circleRadius: radius,
-          circleOpacity: 0.25,
-          circleColor: const Color(0xFF2563EB).value,
-          circleStrokeColor: const Color(0xFF60A5FA).value,
-          circleStrokeWidth: 1.5,
-        ),
-      );
-    });
+    await _circleManager!.deleteAll();
+    final zoom = (_currentZoom ?? await _map!.getCameraState().then((v) => v.zoom)) ?? 12.0;
+    final lat = _userPos!.latitude;
+    final metersPerPixel = 156543.03392 * cos(lat * pi / 180) / pow(2, zoom);
+    final radiusMeters = _distanceKm! * 1000;
+    final radiusPixels = radiusMeters / metersPerPixel;
+    await _circleManager!.create(
+      mb.CircleAnnotationOptions(
+        geometry: mb.Point(coordinates: mb.Position(_userPos!.longitude, _userPos!.latitude)),
+        circleRadius: radiusPixels,
+        circleOpacity: 0.1,
+        circleColor: const Color(0xFF2563EB).value,
+        circleStrokeColor: const Color(0xFF2563EB).value,
+        circleStrokeWidth: 2.5,
+      ),
+    );
   }
 
   void _setDistance(double? km) {
     setState(() => _distanceKm = km);
     _refreshMarkers();
+    _drawRadius();
   }
 
   void _togglePickLocation() async {
@@ -1840,6 +1852,7 @@ class _ClientMapScreenState extends State<ClientMapScreen> {
       _error = null;
       _pickLocation = false;
     });
+    await _centerOnUser();
     _refreshMarkers();
   }
 
@@ -1852,7 +1865,18 @@ class _ClientMapScreenState extends State<ClientMapScreen> {
       _error = null;
       _pickLocation = false;
     });
+    _centerOnUser();
     _refreshMarkers();
+  }
+
+  Future<void> _centerOnUser() async {
+    if (_map == null || _userPos == null) return;
+    await _map!.setCamera(
+      mb.CameraOptions(
+        center: mb.Point(coordinates: mb.Position(_userPos!.longitude, _userPos!.latitude)),
+        zoom: 12.5,
+      ),
+    );
   }
 
   @override
