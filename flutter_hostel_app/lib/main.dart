@@ -1104,8 +1104,10 @@ class ClientCatalogWebViewScreen extends StatefulWidget {
 
 class _ClientCatalogWebViewScreenState extends State<ClientCatalogWebViewScreen> {
   late final WebViewController _controller;
+  final WebViewCookieManager _cookieManager = WebViewCookieManager();
   bool _loading = true;
   String _currentUrl = '';
+  bool _handlingInvalidToken = false;
 
   String _t({
     required String ru,
@@ -1123,6 +1125,19 @@ class _ClientCatalogWebViewScreenState extends State<ClientCatalogWebViewScreen>
     await _controller.loadRequest(Uri.parse('https://hmsuz.com/logout'));
     await Future<void>.delayed(const Duration(milliseconds: 300));
     await _goToCatalogPath('/catalog');
+  }
+
+  Future<void> _handleInvalidToken() async {
+    if (_handlingInvalidToken) return;
+    _handlingInvalidToken = true;
+    try {
+      await _cookieManager.clearCookies();
+      await _controller.clearCache();
+      await _controller.runJavaScript('localStorage.clear(); sessionStorage.clear();');
+    } catch (_) {}
+    if (mounted) {
+      await _controller.loadRequest(Uri.parse('https://hmsuz.com/login?lang=${widget.lang}'));
+    }
   }
 
   @override
@@ -1143,6 +1158,16 @@ class _ClientCatalogWebViewScreenState extends State<ClientCatalogWebViewScreen>
               setState(() => _currentUrl = v ?? '');
             });
             setState(() => _loading = false);
+            _controller
+                .runJavaScriptReturningResult("document.body && document.body.innerText")
+                .then((value) {
+              if (!mounted) return;
+              final raw = value?.toString() ?? '';
+              final text = raw.replaceAll('"', '').toLowerCase();
+              if (text.contains('invalid token')) {
+                _handleInvalidToken();
+              }
+            }).catchError((_) {});
           },
         ),
       )

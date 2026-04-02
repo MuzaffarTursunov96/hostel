@@ -1246,29 +1246,44 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
           if (b.coverPhoto != null && b.coverPhoto!.trim().isNotEmpty)
             ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-              child: Image.network(
-                b.coverPhoto!,
-                height: 160,
+              child: SizedBox(
+                height: 210,
                 width: double.infinity,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
-                  height: 160,
-                  color: _surfaceSoft,
-                  alignment: Alignment.center,
-                  child: const Icon(Icons.image_not_supported_outlined),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.network(
+                      b.coverPhoto!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        color: _surfaceSoft,
+                        alignment: Alignment.center,
+                        child: const Icon(Icons.image_not_supported_outlined),
+                      ),
+                    ),
+                    const DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.bottomCenter,
+                          end: Alignment.topCenter,
+                          colors: [Color(0x44000000), Colors.transparent],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             )
           else
             Container(
-              height: 140,
+              height: 200,
               width: double.infinity,
               decoration: BoxDecoration(
                 color: _surfaceSoft,
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
               ),
               alignment: Alignment.center,
-              child: const Icon(Icons.hotel_outlined, size: 36, color: _textMuted),
+              child: const Icon(Icons.hotel_outlined, size: 44, color: _textMuted),
             ),
           Padding(
             padding: const EdgeInsets.all(12),
