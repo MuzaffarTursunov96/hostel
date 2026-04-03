@@ -283,6 +283,15 @@ function loadBranches() {
     });
 }
 
+function openUserManagerModal() {
+  $("#userManageModal").removeClass("hidden");
+  loadUsers();
+}
+
+function closeUserManagerModal() {
+  $("#userManageModal").addClass("hidden");
+}
+
 function fillBranchContactInputs() {
   const bid = Number($("#branchSelect").val() || 0);
   const row = BRANCHES.find((b) => Number(b.id) === bid) || {};

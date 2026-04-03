@@ -13,7 +13,7 @@ from db import (
     update_future_booking_admin,
     cancel_future_booking,
     add_booking_guest,
-    get_booking_prepayment_config_db,
+    get_branch_prepayment_config_db,
 )
 
 router = APIRouter(prefix="/booking", tags=["Booking"])
@@ -75,7 +75,7 @@ class BookingCreate(BaseModel):
 
 @router.post("/")
 async def create_booking(data: BookingCreate, user=Depends(get_current_user)):
-    cfg = get_booking_prepayment_config_db()
+    cfg = get_branch_prepayment_config_db(data.branch_id)
     if cfg.get("enabled"):
         mode = cfg.get("mode", "percent")
         value = float(cfg.get("value", 0) or 0)
