@@ -271,10 +271,11 @@ class _PinLockScreenState extends State<PinLockScreen> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(clientVerifiedKey);
       await prefs.remove('client_email');
+      await prefs.remove(pinKey);
     } catch (_) {}
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const LoginScreen(initialEntryMode: 'staff')),
+      MaterialPageRoute(builder: (_) => const LoginScreen(initialEntryMode: 'client')),
     );
   }
 
@@ -363,6 +364,8 @@ class _LoginScreenState extends State<LoginScreen> {
   static const String pinKey = 'app_pin';
   static const String clientVerifiedKey = 'client_verified';
   static const String clientLangKey = 'client_lang';
+  static const String loginFailCountKey = 'login_fail_count';
+  static const String loginLockUntilKey = 'login_lock_until';
 
   final _formKey = GlobalKey<FormState>();
   final _usernameController = TextEditingController();
@@ -381,6 +384,9 @@ class _LoginScreenState extends State<LoginScreen> {
   int _clientStep = 0;
   bool _clientExists = false;
   String? _clientCookie;
+  int _loginFailCount = 0;
+  DateTime? _loginLockUntil;
+  Timer? _lockTimer;
 
   @override
   void initState() {
@@ -390,9 +396,103 @@ class _LoginScreenState extends State<LoginScreen> {
     }
     _loadPreferredLanguage();
     _restoreSession();
+    _loadLoginLock();
     if (_entryMode == 'client') {
       WidgetsBinding.instance.addPostFrameCallback((_) => _maybeOpenClientPin());
     }
+  }
+
+  Future<void> _loadLoginLock() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final fails = prefs.getInt(loginFailCountKey) ?? 0;
+      final untilMs = prefs.getInt(loginLockUntilKey);
+      setState(() {
+        _loginFailCount = fails;
+        _loginLockUntil = untilMs != null ? DateTime.fromMillisecondsSinceEpoch(untilMs) : null;
+      });
+      _startLockTimerIfNeeded();
+    } catch (_) {}
+  }
+
+  void _startLockTimerIfNeeded() {
+    _lockTimer?.cancel();
+    if (!_isLoginLocked) return;
+    _lockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      if (!_isLoginLocked) {
+        _lockTimer?.cancel();
+        setState(() {});
+        return;
+      }
+      setState(() {});
+    });
+  }
+
+  bool get _isLoginLocked {
+    final until = _loginLockUntil;
+    if (until == null) return false;
+    return DateTime.now().isBefore(until);
+  }
+
+  String _loginLockMessage() {
+    final until = _loginLockUntil;
+    if (until == null) return '';
+    final remaining = until.difference(DateTime.now());
+    final mins = remaining.inMinutes;
+    final secs = remaining.inSeconds - mins * 60;
+    if (mins <= 0) {
+      return _tr(ru: 'Подождите ${secs}s', uz: '${secs}s kuting');
+    }
+    return _tr(ru: 'Подождите ${mins}м ${secs}s', uz: '${mins}m ${secs}s kuting');
+  }
+
+  Duration _lockDurationForFailures(int fails) {
+    if (fails < 5) return Duration.zero;
+    final tier = (fails / 5).floor();
+    if (tier == 1) return const Duration(minutes: 10);
+    if (tier == 2) return const Duration(minutes: 30);
+    if (tier == 3) return const Duration(minutes: 60);
+    if (tier == 4) return const Duration(minutes: 120);
+    return const Duration(minutes: 240);
+  }
+
+  Future<void> _recordLoginFailure() async {
+    final next = _loginFailCount + 1;
+    DateTime? lockUntil;
+    if (next % 5 == 0) {
+      final dur = _lockDurationForFailures(next);
+      if (dur > Duration.zero) {
+        lockUntil = DateTime.now().add(dur);
+      }
+    }
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(loginFailCountKey, next);
+      if (lockUntil != null) {
+        await prefs.setInt(loginLockUntilKey, lockUntil.millisecondsSinceEpoch);
+      }
+    } catch (_) {}
+    if (!mounted) return;
+    setState(() {
+      _loginFailCount = next;
+      if (lockUntil != null) _loginLockUntil = lockUntil;
+    });
+    if (lockUntil != null) _startLockTimerIfNeeded();
+  }
+
+  Future<void> _clearLoginFailures() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(loginFailCountKey);
+      await prefs.remove(loginLockUntilKey);
+    } catch (_) {}
+    if (!mounted) return;
+    setState(() {
+      _loginFailCount = 0;
+      _loginLockUntil = null;
+    });
+    _lockTimer?.cancel();
   }
 
   @override
@@ -402,6 +502,7 @@ class _LoginScreenState extends State<LoginScreen> {
     _clientEmailController.dispose();
     _clientCodeController.dispose();
     _clientPasswordController.dispose();
+    _lockTimer?.cancel();
     super.dispose();
   }
 
@@ -675,6 +776,15 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _login() async {
+    if (_isLoginLocked) {
+      final msg = _tr(
+        ru: 'Слишком много попыток. ${_loginLockMessage()}',
+        uz: 'Juda ko‘p urinish. ${_loginLockMessage()}',
+      );
+      setState(() => _error = msg);
+      if (mounted) showAppAlert(context, msg, error: true);
+      return;
+    }
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
@@ -702,7 +812,9 @@ class _LoginScreenState extends State<LoginScreen> {
               uz: "Login yoki parol noto'g'ri",
             );
         final friendly = friendlyErrorText(message, lang: _uiLang);
-        setState(() => _error = friendly);
+        await _recordLoginFailure();
+        final lockHint = _isLoginLocked ? ' ${_loginLockMessage()}' : '';
+        setState(() => _error = '$friendly$lockHint');
         if (mounted) {
           showAppAlert(context, friendly, error: true);
         }
@@ -734,6 +846,7 @@ class _LoginScreenState extends State<LoginScreen> {
       final lang = normLang('${data['language'] ?? _uiLang}');
       await prefs.setString(kLanguageKey, lang);
       appLang.value = lang;
+      await _clearLoginFailures();
 
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
@@ -1011,7 +1124,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                       minimumSize: const Size.fromHeight(50),
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                                     ),
-                                    onPressed: _loading ? null : _login,
+                                    onPressed: (_loading || _isLoginLocked) ? null : _login,
                                     child: _loading
                                         ? const SizedBox(
                                             height: 18,
@@ -1021,6 +1134,17 @@ class _LoginScreenState extends State<LoginScreen> {
                                         : Text(_tr(ru: 'Войти', uz: 'Kirish')),
                                   ),
                                 ),
+                                if (_isLoginLocked) ...[
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    _tr(
+                                      ru: 'Блокировка: ${_loginLockMessage()}',
+                                      uz: 'Blok: ${_loginLockMessage()}',
+                                    ),
+                                    style: const TextStyle(color: Color(0xFFDC2626)),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
                               ] else ...[
                                 Container(
                                   width: double.infinity,
@@ -1505,7 +1629,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     await prefs.remove('fcm_token');
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      MaterialPageRoute(builder: (_) => const LoginScreen(initialEntryMode: 'staff')),
       (route) => false,
     );
   }
