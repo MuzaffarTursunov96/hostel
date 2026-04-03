@@ -222,6 +222,7 @@ class PinLockScreen extends StatefulWidget {
 
 class _PinLockScreenState extends State<PinLockScreen> {
   static const String pinKey = 'app_pin';
+  static const String clientVerifiedKey = 'client_verified';
   final _pinCtrl = TextEditingController();
   String? _error;
   bool _busy = false;
@@ -265,23 +266,33 @@ class _PinLockScreenState extends State<PinLockScreen> {
     }
   }
 
+  Future<void> _logoutClientAndExit() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(clientVerifiedKey);
+      await prefs.remove('client_email');
+    } catch (_) {}
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const LoginScreen(initialEntryMode: 'staff')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () async {
-            final popped = await Navigator.of(context).maybePop();
-            if (!popped && mounted) {
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (_) => const LoginScreen()),
-              );
-            }
-          },
+    return WillPopScope(
+      onWillPop: () async {
+        await _logoutClientAndExit();
+        return false;
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: _logoutClientAndExit,
+          ),
         ),
-      ),
-      body: Center(
+        body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: ConstrainedBox(
@@ -327,6 +338,7 @@ class _PinLockScreenState extends State<PinLockScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 }
@@ -363,7 +375,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _checkingSession = true;
   String? _error;
   String _uiLang = 'uz';
-  String _entryMode = 'staff';
+  String _entryMode = 'client';
   bool _clientBusy = false;
   String? _clientError;
   int _clientStep = 0;
@@ -373,11 +385,14 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
-    if (widget.initialEntryMode == 'client') {
-      _entryMode = 'client';
+    if (widget.initialEntryMode == 'staff') {
+      _entryMode = 'staff';
     }
     _loadPreferredLanguage();
     _restoreSession();
+    if (_entryMode == 'client') {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _maybeOpenClientPin());
+    }
   }
 
   @override
@@ -461,6 +476,38 @@ class _LoginScreenState extends State<LoginScreen> {
 
   String _tr({required String ru, required String uz}) {
     return _uiLang == 'ru' ? ru : uz;
+  }
+
+  Widget _modeIconButton({required String mode, required String asset}) {
+    final active = _entryMode == mode;
+    return InkWell(
+      onTap: () {
+        if (_entryMode == mode) return;
+        setState(() {
+          _entryMode = mode;
+          _error = null;
+          _clientError = null;
+          if (mode == 'client') {
+            _resetClientFlow();
+          }
+        });
+        if (mode == 'client') {
+          _maybeOpenClientPin();
+        }
+      },
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        height: 36,
+        width: 36,
+        decoration: BoxDecoration(
+          color: active ? const Color(0xFFEFF6FF) : Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: active ? const Color(0xFFBFDBFE) : const Color(0xFFE2E8F0)),
+        ),
+        alignment: Alignment.center,
+        child: Image.asset(asset, width: 18, height: 18),
+      ),
+    );
   }
 
   Future<void> _openClientGoogleLogin() async {
@@ -840,6 +887,36 @@ class _LoginScreenState extends State<LoginScreen> {
                           Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Builder(
+                                      builder: (iconContext) => InkWell(
+                                        onTap: () => _openLoginLangMenu(iconContext),
+                                        borderRadius: BorderRadius.circular(18),
+                                        child: Container(
+                                          height: 36,
+                                          width: 36,
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius: BorderRadius.circular(18),
+                                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                                          ),
+                                          alignment: Alignment.center,
+                                          child: Image.asset('assets/icons/language.png', width: 20, height: 20),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    _modeIconButton(mode: 'client', asset: 'assets/icons/client.png'),
+                                    const SizedBox(width: 8),
+                                    _modeIconButton(mode: 'staff', asset: 'assets/icons/admin.png'),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 6),
                               Container(
                                 height: 58,
                                 width: 58,
@@ -880,36 +957,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                   uz: 'Davom etish uchun kiring',
                                 ),
                                 style: const TextStyle(color: Color(0xFF475569)),
-                              ),
-                              const SizedBox(height: 12),
-                              SegmentedButton<String>(
-                                segments: [
-                                  ButtonSegment<String>(
-                                    value: 'staff',
-                                    icon: const Icon(Icons.badge_outlined),
-                                    label: Text(_tr(ru: 'Сотрудник', uz: 'Xodim')),
-                                  ),
-                                  ButtonSegment<String>(
-                                    value: 'client',
-                                    icon: const Icon(Icons.travel_explore_outlined),
-                                    label: Text(_tr(ru: 'Клиент', uz: 'Mijoz')),
-                                  ),
-                                ],
-                                selected: {_entryMode},
-                                onSelectionChanged: (v) {
-                                  if (v.isEmpty) return;
-                                  setState(() {
-                                    _entryMode = v.first;
-                                    _error = null;
-                                    _clientError = null;
-                                    if (_entryMode == 'client') {
-                                      _resetClientFlow();
-                                    }
-                                  });
-                                  if (_entryMode == 'client') {
-                                    _maybeOpenClientPin();
-                                  }
-                                },
                               ),
                               const SizedBox(height: 18),
                               if (_entryMode == 'staff') ...[
@@ -1080,17 +1127,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               ],
                             ],
                           ),
-                          Positioned(
-                            right: 2,
-                            top: 2,
-                            child: Builder(
-                              builder: (iconContext) => IconButton(
-                                onPressed: () => _openLoginLangMenu(iconContext),
-                                icon: Image.asset('assets/icons/language.png', width: 20, height: 20),
-                                tooltip: _uiLang == 'ru' ? 'RU' : 'UZ',
-                              ),
-                            ),
-                          ),
+                          
                         ],
                       ),
                     ),
