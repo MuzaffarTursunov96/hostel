@@ -16,6 +16,7 @@ _branch_city_columns_checked = False
 _branch_district_columns_checked = False
 _branch_images_table_checked = False
 _branch_publish_column_checked = False
+_branch_amenities_column_checked = False
 
 def get_connection():
     return engine.begin()
@@ -75,6 +76,7 @@ def init_db():
             district_slug TEXT,
             contact_phone TEXT,
             contact_telegram TEXT,
+            amenities TEXT,
             cover_image TEXT,
             created_by INTEGER
         )
@@ -703,6 +705,18 @@ def ensure_branch_publish_column():
             WHERE is_published IS NULL
         """))
     _branch_publish_column_checked = True
+
+
+def ensure_branch_amenities_column():
+    global _branch_amenities_column_checked
+    if _branch_amenities_column_checked:
+        return
+    with get_connection() as conn:
+        conn.execute(text("""
+            ALTER TABLE branches
+            ADD COLUMN IF NOT EXISTS amenities TEXT
+        """))
+    _branch_amenities_column_checked = True
 
 def get_rooms_with_beds(branch_id):
     ensure_pricing_columns()
@@ -1587,6 +1601,7 @@ def get_branches(user_id):
     ensure_branch_cover_image_column()
     ensure_branch_city_columns()
     ensure_branch_district_columns()
+    ensure_branch_amenities_column()
     with get_connection() as conn:
         result = conn.execute(text("""
             SELECT
@@ -1603,6 +1618,7 @@ def get_branches(user_id):
                 b.district_slug,
                 b.contact_phone,
                 b.contact_telegram,
+                b.amenities,
                 b.cover_image
             FROM branches b
             JOIN user_branches ub ON ub.branch_id = b.id
@@ -3590,6 +3606,7 @@ def create_branch_db(
             district_slug: str | None = None,
             contact_phone: str | None = None,
             contact_telegram: str | None = None,
+            amenities: str | None = None,
             cover_image: str | None = None,
         ):
     ensure_branch_contact_columns()
@@ -3598,6 +3615,7 @@ def create_branch_db(
     ensure_branch_city_columns()
     ensure_branch_district_columns()
     ensure_branch_publish_column()
+    ensure_branch_amenities_column()
     with get_connection() as conn:
         try:
             # 1️⃣ create branch
@@ -3615,6 +3633,7 @@ def create_branch_db(
                     district_slug,
                     contact_phone,
                     contact_telegram,
+                    amenities,
                     cover_image,
                     created_by
                 )
@@ -3631,6 +3650,7 @@ def create_branch_db(
                     :district_slug,
                     :contact_phone,
                     :contact_telegram,
+                    :amenities,
                     :cover_image,
                     :created_by
                 )
@@ -3648,6 +3668,7 @@ def create_branch_db(
                 "district_slug": (district_slug or "").strip() or None,
                 "contact_phone": (contact_phone or "").strip() or None,
                 "contact_telegram": (contact_telegram or "").strip() or None,
+                "amenities": (amenities or "").strip() or None,
                 "cover_image": (cover_image or "").strip() or None,
                 "created_by": created_by
             }).scalar()
@@ -4262,9 +4283,10 @@ def list_branches_by_admin_db(admin_id):
     ensure_branch_cover_image_column()
     ensure_branch_city_columns()
     ensure_branch_district_columns()
+    ensure_branch_amenities_column()
     with get_connection() as conn:
         return conn.execute(text("""
-            SELECT id, name, address, latitude, longitude, region_name, region_slug, city_name, city_slug, district_name, district_slug, contact_phone, contact_telegram, cover_image
+            SELECT id, name, address, latitude, longitude, region_name, region_slug, city_name, city_slug, district_name, district_slug, contact_phone, contact_telegram, amenities, cover_image
             FROM branches
             WHERE created_by = :aid
             ORDER BY id
@@ -4286,6 +4308,7 @@ def update_branch_by_admin_db(
         district_slug=None,
         contact_phone=None,
         contact_telegram=None,
+        amenities=None,
         cover_image="__NO_CHANGE__"
     ):
     ensure_branch_contact_columns()
@@ -4293,6 +4316,7 @@ def update_branch_by_admin_db(
     ensure_branch_cover_image_column()
     ensure_branch_city_columns()
     ensure_branch_district_columns()
+    ensure_branch_amenities_column()
     with get_connection() as conn:
         res = conn.execute(text("""
             UPDATE branches
@@ -4308,6 +4332,7 @@ def update_branch_by_admin_db(
                 district_slug = :district_slug,
                 contact_phone = :contact_phone,
                 contact_telegram = :contact_telegram,
+                amenities = :amenities,
                 cover_image = CASE
                     WHEN :cover_image_provided THEN :cover_image
                     ELSE cover_image
@@ -4327,6 +4352,7 @@ def update_branch_by_admin_db(
             "district_slug": (district_slug or "").strip() or None,
             "contact_phone": (contact_phone or "").strip() or None,
             "contact_telegram": (contact_telegram or "").strip() or None,
+            "amenities": (amenities or "").strip() or None,
             "cover_image_provided": str(cover_image) != "__NO_CHANGE__",
             "cover_image": (
                 (str(cover_image or "").strip() or None)
@@ -5211,6 +5237,7 @@ def list_public_branches_with_rating_db(
     ensure_branch_cover_image_column()
     ensure_branch_city_columns()
     ensure_branch_district_columns()
+    ensure_branch_amenities_column()
     lim = int(limit or 100)
     if lim < 1:
         lim = 1
@@ -5242,6 +5269,7 @@ def list_public_branches_with_rating_db(
                 b.district_slug,
                 b.contact_phone,
                 b.contact_telegram,
+                b.amenities,
                 COALESCE(AVG(br.rating), 0) AS avg_rating,
                 COUNT(br.id) AS rating_count,
                 COALESCE(
@@ -5411,7 +5439,7 @@ def list_public_branches_with_rating_db(
                         )
                     )
               )
-            GROUP BY b.id, b.name, b.address, b.latitude, b.longitude, b.region_name, b.region_slug, b.city_name, b.city_slug, b.district_name, b.district_slug, b.contact_phone, b.contact_telegram, b.cover_image
+            GROUP BY b.id, b.name, b.address, b.latitude, b.longitude, b.region_name, b.region_slug, b.city_name, b.city_slug, b.district_name, b.district_slug, b.contact_phone, b.contact_telegram, b.amenities, b.cover_image
             HAVING (:min_rating IS NULL OR COALESCE(AVG(br.rating), 0) >= :min_rating)
             ORDER BY avg_rating DESC, rating_count DESC, b.id ASC
             LIMIT :lim
@@ -5440,6 +5468,7 @@ def list_public_branches_with_rating_db(
             "district_slug": r["district_slug"],
             "contact_phone": r["contact_phone"],
             "contact_telegram": r["contact_telegram"],
+            "amenities": r["amenities"],
             "avg_rating": float(r["avg_rating"] or 0),
             "rating_count": int(r["rating_count"] or 0),
             "cover_image": r["cover_image"],
@@ -5531,6 +5560,7 @@ def get_public_branch_details_db(branch_id: int):
     ensure_room_images_table()
     ensure_branch_contact_columns()
     ensure_branch_publish_column()
+    ensure_branch_amenities_column()
 
     bid = int(branch_id)
     today = app_today().isoformat()
@@ -5544,13 +5574,14 @@ def get_public_branch_details_db(branch_id: int):
                 b.longitude,
                 b.contact_phone,
                 b.contact_telegram,
+                b.amenities,
                 COALESCE(AVG(br.rating), 0) AS avg_rating,
                 COUNT(br.id) AS rating_count
             FROM branches b
             LEFT JOIN branch_ratings br ON br.branch_id = b.id
             WHERE b.id = :bid
               AND COALESCE(b.is_published, TRUE) = TRUE
-            GROUP BY b.id, b.name, b.address, b.latitude, b.longitude, b.contact_phone, b.contact_telegram
+            GROUP BY b.id, b.name, b.address, b.latitude, b.longitude, b.contact_phone, b.contact_telegram, b.amenities
             LIMIT 1
         """), {"bid": bid}).mappings().fetchone()
 
@@ -5625,6 +5656,7 @@ def get_public_branch_details_db(branch_id: int):
             "longitude": branch["longitude"],
             "contact_phone": branch["contact_phone"],
             "contact_telegram": branch["contact_telegram"],
+            "amenities": branch["amenities"],
             "avg_rating": float(branch["avg_rating"] or 0),
             "rating_count": int(branch["rating_count"] or 0),
         },

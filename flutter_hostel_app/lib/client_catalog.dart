@@ -1603,6 +1603,15 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                     const SizedBox(height: 4),
                     Text(b.address!, style: const TextStyle(color: _textMuted)),
                   ],
+                  if ((b.amenities ?? '').trim().isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      '${_tr(ru: 'Удобства', uz: 'Qulayliklar')}: ${b.amenities!.trim()}',
+                      style: const TextStyle(color: _textMuted),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 const SizedBox(height: 8),
                 Row(
                   children: [
@@ -1727,6 +1736,7 @@ class BranchSummary {
     this.regionName,
     this.cityName,
     this.districtName,
+    this.amenities,
     this.roomTypes = '',
     this.coverPhoto,
     this.photos = const [],
@@ -1758,6 +1768,7 @@ class BranchSummary {
   final String? regionName;
   final String? cityName;
   final String? districtName;
+  final String? amenities;
   final String roomTypes;
   final String? coverPhoto;
   final List<String> photos;
@@ -1886,6 +1897,7 @@ class BranchSummary {
       regionName: json['region_name']?.toString(),
       cityName: json['city_name']?.toString(),
       districtName: json['district_name']?.toString(),
+      amenities: json['amenities']?.toString(),
       roomTypes: (json['room_types'] ?? json['roomTypes'] ?? '').toString(),
       coverPhoto: cover,
       photos: unique,

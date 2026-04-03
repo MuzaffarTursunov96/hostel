@@ -7890,6 +7890,7 @@ class _BranchEditorSheetState extends State<_BranchEditorSheet> {
   final _lngCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   final _telegramCtrl = TextEditingController();
+  final _amenitiesCtrl = TextEditingController();
 
   String? _regionSlug;
   String? _citySlug;
@@ -7917,6 +7918,7 @@ class _BranchEditorSheetState extends State<_BranchEditorSheet> {
       _lngCtrl.text = '${b['longitude'] ?? ''}';
       _phoneCtrl.text = '${b['contact_phone'] ?? ''}';
       _telegramCtrl.text = '${b['contact_telegram'] ?? ''}';
+      _amenitiesCtrl.text = '${b['amenities'] ?? ''}';
       _regionSlug = '${b['region_slug'] ?? ''}';
       _citySlug = '${b['city_slug'] ?? ''}';
       _districtSlug = '${b['district_slug'] ?? ''}';
@@ -7935,6 +7937,7 @@ class _BranchEditorSheetState extends State<_BranchEditorSheet> {
     _lngCtrl.dispose();
     _phoneCtrl.dispose();
     _telegramCtrl.dispose();
+    _amenitiesCtrl.dispose();
     super.dispose();
   }
 
@@ -8055,6 +8058,7 @@ class _BranchEditorSheetState extends State<_BranchEditorSheet> {
         'district_slug': district.isEmpty ? null : (_districtSlug ?? district),
         'contact_phone': _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
         'contact_telegram': _telegramCtrl.text.trim().isEmpty ? null : _telegramCtrl.text.trim(),
+        'amenities': _amenitiesCtrl.text.trim().isEmpty ? null : _amenitiesCtrl.text.trim(),
       };
 
       if (_branchId == null) {
@@ -8227,6 +8231,16 @@ class _BranchEditorSheetState extends State<_BranchEditorSheet> {
               TextField(controller: _phoneCtrl, decoration: const InputDecoration(hintText: '+998...', border: OutlineInputBorder())),
               const SizedBox(height: 8),
               TextField(controller: _telegramCtrl, decoration: InputDecoration(hintText: _t('Telegram филиала (необязательно)', 'Filial Telegram (ixtiyoriy)'), border: const OutlineInputBorder())),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _amenitiesCtrl,
+                minLines: 2,
+                maxLines: 4,
+                decoration: InputDecoration(
+                  hintText: _t('Удобства (wifi, теннис, TV...)', 'Qulayliklar (wifi, tennis, TV...)'),
+                  border: const OutlineInputBorder(),
+                ),
+              ),
               const SizedBox(height: 12),
               Text(_t('Основные фото филиала', 'Filial fotosi'), style: const TextStyle(fontWeight: FontWeight.w700)),
               const SizedBox(height: 6),

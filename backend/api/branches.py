@@ -125,6 +125,7 @@ def create_branch_admin(data: dict, current_user=Depends(get_current_user)):
     district_slug = data.get("district_slug", None)
     contact_phone = data.get("contact_phone", None)
     contact_telegram = data.get("contact_telegram", None)
+    amenities = data.get("amenities", None)
     cover_image = data.get("cover_image", None)
 
     if not name:
@@ -157,6 +158,7 @@ def create_branch_admin(data: dict, current_user=Depends(get_current_user)):
         district_slug=district_slug,
         contact_phone=contact_phone,
         contact_telegram=contact_telegram,
+        amenities=amenities,
         cover_image=cover_image,
         created_by=current_user["user_id"]
     )
@@ -227,6 +229,7 @@ def update_branch(
     district_slug = data.get("district_slug", None)
     contact_phone = data.get("contact_phone", None)
     contact_telegram = data.get("contact_telegram", None)
+    amenities = data.get("amenities", None)
     cover_image = data.get("cover_image", "__NO_CHANGE__")
 
     if not name:
@@ -251,6 +254,7 @@ def update_branch(
         district_slug=district_slug,
         contact_phone=contact_phone,
         contact_telegram=contact_telegram,
+        amenities=amenities,
         cover_image=cover_image
     )
 
