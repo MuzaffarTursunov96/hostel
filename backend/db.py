@@ -5306,7 +5306,16 @@ def list_public_branches_with_rating_db(
     city_name: str | None = None,
     district_name: str | None = None,
     price_mode: str | None = None,
-    limit: int = 100
+    limit: int = 100,
+    offset: int = 0,
+    q: str | None = None,
+    min_price: float | None = None,
+    max_price: float | None = None,
+    lat: float | None = None,
+    lng: float | None = None,
+    radius_km: float | None = None,
+    return_total: bool = False,
+    return_bounds: bool = False,
 ):
     ensure_branch_ratings_table()
     ensure_room_images_table()
@@ -5323,6 +5332,9 @@ def list_public_branches_with_rating_db(
         lim = 1
     if lim > 500:
         lim = 500
+    off = int(offset or 0)
+    if off < 0:
+        off = 0
 
     room_type_norm = (str(room_type or "").strip() or None)
     region_slug_norm = (str(region_slug or "").strip() or None)
@@ -5333,8 +5345,67 @@ def list_public_branches_with_rating_db(
         mode = "day"
     today = app_today().isoformat()
     price_expr = _public_price_expr(mode, "bb", "rr")
+
+    q_norm = (str(q or "").strip().lower() or None)
+    min_price_norm = float(min_price) if min_price is not None else None
+    max_price_norm = float(max_price) if max_price is not None else None
+    if min_price_norm is None and max_price_norm is not None:
+        min_price_norm = 0.0
+    if max_price_norm is None and min_price_norm is not None:
+        max_price_norm = float(min_price_norm)
+    lat_norm = float(lat) if lat is not None else None
+    lng_norm = float(lng) if lng is not None else None
+    radius_norm = float(radius_km) if radius_km is not None else None
+
+    extra_filters = []
+    params = {
+        "min_rating": min_rating,
+        "room_type": room_type_norm,
+        "region_slug": region_slug_norm,
+        "city_name": city_name_norm,
+        "district_name": district_name_norm,
+        "today": today,
+        "lim": lim,
+        "off": off,
+        "q": f"%{q_norm}%" if q_norm else None,
+        "min_price": min_price_norm,
+        "max_price": max_price_norm,
+        "lat": lat_norm,
+        "lng": lng_norm,
+        "radius_km": radius_norm,
+    }
+
+    if min_rating is not None:
+        extra_filters.append("avg_rating >= :min_rating")
+    if q_norm:
+        extra_filters.append("(lower(coalesce(name, '')) || ' ' || lower(coalesce(address, '')) LIKE :q)")
+    if min_price_norm is not None and max_price_norm is not None:
+        extra_filters.append(
+            "((min_price IS NULL AND max_price IS NULL) OR (coalesce(min_price, max_price) <= :max_price AND coalesce(max_price, min_price) >= :min_price))"
+        )
+
+    distance_expr = None
+    if lat_norm is not None and lng_norm is not None:
+        distance_expr = (
+            "6371 * acos("
+            "cos(radians(:lat)) * cos(radians(latitude)) * cos(radians(longitude) - radians(:lng)) + "
+            "sin(radians(:lat)) * sin(radians(latitude))"
+            ")"
+        )
+        if radius_norm is not None:
+            extra_filters.append("distance_km <= :radius_km")
+
+    outer_where = ""
+    if extra_filters:
+        outer_where = "WHERE " + " AND ".join(extra_filters)
+
+    order_by = "ORDER BY avg_rating DESC, rating_count DESC, id ASC"
+    if distance_expr:
+        order_by = "ORDER BY distance_km ASC NULLS LAST, avg_rating DESC, rating_count DESC, id ASC"
+
     with get_connection() as conn:
         rows = conn.execute(text(f"""
+            WITH base AS (
             SELECT
                 b.id,
                 b.name,
@@ -5523,20 +5594,17 @@ def list_public_branches_with_rating_db(
                     )
               )
             GROUP BY b.id, b.name, b.address, b.latitude, b.longitude, b.region_name, b.region_slug, b.city_name, b.city_slug, b.district_name, b.district_slug, b.contact_phone, b.contact_telegram, b.amenities, b.prepayment_enabled, b.prepayment_mode, b.prepayment_value, b.cover_image
-            HAVING (:min_rating IS NULL OR COALESCE(AVG(br.rating), 0) >= :min_rating)
-            ORDER BY avg_rating DESC, rating_count DESC, b.id ASC
-            LIMIT :lim
-        """), {
-            "min_rating": min_rating,
-            "room_type": room_type_norm,
-            "region_slug": region_slug_norm,
-            "city_name": city_name_norm,
-            "district_name": district_name_norm,
-            "today": today,
-            "lim": lim,
-        }).mappings().all()
+            )
+            SELECT
+                *,
+                {distance_expr if distance_expr else 'NULL'} AS distance_km
+            FROM base
+            {outer_where}
+            {order_by}
+            LIMIT :lim OFFSET :off
+        """), params).mappings().all()
 
-    return [
+    rows_out = [
         {
             "id": int(r["id"]),
             "name": r["name"],
@@ -5573,6 +5641,351 @@ def list_public_branches_with_rating_db(
         }
         for r in rows
     ]
+
+    if not return_total and not return_bounds:
+        return rows_out
+
+    total = None
+    if return_total:
+        with get_connection() as conn:
+            total_row = conn.execute(text(f"""
+                WITH base AS (
+                SELECT
+                    b.id,
+                    b.name,
+                    b.address,
+                    b.latitude,
+                    b.longitude,
+                    b.region_name,
+                    b.region_slug,
+                    b.city_name,
+                    b.city_slug,
+                    b.district_name,
+                    b.district_slug,
+                    b.contact_phone,
+                    b.contact_telegram,
+                    b.amenities,
+                    b.prepayment_enabled,
+                    b.prepayment_mode,
+                    b.prepayment_value,
+                    COALESCE(AVG(br.rating), 0) AS avg_rating,
+                    COUNT(br.id) AS rating_count,
+                    (
+                        SELECT MIN({price_expr})
+                        FROM rooms rr
+                        LEFT JOIN beds bb
+                          ON bb.room_id = rr.id
+                         AND bb.branch_id = rr.branch_id
+                        WHERE rr.branch_id = b.id
+                          AND {price_expr} IS NOT NULL
+                    ) AS min_price,
+                    (
+                        SELECT MAX({price_expr})
+                        FROM rooms rr
+                        LEFT JOIN beds bb
+                          ON bb.room_id = rr.id
+                         AND bb.branch_id = rr.branch_id
+                        WHERE rr.branch_id = b.id
+                          AND {price_expr} IS NOT NULL
+                    ) AS max_price
+                FROM branches b
+                LEFT JOIN branch_ratings br ON br.branch_id = b.id
+                WHERE COALESCE(b.is_published, TRUE) = TRUE
+                  AND (
+                    :room_type IS NULL
+                    OR EXISTS (
+                        SELECT 1
+                        FROM rooms rx
+                        WHERE rx.branch_id = b.id
+                          AND lower(coalesce(trim(rx.room_type), '')) = lower(:room_type)
+                    )
+                )
+                  AND (
+                    :region_slug IS NULL
+                    OR lower(coalesce(b.region_slug, '')) = lower(:region_slug)
+                  )
+                  AND (
+                    :city_name IS NULL
+                    OR lower(coalesce(b.city_name, '')) = lower(:city_name)
+                  )
+                  AND (
+                    :district_name IS NULL
+                    OR lower(coalesce(b.district_name, '')) = lower(:district_name)
+                  )
+                  AND EXISTS (
+                      SELECT 1
+                      FROM beds bb
+                      JOIN rooms rr ON rr.id = bb.room_id
+                      WHERE rr.branch_id = b.id
+                        AND NOT EXISTS (
+                            SELECT 1
+                            FROM bookings bk
+                            WHERE bk.bed_id = bb.id
+                              AND bk.branch_id = b.id
+                              AND bk.status = 'active'
+                              AND bk.checkin_date <= :today
+                              AND bk.checkout_date > :today
+                        )
+                        AND NOT (
+                            (
+                                lower(coalesce(rr.booking_mode, 'bed')) = 'full'
+                            )
+                            AND EXISTS (
+                                SELECT 1
+                                FROM bookings bk2
+                                JOIN beds bb2 ON bb2.id = bk2.bed_id
+                                WHERE bb2.room_id = rr.id
+                                  AND bk2.branch_id = b.id
+                                  AND bk2.status = 'active'
+                                  AND bk2.checkin_date <= :today
+                                  AND bk2.checkout_date > :today
+                            )
+                        )
+                  )
+                GROUP BY b.id, b.name, b.address, b.latitude, b.longitude, b.region_name, b.region_slug, b.city_name, b.city_slug, b.district_name, b.district_slug, b.contact_phone, b.contact_telegram, b.amenities, b.prepayment_enabled, b.prepayment_mode, b.prepayment_value
+                )
+                SELECT COUNT(*) AS total
+                FROM (
+                    SELECT
+                        *,
+                        {distance_expr if distance_expr else 'NULL'} AS distance_km
+                    FROM base
+                ) t
+                {outer_where}
+            """), params).mappings().fetchone()
+        total = int(total_row["total"] if total_row else 0)
+
+    bounds = None
+    if return_bounds:
+        bounds_filters = [f for f in extra_filters if "min_price" not in f and "max_price" not in f]
+        bounds_where = ""
+        if bounds_filters:
+            bounds_where = "WHERE " + " AND ".join(bounds_filters)
+        with get_connection() as conn:
+            bounds_row = conn.execute(text(f"""
+                WITH base AS (
+                SELECT
+                    b.id,
+                    b.name,
+                    b.address,
+                    b.latitude,
+                    b.longitude,
+                    b.region_name,
+                    b.region_slug,
+                    b.city_name,
+                    b.city_slug,
+                    b.district_name,
+                    b.district_slug,
+                    b.contact_phone,
+                    b.contact_telegram,
+                    b.amenities,
+                    b.prepayment_enabled,
+                    b.prepayment_mode,
+                    b.prepayment_value,
+                    COALESCE(AVG(br.rating), 0) AS avg_rating,
+                    COUNT(br.id) AS rating_count,
+                    (
+                        SELECT MIN({price_expr})
+                        FROM rooms rr
+                        LEFT JOIN beds bb
+                          ON bb.room_id = rr.id
+                         AND bb.branch_id = rr.branch_id
+                        WHERE rr.branch_id = b.id
+                          AND {price_expr} IS NOT NULL
+                    ) AS min_price,
+                    (
+                        SELECT MAX({price_expr})
+                        FROM rooms rr
+                        LEFT JOIN beds bb
+                          ON bb.room_id = rr.id
+                         AND bb.branch_id = rr.branch_id
+                        WHERE rr.branch_id = b.id
+                          AND {price_expr} IS NOT NULL
+                    ) AS max_price
+                FROM branches b
+                LEFT JOIN branch_ratings br ON br.branch_id = b.id
+                WHERE COALESCE(b.is_published, TRUE) = TRUE
+                  AND (
+                    :room_type IS NULL
+                    OR EXISTS (
+                        SELECT 1
+                        FROM rooms rx
+                        WHERE rx.branch_id = b.id
+                          AND lower(coalesce(trim(rx.room_type), '')) = lower(:room_type)
+                    )
+                )
+                  AND (
+                    :region_slug IS NULL
+                    OR lower(coalesce(b.region_slug, '')) = lower(:region_slug)
+                  )
+                  AND (
+                    :city_name IS NULL
+                    OR lower(coalesce(b.city_name, '')) = lower(:city_name)
+                  )
+                  AND (
+                    :district_name IS NULL
+                    OR lower(coalesce(b.district_name, '')) = lower(:district_name)
+                  )
+                  AND EXISTS (
+                      SELECT 1
+                      FROM beds bb
+                      JOIN rooms rr ON rr.id = bb.room_id
+                      WHERE rr.branch_id = b.id
+                        AND NOT EXISTS (
+                            SELECT 1
+                            FROM bookings bk
+                            WHERE bk.bed_id = bb.id
+                              AND bk.branch_id = b.id
+                              AND bk.status = 'active'
+                              AND bk.checkin_date <= :today
+                              AND bk.checkout_date > :today
+                        )
+                        AND NOT (
+                            (
+                                lower(coalesce(rr.booking_mode, 'bed')) = 'full'
+                            )
+                            AND EXISTS (
+                                SELECT 1
+                                FROM bookings bk2
+                                JOIN beds bb2 ON bb2.id = bk2.bed_id
+                                WHERE bb2.room_id = rr.id
+                                  AND bk2.branch_id = b.id
+                                  AND bk2.status = 'active'
+                                  AND bk2.checkin_date <= :today
+                                  AND bk2.checkout_date > :today
+                            )
+                        )
+                  )
+                GROUP BY b.id, b.name, b.address, b.latitude, b.longitude, b.region_name, b.region_slug, b.city_name, b.city_slug, b.district_name, b.district_slug, b.contact_phone, b.contact_telegram, b.amenities, b.prepayment_enabled, b.prepayment_mode, b.prepayment_value
+                )
+                SELECT
+                    MIN(COALESCE(min_price, max_price)) AS min_bound,
+                    MAX(COALESCE(max_price, min_price)) AS max_bound
+                FROM (
+                    SELECT
+                        *,
+                        {distance_expr if distance_expr else 'NULL'} AS distance_km
+                    FROM base
+                ) t
+                {bounds_where}
+            """), params).mappings().fetchone()
+        bounds = {
+            "min": float(bounds_row["min_bound"]) if bounds_row and bounds_row["min_bound"] is not None else 0.0,
+            "max": float(bounds_row["max_bound"]) if bounds_row and bounds_row["max_bound"] is not None else 0.0,
+        }
+
+    if return_total and return_bounds:
+        return rows_out, total, bounds
+    if return_total:
+        return rows_out, total
+    return rows_out, bounds
+        total_row = conn.execute(text(f"""
+            WITH base AS (
+            SELECT
+                b.id,
+                b.name,
+                b.address,
+                b.latitude,
+                b.longitude,
+                b.region_name,
+                b.region_slug,
+                b.city_name,
+                b.city_slug,
+                b.district_name,
+                b.district_slug,
+                b.contact_phone,
+                b.contact_telegram,
+                b.amenities,
+                b.prepayment_enabled,
+                b.prepayment_mode,
+                b.prepayment_value,
+                COALESCE(AVG(br.rating), 0) AS avg_rating,
+                COUNT(br.id) AS rating_count,
+                (
+                    SELECT MIN({price_expr})
+                    FROM rooms rr
+                    LEFT JOIN beds bb
+                      ON bb.room_id = rr.id
+                     AND bb.branch_id = rr.branch_id
+                    WHERE rr.branch_id = b.id
+                      AND {price_expr} IS NOT NULL
+                ) AS min_price,
+                (
+                    SELECT MAX({price_expr})
+                    FROM rooms rr
+                    LEFT JOIN beds bb
+                      ON bb.room_id = rr.id
+                     AND bb.branch_id = rr.branch_id
+                    WHERE rr.branch_id = b.id
+                      AND {price_expr} IS NOT NULL
+                ) AS max_price
+            FROM branches b
+            LEFT JOIN branch_ratings br ON br.branch_id = b.id
+            WHERE COALESCE(b.is_published, TRUE) = TRUE
+              AND (
+                :room_type IS NULL
+                OR EXISTS (
+                    SELECT 1
+                    FROM rooms rx
+                    WHERE rx.branch_id = b.id
+                      AND lower(coalesce(trim(rx.room_type), '')) = lower(:room_type)
+                )
+            )
+              AND (
+                :region_slug IS NULL
+                OR lower(coalesce(b.region_slug, '')) = lower(:region_slug)
+              )
+              AND (
+                :city_name IS NULL
+                OR lower(coalesce(b.city_name, '')) = lower(:city_name)
+              )
+              AND (
+                :district_name IS NULL
+                OR lower(coalesce(b.district_name, '')) = lower(:district_name)
+              )
+              AND EXISTS (
+                  SELECT 1
+                  FROM beds bb
+                  JOIN rooms rr ON rr.id = bb.room_id
+                  WHERE rr.branch_id = b.id
+                    AND NOT EXISTS (
+                        SELECT 1
+                        FROM bookings bk
+                        WHERE bk.bed_id = bb.id
+                          AND bk.branch_id = b.id
+                          AND bk.status = 'active'
+                          AND bk.checkin_date <= :today
+                          AND bk.checkout_date > :today
+                    )
+                    AND NOT (
+                        (
+                            lower(coalesce(rr.booking_mode, 'bed')) = 'full'
+                        )
+                        AND EXISTS (
+                            SELECT 1
+                            FROM bookings bk2
+                            JOIN beds bb2 ON bb2.id = bk2.bed_id
+                            WHERE bb2.room_id = rr.id
+                              AND bk2.branch_id = b.id
+                              AND bk2.status = 'active'
+                              AND bk2.checkin_date <= :today
+                              AND bk2.checkout_date > :today
+                        )
+                    )
+              )
+            GROUP BY b.id, b.name, b.address, b.latitude, b.longitude, b.region_name, b.region_slug, b.city_name, b.city_slug, b.district_name, b.district_slug, b.contact_phone, b.contact_telegram, b.amenities, b.prepayment_enabled, b.prepayment_mode, b.prepayment_value
+            )
+            SELECT COUNT(*) AS total
+            FROM (
+                SELECT
+                    *,
+                    {distance_expr if distance_expr else 'NULL'} AS distance_km
+                FROM base
+            ) t
+            {outer_where}
+        """), params).mappings().fetchone()
+
+    return rows_out, int(total_row["total"] if total_row else 0)
 
 
 def list_public_branch_photos_db(branch_id: int, limit: int = 50):

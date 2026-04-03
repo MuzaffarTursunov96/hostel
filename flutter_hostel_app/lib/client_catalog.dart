@@ -78,6 +78,7 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
   bool _filtersOpening = false;
   int _page = 1;
   static const int _pageSize = 12;
+  int _totalCount = 0;
   String _priceMode = 'day';
   double _minRating = 0;
   double? _distanceKm;
@@ -87,15 +88,16 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
   String? _districtName;
   String? _roomType;
   RangeValues _priceRange = const RangeValues(0, 0);
+  bool _priceRangeDirty = false;
   double _priceMinBound = 0;
   double _priceMaxBound = 0;
   List<BranchSummary> _branches = [];
   List<BranchSummary> _filtered = [];
-  BookingPrepayConfig? _prepay;
   Map<String, List<String>> _regionCities = {};
   Map<String, List<String>> _cityDistricts = {};
   late String _lang;
   final Map<int, String> _cardTabs = {};
+  Timer? _reloadTimer;
 
   @override
   void initState() {
@@ -108,6 +110,7 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
 
   @override
   void dispose() {
+    _reloadTimer?.cancel();
     _searchCtrl.dispose();
     _regionCtrl.dispose();
     _cityCtrl.dispose();
@@ -210,34 +213,35 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
   }
 
   Future<void> _loadAll() async {
-    await Future.wait([_loadPrepay(), _loadBranches()]);
-  }
-
-  Future<void> _loadPrepay() async {
-    try {
-      final res = await http.get(Uri.parse('$_publicApiBase/booking-prepayment'));
-      if (res.statusCode != 200) return;
-      final payload = jsonDecode(res.body);
-      if (payload is Map<String, dynamic>) {
-        setState(() {
-          _prepay = BookingPrepayConfig.fromJson(payload);
-        });
-      }
-    } catch (_) {}
+    await _loadBranches();
   }
 
   Future<void> _loadBranches() async {
     setState(() => _loading = true);
     try {
       final q = <String, String>{
-        'limit': '200',
+        'limit': '$_pageSize',
+        'offset': '${(_page - 1) * _pageSize}',
         'price_mode': _priceMode,
+        'include_total': '1',
+        'include_bounds': '1',
       };
-      if (_minRating > 0) q['min_rating'] = _minRating.toString();
+      if (_minRating > 0) q['min_rating'] = _minRating.toStringAsFixed(1);
       if (_roomType != null && _roomType!.trim().isNotEmpty) q['room_type'] = _roomType!;
       if (_regionSlug != null && _regionSlug!.trim().isNotEmpty) q['region_slug'] = _regionSlug!;
       if (_cityName != null && _cityName!.trim().isNotEmpty) q['city_name'] = _cityName!;
       if (_districtName != null && _districtName!.trim().isNotEmpty) q['district_name'] = _districtName!;
+      final search = _searchCtrl.text.trim();
+      if (search.isNotEmpty) q['q'] = search;
+      if (_priceRangeDirty) {
+        q['min_price'] = _priceRange.start.toStringAsFixed(0);
+        q['max_price'] = _priceRange.end.toStringAsFixed(0);
+      }
+      if (_distanceKm != null && _catalogUserPos != null) {
+        q['lat'] = _catalogUserPos!.latitude.toStringAsFixed(6);
+        q['lng'] = _catalogUserPos!.longitude.toStringAsFixed(6);
+        q['radius_km'] = _distanceKm!.toStringAsFixed(2);
+      }
       final uri = Uri.parse('$_publicApiBase/branches').replace(queryParameters: q);
       final res = await http.get(uri, headers: const {'Cache-Control': 'no-cache'});
       if (res.statusCode != 200) {
@@ -245,10 +249,37 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
         return;
       }
       final data = jsonDecode(res.body);
-      final list = (data as List).map((e) => BranchSummary.fromJson(e as Map<String, dynamic>)).toList();
+      List listRaw;
+      int total = 0;
+      if (data is Map<String, dynamic>) {
+        listRaw = (data['items'] as List?) ?? [];
+        total = (data['total'] as num?)?.toInt() ?? 0;
+        final bounds = data['bounds'];
+        if (bounds is Map) {
+          final bmin = double.tryParse('${bounds['min'] ?? ''}');
+          final bmax = double.tryParse('${bounds['max'] ?? ''}');
+          if (bmin != null && bmax != null) {
+            _priceMinBound = bmin.floorToDouble();
+            _priceMaxBound = bmax.ceilToDouble();
+            if (_priceMaxBound < _priceMinBound) {
+              _priceMaxBound = _priceMinBound;
+            }
+            if (!_priceRangeDirty) {
+              _priceRange = RangeValues(_priceMinBound, _priceMaxBound);
+            }
+          }
+        }
+      } else if (data is List) {
+        listRaw = data;
+        total = listRaw.length;
+      } else {
+        listRaw = [];
+      }
+      final list = listRaw.map((e) => BranchSummary.fromJson(e as Map<String, dynamic>)).toList();
       _branches = list;
+      _filtered = list;
+      _totalCount = total;
       _recomputePriceBounds();
-      _applyClientFilters();
     } catch (e) {
       _showSnack(_friendlyError(e.toString()), error: true);
     } finally {
@@ -274,73 +305,19 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
     if (_priceMaxBound < _priceMinBound) {
       _priceMaxBound = _priceMinBound;
     }
-    _priceRange = RangeValues(_priceMinBound, _priceMaxBound);
+    if (!_priceRangeDirty) {
+      _priceRange = RangeValues(_priceMinBound, _priceMaxBound);
+    }
   }
 
   void _applyClientFilters() {
-    final needle = _searchCtrl.text.trim().toLowerCase();
-    final min = _priceRange.start;
-    final max = _priceRange.end;
-    final distanceFilter = _distanceKm;
-    final distanceTool = Distance();
-    final list = _branches.where((b) {
-      if (needle.isNotEmpty) {
-        final text = '${b.name} ${b.address ?? ''}'.toLowerCase();
-        if (!text.contains(needle)) return false;
-      }
-      if (_minRating > 0 && (b.rating ?? 0) < _minRating) return false;
-      if (_regionSlug != null && _regionSlug!.trim().isNotEmpty && b.regionSlug != _regionSlug) return false;
-      if (_cityName != null && _cityName!.trim().isNotEmpty && b.cityName != _cityName) return false;
-      if (_districtName != null && _districtName!.trim().isNotEmpty && b.districtName != _districtName) return false;
-      if (_roomType != null && _roomType!.trim().isNotEmpty) {
-        final parts = b.roomTypes.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty);
-        if (!parts.contains(_roomType)) return false;
-      }
-      final rowMin = b.minPrice;
-      final rowMax = b.maxPrice;
-      if (rowMin != null || rowMax != null) {
-        final a = rowMin ?? rowMax!;
-        final c = rowMax ?? rowMin!;
-        if (a > max || c < min) return false;
-      }
-      if (distanceFilter != null) {
-        if (b.latitude == null || b.longitude == null) return false;
-        if (_catalogUserPos == null) return false;
-        final d = distanceTool.as(
-          LengthUnit.Kilometer,
-          _catalogUserPos!,
-          LatLng(b.latitude!, b.longitude!),
-        );
-        if (d > distanceFilter) return false;
-      }
-      return true;
-    }).toList();
-    if (_catalogUserPos != null) {
-      final cache = <int, double?>{};
-      double? distFor(BranchSummary b) {
-        if (b.latitude == null || b.longitude == null) return null;
-        return cache.putIfAbsent(
-          b.id,
-          () => distanceTool.as(
-            LengthUnit.Kilometer,
-            _catalogUserPos!,
-            LatLng(b.latitude!, b.longitude!),
-          ),
-        );
-      }
-      list.sort((a, b) {
-        final da = distFor(a);
-        final db = distFor(b);
-        if (da == null && db == null) return a.name.compareTo(b.name);
-        if (da == null) return 1;
-        if (db == null) return -1;
-        return da.compareTo(db);
-      });
-    }
+    _reloadTimer?.cancel();
     setState(() {
-      _filtered = list;
       _filtersActive = _hasActiveFilters(includeSearch: false);
       _page = 1;
+    });
+    _reloadTimer = Timer(const Duration(milliseconds: 250), () {
+      _loadBranches();
     });
   }
 
@@ -369,6 +346,7 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
     if (_districtName != null && _districtName!.trim().isNotEmpty) return true;
     if (_roomType != null && _roomType!.trim().isNotEmpty) return true;
     if (_priceMode != 'day') return true;
+    if (_priceRangeDirty) return true;
     if (_minRating > 0) return true;
     if (_distanceKm != null) return true;
     return false;
@@ -388,6 +366,7 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
       _districtName = null;
       _roomType = null;
       _priceRange = RangeValues(_priceMinBound, _priceMaxBound);
+      _priceRangeDirty = false;
       _distanceKm = null;
       _filtersActive = false;
       _page = 1;
@@ -1081,7 +1060,6 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                   lang: _lang,
                   branchId: b.id,
                   priceMode: _priceMode,
-                  prepay: _prepay,
                 ),
               ),
             );
@@ -1098,15 +1076,14 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
       _priceRange.start.clamp(_priceMinBound, rangeMax),
       _priceRange.end.clamp(_priceMinBound, rangeMax),
     );
-    final totalPages = (_filtered.length / _pageSize).ceil();
+    final totalPages = (_totalCount / _pageSize).ceil();
     final effectivePage = totalPages == 0 ? 1 : _page.clamp(1, totalPages);
     if (effectivePage != _page) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) setState(() => _page = effectivePage);
       });
     }
-    final pageStart = (effectivePage - 1) * _pageSize;
-    final pageItems = _filtered.skip(pageStart).take(_pageSize).toList();
+    final pageItems = _filtered;
     return Scaffold(
       backgroundColor: _bg,
       appBar: AppBar(
@@ -1213,7 +1190,10 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                     child: _PaginationBar(
                       totalPages: totalPages,
                       currentPage: effectivePage,
-                      onPageChanged: (p) => setState(() => _page = p),
+                      onPageChanged: (p) {
+                        setState(() => _page = p);
+                        _loadBranches();
+                      },
                     ),
                   ),
               ],
@@ -1404,7 +1384,11 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                                   ],
                                   onChanged: (value) {
                                     if (value == null) return;
-                                    setState(() => _priceMode = value);
+                                    setState(() {
+                                      _priceMode = value;
+                                      _page = 1;
+                                      _priceRangeDirty = false;
+                                    });
                                     _loadBranches();
                                   },
                                 ),
@@ -1469,7 +1453,10 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                                 max: rangeMax,
                                 values: range,
                                 onChanged: (v) {
-                                  setState(() => _priceRange = v);
+                                  setState(() {
+                                    _priceRange = v;
+                                    _priceRangeDirty = true;
+                                  });
                                   _applyClientFilters();
                                 },
                               ),
@@ -1524,8 +1511,8 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
     final noPriceLine = (minLine == null && maxLine == null)
         ? '${_tr(ru: 'Нарх', uz: 'Narx')}: ${_tr(ru: 'По договоренности', uz: 'Kelishiladi')}'
         : null;
-    final prepayLabel = _prepay?.label(_lang) ?? '';
-    final hasPrepay = prepayLabel.trim().isNotEmpty && RegExp(r'[1-9]').hasMatch(prepayLabel);
+    final prepayLabel = b.prepayLabel(_lang);
+    final hasPrepay = prepayLabel.trim().isNotEmpty;
     final photos = b.photos.isNotEmpty
         ? List<String>.from(b.photos)
         : (b.coverPhoto != null && b.coverPhoto!.trim().isNotEmpty
@@ -1718,7 +1705,6 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                               lang: _lang,
                               branchId: b.id,
                               priceMode: _priceMode,
-                              prepay: _prepay,
                             ),
                           ),
                         ),
@@ -2733,13 +2719,11 @@ class ClientBranchDetailsScreen extends StatefulWidget {
     required this.lang,
     required this.branchId,
     required this.priceMode,
-    this.prepay,
   });
 
   final String lang;
   final int branchId;
   final String priceMode;
-  final BookingPrepayConfig? prepay;
 
   @override
   State<ClientBranchDetailsScreen> createState() => _ClientBranchDetailsScreenState();
@@ -2912,10 +2896,14 @@ class _ClientBranchDetailsScreenState extends State<ClientBranchDetailsScreen> {
                           ),
                       ],
                     ),
-                    if (widget.prepay != null && widget.prepay!.enabled) ...[
-                      const SizedBox(height: 10),
-                      Text(widget.prepay!.label(widget.lang), style: const TextStyle(color: _textMuted)),
-                    ],
+                    ...(() {
+                      final label = _branch!.prepayLabel(widget.lang);
+                      if (label.trim().isEmpty) return const <Widget>[];
+                      return <Widget>[
+                        const SizedBox(height: 10),
+                        Text(label, style: const TextStyle(color: _textMuted)),
+                      ];
+                    })(),
                     const SizedBox(height: 16),
                     ..._buildRoomCards(),
                     const SizedBox(height: 10),
@@ -3185,7 +3173,7 @@ class _ClientBranchDetailsScreenState extends State<ClientBranchDetailsScreen> {
           lang: widget.lang,
           branchId: _branch!.id,
           branchName: _branch!.name,
-          prepay: widget.prepay,
+          prepayLabel: _branch!.prepayLabel(widget.lang),
           roomLabel: display,
           roomType: _roomTypeLabel(room.roomType),
           rentType: rentType,
@@ -3201,7 +3189,7 @@ class BookingRequestScreen extends StatefulWidget {
     required this.lang,
     required this.branchId,
     required this.branchName,
-    this.prepay,
+    this.prepayLabel,
     this.roomLabel,
     this.roomType,
     this.rentType,
@@ -3210,7 +3198,7 @@ class BookingRequestScreen extends StatefulWidget {
   final String lang;
   final int branchId;
   final String branchName;
-  final BookingPrepayConfig? prepay;
+  final String? prepayLabel;
   final String? roomLabel;
   final String? roomType;
   final String? rentType;
@@ -3328,7 +3316,7 @@ class _BookingRequestScreenState extends State<BookingRequestScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final prepayLabel = widget.prepay?.label(widget.lang) ?? '';
+    final prepayLabel = widget.prepayLabel ?? '';
     return Scaffold(
       appBar: AppBar(title: Text(_tr('Bron qilish', 'Bron qilish'))),
       body: ListView(

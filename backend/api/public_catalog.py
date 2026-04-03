@@ -23,19 +23,47 @@ def public_branches(
     city_name: str | None = None,
     district_name: str | None = None,
     price_mode: str | None = None,
-    limit: int = 100
+    limit: int = 100,
+    offset: int = 0,
+    q: str | None = None,
+    min_price: float | None = None,
+    max_price: float | None = None,
+    lat: float | None = None,
+    lng: float | None = None,
+    radius_km: float | None = None,
+    include_total: bool | None = None,
+    include_bounds: bool | None = None,
 ):
     if min_rating is not None and (min_rating < 0 or min_rating > 5):
         raise HTTPException(400, "min_rating must be between 0 and 5")
-    return list_public_branches_with_rating_db(
+    result = list_public_branches_with_rating_db(
         min_rating=min_rating,
         room_type=room_type,
         region_slug=region_slug,
         city_name=city_name,
         district_name=district_name,
         price_mode=price_mode,
-        limit=limit
+        limit=limit,
+        offset=offset,
+        q=q,
+        min_price=min_price,
+        max_price=max_price,
+        lat=lat,
+        lng=lng,
+        radius_km=radius_km,
+        return_total=bool(include_total),
+        return_bounds=bool(include_bounds),
     )
+    if include_total or include_bounds:
+        if include_total and include_bounds:
+            items, total, bounds = result
+            return {"items": items, "total": total, "bounds": bounds or {"min": 0, "max": 0}}
+        if include_total:
+            items, total = result
+            return {"items": items, "total": total}
+        items, bounds = result
+        return {"items": items, "bounds": bounds or {"min": 0, "max": 0}}
+    return result
 
 
 @router.get("/branches/{branch_id}/ratings")

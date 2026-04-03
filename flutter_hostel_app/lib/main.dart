@@ -18,6 +18,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'client_catalog.dart';
 
 const String kLanguageKey = 'language';
+const String kBranchIdKey = 'branch_id';
 final ValueNotifier<String> appLang = ValueNotifier<String>('uz');
 
 String normLang(String? lang) => (lang ?? '').toLowerCase() == 'ru' ? 'ru' : 'uz';
@@ -1459,7 +1460,8 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _index = 0;
-  late final _api = _ApiClient(widget.accessToken, widget.branchId);
+  late _ApiClient _api;
+  late int _branchId;
   final ValueNotifier<int> _refreshSignal = ValueNotifier<int>(0);
   String _language = 'ru';
   bool _changingLang = false;
@@ -1474,6 +1476,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    _branchId = widget.branchId;
+    _api = _ApiClient(widget.accessToken, _branchId);
     WidgetsBinding.instance.addObserver(this);
     _loadTopLanguage();
     _loadUnreadCount();
@@ -1634,6 +1638,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
+  Future<void> _switchBranch(int newBranchId) async {
+    if (newBranchId == _branchId) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(kBranchIdKey, newBranchId);
+    if (!mounted) return;
+    setState(() {
+      _branchId = newBranchId;
+      _api = _ApiClient(widget.accessToken, newBranchId);
+      _index = 0;
+    });
+    _notifyDataChanged();
+    await _loadUnreadCount();
+    showAppAlert(context, _language == 'ru' ? 'Филиал изменен' : 'Filial o‘zgartirildi');
+  }
+
   @override
   Widget build(BuildContext context) {
     final lang = appLang.value;
@@ -1713,11 +1732,31 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       body: IndexedStack(
         index: _index,
         children: [
-          _DashboardPage(api: _api, refreshSignal: _refreshSignal),
-          _RoomsPage(api: _api, onDataChanged: _notifyDataChanged),
-          _BookingsPage(api: _api, onDataChanged: _notifyDataChanged),
-          _PaymentsPage(api: _api),
-          _SettingsPage(api: _api),
+          _DashboardPage(
+            key: ValueKey('dash_${_branchId}'),
+            api: _api,
+            refreshSignal: _refreshSignal,
+          ),
+          _RoomsPage(
+            key: ValueKey('rooms_${_branchId}'),
+            api: _api,
+            onDataChanged: _notifyDataChanged,
+          ),
+          _BookingsPage(
+            key: ValueKey('book_${_branchId}'),
+            api: _api,
+            onDataChanged: _notifyDataChanged,
+          ),
+          _PaymentsPage(
+            key: ValueKey('pay_${_branchId}'),
+            api: _api,
+          ),
+          _SettingsPage(
+            key: ValueKey('settings_${_branchId}'),
+            api: _api,
+            currentBranchId: _branchId,
+            onBranchChanged: _switchBranch,
+          ),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -1946,7 +1985,7 @@ class _ApiClient {
 }
 
 class _DashboardPage extends StatefulWidget {
-  const _DashboardPage({required this.api, required this.refreshSignal});
+  const _DashboardPage({super.key, required this.api, required this.refreshSignal});
   final _ApiClient api;
   final ValueNotifier<int> refreshSignal;
 
@@ -3433,7 +3472,7 @@ class _MiniTime extends StatelessWidget {
 }
 
 class _RoomsPage extends StatefulWidget {
-  const _RoomsPage({required this.api, required this.onDataChanged});
+  const _RoomsPage({super.key, required this.api, required this.onDataChanged});
   final _ApiClient api;
   final VoidCallback onDataChanged;
 
@@ -4595,7 +4634,7 @@ class _RoomsPageState extends State<_RoomsPage> {
 }
 
 class _BookingsPage extends StatefulWidget {
-  const _BookingsPage({required this.api, required this.onDataChanged});
+  const _BookingsPage({super.key, required this.api, required this.onDataChanged});
   final _ApiClient api;
   final VoidCallback onDataChanged;
 
@@ -5431,7 +5470,7 @@ class _BookingHistorySheetState extends State<_BookingHistorySheet> {
 }
 
 class _PaymentsPage extends StatefulWidget {
-  const _PaymentsPage({required this.api});
+  const _PaymentsPage({super.key, required this.api});
   final _ApiClient api;
 
   @override
@@ -6972,8 +7011,15 @@ class _RefundsSheetState extends State<_RefundsSheet> {
 }
 
 class _SettingsPage extends StatefulWidget {
-  const _SettingsPage({required this.api});
+  const _SettingsPage({
+    super.key,
+    required this.api,
+    this.currentBranchId,
+    this.onBranchChanged,
+  });
   final _ApiClient api;
+  final int? currentBranchId;
+  final ValueChanged<int>? onBranchChanged;
 
   @override
   State<_SettingsPage> createState() => _SettingsPageState();
@@ -7034,6 +7080,14 @@ class _SettingsPageState extends State<_SettingsPage> {
 
   void _snack(String text, {bool error = false}) {
     showAppAlert(context, text, error: error);
+  }
+
+  void _changeActiveBranch(int? branchId) {
+    if (branchId == null) return;
+    setState(() => _selectedBranchId = branchId);
+    if (widget.onBranchChanged != null) {
+      widget.onBranchChanged!(branchId);
+    }
   }
 
   Future<void> _openUserManagerSheet() async {
@@ -7191,7 +7245,11 @@ class _SettingsPageState extends State<_SettingsPage> {
         _users = users;
         _branches = branches;
         _selectedUserId = users.isNotEmpty ? _toInt(users.first['id']) : null;
-        _selectedBranchId = branches.isNotEmpty ? _toInt(branches.first['id']) : null;
+        final current = widget.currentBranchId;
+        final hasCurrent = current != null && branches.any((b) => _toInt(b['id']) == current);
+        _selectedBranchId = hasCurrent
+            ? current
+            : (branches.isNotEmpty ? _toInt(branches.first['id']) : null);
       });
       await _loadSelectedUserNotify();
     } catch (e) {
@@ -7741,7 +7799,7 @@ class _SettingsPageState extends State<_SettingsPage> {
                               child: Text('${b['id']} - ${b['name'] ?? b['branch_name'] ?? ''}'),
                             ))
                         .toList(),
-                    onChanged: (v) => setState(() => _selectedBranchId = v),
+                    onChanged: _changeActiveBranch,
                   ),
                   const SizedBox(height: 10),
                   SizedBox(
@@ -7814,14 +7872,10 @@ class _SettingsPageState extends State<_SettingsPage> {
                     child: FilledButton(
                       style: FilledButton.styleFrom(backgroundColor: const Color(0xFF4F46E5)),
                       onPressed: () async {
-                        await showModalBottomSheet(
-                          context: context,
-                          isScrollControlled: true,
-                          backgroundColor: Colors.white,
-                          shape: const RoundedRectangleBorder(
-                            borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+                        await Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => _RootAdminPage(api: widget.api),
                           ),
-                          builder: (_) => _RootAdminSheet(api: widget.api),
                         );
                       },
                       child: const Text('Open Root Management'),
@@ -8948,9 +9002,29 @@ class _AdminFeedbackSheetState extends State<_AdminFeedbackSheet> {
   }
 }
 
-class _RootAdminSheet extends StatefulWidget {
-  const _RootAdminSheet({required this.api});
+class _RootAdminPage extends StatelessWidget {
+  const _RootAdminPage({required this.api});
   final _ApiClient api;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<String>(
+      valueListenable: appLang,
+      builder: (_, lang, __) => Scaffold(
+        appBar: AppBar(
+          title: Text(trPair(ru: 'Root Admin', uz: 'Root Admin', lang: lang)),
+        ),
+        body: _RootAdminSheet(api: api, fullPage: true, showHeader: false),
+      ),
+    );
+  }
+}
+
+class _RootAdminSheet extends StatefulWidget {
+  const _RootAdminSheet({required this.api, this.fullPage = false, this.showHeader = true});
+  final _ApiClient api;
+  final bool fullPage;
+  final bool showHeader;
 
   @override
   State<_RootAdminSheet> createState() => _RootAdminSheetState();
@@ -8988,6 +9062,102 @@ class _RootAdminSheetState extends State<_RootAdminSheet> {
   void _snack(String text, {bool error = false}) {
     final msg = error ? friendlyErrorText(text) : text;
     showAppAlert(context, msg, error: error);
+  }
+
+  Future<void> _openCronModal() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(_t('Управление debt cron', 'Debt cron boshqaruvi'),
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                  const Spacer(),
+                  IconButton(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.close)),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(child: Text(_t('Включен', 'Yoqilgan'))),
+                  Switch(
+                    value: _cronEnabled,
+                    onChanged: _cronBusy ? null : (v) => _saveCronConfig(enabled: v),
+                  ),
+                ],
+              ),
+              Row(
+                children: [
+                  Expanded(child: Text(_t('Принудительный следующий запуск', 'Keyingi ishga tushirish majburiy'))),
+                  Switch(
+                    value: _cronForceNext,
+                    onChanged: _cronBusy ? null : (v) => _saveCronConfig(forceNextRun: v),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: _cronBusy ? null : _runCronTestNow,
+                  icon: _cronBusy
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Icon(Icons.play_arrow_rounded),
+                  label: Text(_t('Запустить тест сейчас', 'Testni hozir ishga tushirish')),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openPublishModal() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(_t('Публикация филиалов', 'Filial nashri'),
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                  const Spacer(),
+                  IconButton(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.close)),
+                ],
+              ),
+              const SizedBox(height: 8),
+              _branchPublishCard(_branches),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   int? _toInt(dynamic v) {
@@ -9242,6 +9412,89 @@ class _RootAdminSheetState extends State<_RootAdminSheet> {
     }
   }
 
+  Future<void> _setBranchPublished(Map<String, dynamic> branch, bool value) async {
+    final branchId = _toInt(branch['id']);
+    if (branchId == null) return;
+    try {
+      await widget.api.postJson('/root/branches/$branchId/publish', {
+        'is_published': value,
+      });
+      await _load();
+      _snack(_t('Статус публикации обновлен', 'Nashr holati yangilandi'));
+    } catch (e) {
+      _snack('$e', error: true);
+    }
+  }
+
+  Widget _adminCard(Map<String, dynamic> a) {
+    final exp = '${a['admin_expires_at'] ?? ''}';
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(child: Text('${a['id']} ${a['username'] ?? ''}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18))),
+              Switch(value: a['is_active'] == true, onChanged: (v) => _setActive(a, v)),
+            ],
+          ),
+          Text('Telegram: ${a['telegram_id'] ?? ''}'),
+          Text('Filiallar: ${_branchNames(a['branches'])}'),
+          Text('Expiry: ${exp.isEmpty ? '-' : exp.split('T').first}'),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton(onPressed: () => _setBranches(a), child: const Text('Filiallar')),
+              OutlinedButton(onPressed: () => _setExpiry(a), child: const Text('Saqlash')),
+              OutlinedButton(onPressed: () => _clearExpiry(a), child: const Text('Tozalash')),
+              OutlinedButton(onPressed: () => _resetPassword(a), child: const Text('Parolni tiklash')),
+              FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE5534B)),
+                onPressed: () => _deleteAdmin(a),
+                child: const Text("O'chirish"),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _branchPublishCard(List<Map<String, dynamic>> branches) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(_t('Публикация филиалов (клиент каталог)', 'Filial nashri (mijoz katalogi)'),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+        const SizedBox(height: 8),
+        ...branches.map((b) {
+          final name = '${b['name'] ?? ''}';
+          final id = _toInt(b['id']) ?? 0;
+          final isPublished = b['is_published'] == true;
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Row(
+              children: [
+                Expanded(child: Text('$id  $name', style: const TextStyle(fontSize: 14))),
+                Switch(
+                  value: isPublished,
+                  onChanged: (v) => _setBranchPublished(b, v),
+                ),
+              ],
+            ),
+          );
+        }),
+        if (branches.isEmpty)
+          Text(
+            _t('Филиалы не найдены', "Filiallar topilmadi"),
+            style: const TextStyle(color: Colors.grey),
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final q = _search.text.trim().toLowerCase();
@@ -9252,23 +9505,30 @@ class _RootAdminSheetState extends State<_RootAdminSheet> {
       final t = '${a['telegram_id'] ?? ''}'.toLowerCase();
       return id.contains(q) || u.contains(q) || t.contains(q);
     }).toList();
+    final branchRows = _branches.where((b) {
+      if (q.isEmpty) return true;
+      final id = '${b['id'] ?? ''}'.toLowerCase();
+      final n = '${b['name'] ?? ''}'.toLowerCase();
+      return id.contains(q) || n.contains(q);
+    }).toList();
 
     return SafeArea(
       child: Padding(
-        padding: EdgeInsets.fromLTRB(10, 10, 10, MediaQuery.of(context).viewInsets.bottom + 8),
+        padding: EdgeInsets.fromLTRB(12, 12, 12, MediaQuery.of(context).viewInsets.bottom + 12),
         child: SizedBox(
-          height: MediaQuery.of(context).size.height * 0.86,
+          height: widget.fullPage ? MediaQuery.of(context).size.height : MediaQuery.of(context).size.height * 0.86,
           child: Column(
             children: [
-              Row(
-                children: [
-                  const _WebIcon('root', size: 22),
-                  const SizedBox(width: 8),
-                  const Text('Root Admin boshqaruvi', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
-                  const Spacer(),
-                  IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
-                ],
-              ),
+              if (widget.showHeader)
+                Row(
+                  children: [
+                    const _WebIcon('root', size: 22),
+                    const SizedBox(width: 8),
+                    const Text('Root Admin boshqaruvi', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+                    const Spacer(),
+                    IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
+                  ],
+                ),
               _Card(
                 child: Column(
                   children: [
@@ -9293,47 +9553,22 @@ class _RootAdminSheetState extends State<_RootAdminSheet> {
                 ),
               ),
               const SizedBox(height: 8),
-              _Card(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(_t('Управление debt cron', 'Debt cron boshqaruvi'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(child: Text(_t('Включен', 'Yoqilgan'))),
-                        Switch(
-                          value: _cronEnabled,
-                          onChanged: _cronBusy ? null : (v) => _saveCronConfig(enabled: v),
-                        ),
-                      ],
+              Row(
+                children: [
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: _openCronModal,
+                      child: Text(_t('Debt cron', 'Debt cron')),
                     ),
-                    Row(
-                      children: [
-                        Expanded(child: Text(_t('Принудительный следующий запуск', 'Keyingi ishga tushirish majburiy'))),
-                        Switch(
-                          value: _cronForceNext,
-                          onChanged: _cronBusy ? null : (v) => _saveCronConfig(forceNextRun: v),
-                        ),
-                      ],
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: _openPublishModal,
+                      child: Text(_t('Публикация', 'Nashr')),
                     ),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        onPressed: _cronBusy ? null : _runCronTestNow,
-                        icon: _cronBusy
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                              )
-                            : const Icon(Icons.play_arrow_rounded),
-                        label: Text(_t('Запустить тест сейчас', 'Testni hozir ishga tushirish')),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
               const SizedBox(height: 8),
               Expanded(
@@ -9341,45 +9576,12 @@ class _RootAdminSheetState extends State<_RootAdminSheet> {
                     ? const Center(child: CircularProgressIndicator())
                     : _error != null
                         ? Center(child: Text(_error!, style: const TextStyle(color: Colors.red)))
-                        : ListView.separated(
-                            itemCount: rows.length,
-                            separatorBuilder: (_, __) => const SizedBox(height: 8),
-                            itemBuilder: (_, i) {
-                              final a = rows[i];
-                              final exp = '${a['admin_expires_at'] ?? ''}';
-                              return _Card(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Expanded(child: Text('${a['id']} ${a['username'] ?? ''}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18))),
-                                        Switch(value: a['is_active'] == true, onChanged: (v) => _setActive(a, v)),
-                                      ],
-                                    ),
-                                    Text('Telegram: ${a['telegram_id'] ?? ''}'),
-                                    Text('Filiallar: ${_branchNames(a['branches'])}'),
-                                    Text('Expiry: ${exp.isEmpty ? '-' : exp.split('T').first}'),
-                                    const SizedBox(height: 8),
-                                    Wrap(
-                                      spacing: 8,
-                                      runSpacing: 8,
-                                      children: [
-                                        OutlinedButton(onPressed: () => _setBranches(a), child: const Text('Filiallar')),
-                                        OutlinedButton(onPressed: () => _setExpiry(a), child: const Text('Saqlash')),
-                                        OutlinedButton(onPressed: () => _clearExpiry(a), child: const Text('Tozalash')),
-                                        OutlinedButton(onPressed: () => _resetPassword(a), child: const Text('Parolni tiklash')),
-                                        FilledButton(
-                                          style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE5534B)),
-                                          onPressed: () => _deleteAdmin(a),
-                                          child: const Text("O'chirish"),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
+                        : ListView(
+                            children: [
+                              if (rows.isEmpty)
+                                Text(_t('Админы не найдены', "Adminlar topilmadi"), style: const TextStyle(color: Colors.grey)),
+                              ...rows.map(_adminCard),
+                            ],
                           ),
               ),
             ],
