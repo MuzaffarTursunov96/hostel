@@ -5393,7 +5393,7 @@ def list_public_branches_with_rating_db(
             ")"
         )
         if radius_norm is not None:
-            extra_filters.append("distance_km <= :radius_km")
+            extra_filters.append(f"{distance_expr} <= :radius_km")
 
     outer_where = ""
     if extra_filters:
