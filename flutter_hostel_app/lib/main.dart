@@ -6989,9 +6989,6 @@ class _SettingsPageState extends State<_SettingsPage> {
   String _language = 'ru';
   bool _myNotify = false;
   bool _userNotify = false;
-  bool _prepayEnabled = false;
-  String _prepayMode = 'percent';
-  final _prepayValueCtrl = TextEditingController(text: '0');
   String _t(String ru, String uz) => trPair(ru: ru, uz: uz, lang: appLang.value);
   bool _saving = false;
 
@@ -7032,12 +7029,81 @@ class _SettingsPageState extends State<_SettingsPage> {
     _newBranchAddressCtrl.dispose();
     _newBranchLatCtrl.dispose();
     _newBranchLngCtrl.dispose();
-    _prepayValueCtrl.dispose();
     super.dispose();
   }
 
   void _snack(String text, {bool error = false}) {
     showAppAlert(context, text, error: error);
+  }
+
+  Future<void> _openUserManagerSheet() async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            top: 16,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(_t('Пользователи', 'Foydalanuvchilar'),
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                    const Spacer(),
+                    IconButton(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.close)),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                TextField(controller: _newUserCtrl, decoration: InputDecoration(hintText: _t('Имя пользователя', 'Foydalanuvchi nomi'), border: const OutlineInputBorder())),
+                const SizedBox(height: 8),
+                TextField(controller: _newUserTelegramCtrl, decoration: const InputDecoration(hintText: 'Telegram ID', border: OutlineInputBorder())),
+                const SizedBox(height: 8),
+                TextField(controller: _newUserPasswordCtrl, obscureText: true, decoration: InputDecoration(hintText: _t('Пароль', 'Parol'), border: const OutlineInputBorder())),
+                const SizedBox(height: 8),
+                SizedBox(width: double.infinity, child: FilledButton(onPressed: _saving ? null : _createUser, child: Text(_t('Добавить', "Qo'shish")))),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<int>(
+                  value: _selectedUserId,
+                  decoration: const InputDecoration(border: OutlineInputBorder()),
+                  items: _users
+                      .map((u) => DropdownMenuItem<int>(
+                            value: _toInt(u['id']),
+                            child: Text('${u['username'] ?? u['name'] ?? u['id']}'),
+                          ))
+                      .toList(),
+                  onChanged: (v) async {
+                    setState(() => _selectedUserId = v);
+                    await _loadSelectedUserNotify();
+                  },
+                ),
+                const SizedBox(height: 8),
+                SizedBox(width: double.infinity, child: FilledButton(onPressed: _saving ? null : _openAssignBranches, child: Text(_t('Назначить филиалы', 'Filiallarni biriktirish')))),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE5534B)),
+                    onPressed: _saving ? null : _deleteUser,
+                    child: Text(_t("Удалить", "O'chirish")),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   String _friendlyError(Object e) {
@@ -7115,7 +7181,6 @@ class _SettingsPageState extends State<_SettingsPage> {
           }
         } catch (_) {}
         branches = await _loadAdminBranches();
-        await _loadPrepaymentSettings();
       }
 
       setState(() {
@@ -7322,35 +7387,6 @@ class _SettingsPageState extends State<_SettingsPage> {
       if (!mounted) return;
       setState(() => _userNotify = u['notify_enabled'] == true);
     } catch (_) {}
-  }
-
-  Future<void> _loadPrepaymentSettings() async {
-    try {
-      final cfg = Map<String, dynamic>.from(await widget.api.getJson('/settings/booking-prepayment') as Map);
-      if (!mounted) return;
-      setState(() {
-        _prepayEnabled = cfg['enabled'] == true;
-        _prepayMode = '${cfg['mode'] ?? 'percent'}';
-        _prepayValueCtrl.text = '${cfg['value'] ?? 0}';
-      });
-    } catch (_) {}
-  }
-
-  Future<void> _savePrepaymentSettings() async {
-    final value = double.tryParse(_prepayValueCtrl.text.trim()) ?? 0;
-    setState(() => _saving = true);
-    try {
-      await widget.api.postJson('/settings/booking-prepayment', {
-        'enabled': _prepayEnabled,
-        'mode': _prepayMode,
-        'value': value,
-      });
-      _snack(_t('Настройки сохранены', 'Sozlamalar saqlandi'));
-    } catch (e) {
-      _snack(_friendlyError(e), error: true);
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
   }
 
   Future<void> _createUser() async {
@@ -7674,40 +7710,14 @@ class _SettingsPageState extends State<_SettingsPage> {
                     ],
                   ),
                   const SizedBox(height: 10),
-                  TextField(controller: _newUserCtrl, decoration: InputDecoration(hintText: _t('Имя пользователя', 'Foydalanuvchi nomi'), border: const OutlineInputBorder())),
-                  const SizedBox(height: 8),
-                  TextField(controller: _newUserTelegramCtrl, decoration: const InputDecoration(hintText: 'Telegram ID', border: OutlineInputBorder())),
-                  const SizedBox(height: 8),
-                  TextField(controller: _newUserPasswordCtrl, obscureText: true, decoration: InputDecoration(hintText: _t('Пароль', 'Parol'), border: const OutlineInputBorder())),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: _saving ? null : _openUserManagerSheet,
+                      child: Text(_t('Управление пользователями', 'Foydalanuvchilarni boshqarish')),
+                    ),
+                  ),
                 ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            SizedBox(width: double.infinity, child: FilledButton(onPressed: _saving ? null : _createUser, child: Text(_t('Добавить', "Qo'shish")))),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<int>(
-              value: _selectedUserId,
-              decoration: const InputDecoration(border: OutlineInputBorder()),
-              items: _users
-                  .map((u) => DropdownMenuItem<int>(
-                        value: _toInt(u['id']),
-                        child: Text('${u['username'] ?? u['name'] ?? u['id']}'),
-                      ))
-                  .toList(),
-              onChanged: (v) async {
-                setState(() => _selectedUserId = v);
-                await _loadSelectedUserNotify();
-              },
-            ),
-            const SizedBox(height: 8),
-            SizedBox(width: double.infinity, child: FilledButton(onPressed: _saving ? null : _openAssignBranches, child: Text(_t('Назначить филиалы', 'Filiallarni biriktirish')))),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE5534B)),
-                onPressed: _saving ? null : _deleteUser,
-                child: Text(_t("Удалить", "O'chirish")),
               ),
             ),
             const SizedBox(height: 12),
@@ -7763,52 +7773,7 @@ class _SettingsPageState extends State<_SettingsPage> {
               ),
             ),
             const SizedBox(height: 12),
-            _Card(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(_t('Предоплата для брони', "Bron uchun oldindan to'lov"), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(child: Text(_t('Включить', 'Yoqish'))),
-                      Switch(
-                        value: _prepayEnabled,
-                        onChanged: _saving ? null : (v) => setState(() => _prepayEnabled = v),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<String>(
-                    value: _prepayMode,
-                    decoration: const InputDecoration(border: OutlineInputBorder()),
-                    items: [
-                      DropdownMenuItem(value: 'percent', child: Text(_t('Процент', 'Foiz'))),
-                      DropdownMenuItem(value: 'fixed', child: Text(_t('Фиксированная сумма', "Qat'iy summa"))),
-                    ],
-                    onChanged: _saving ? null : (v) => setState(() => _prepayMode = v ?? 'percent'),
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _prepayValueCtrl,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: InputDecoration(
-                      hintText: _prepayMode == 'percent' ? _t('Значение в %', 'Qiymat %') : _t('Сумма', 'Summa'),
-                      border: const OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      onPressed: _saving ? null : _savePrepaymentSettings,
-                      child: Text(_t('Сохранить', 'Saqlash')),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
+            
             _Card(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

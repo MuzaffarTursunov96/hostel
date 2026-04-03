@@ -1843,6 +1843,9 @@ class BranchSummary {
     this.cityName,
     this.districtName,
     this.amenities,
+    this.prepaymentEnabled = false,
+    this.prepaymentMode,
+    this.prepaymentValue,
     this.roomTypes = '',
     this.coverPhoto,
     this.photos = const [],
@@ -1875,6 +1878,9 @@ class BranchSummary {
   final String? cityName;
   final String? districtName;
   final String? amenities;
+  final bool prepaymentEnabled;
+  final String? prepaymentMode;
+  final double? prepaymentValue;
   final String roomTypes;
   final String? coverPhoto;
   final List<String> photos;
@@ -2004,6 +2010,9 @@ class BranchSummary {
       cityName: json['city_name']?.toString(),
       districtName: json['district_name']?.toString(),
       amenities: json['amenities']?.toString(),
+      prepaymentEnabled: json['prepayment_enabled'] == true,
+      prepaymentMode: json['prepayment_mode']?.toString(),
+      prepaymentValue: _num(json['prepayment_value']),
       roomTypes: (json['room_types'] ?? json['roomTypes'] ?? '').toString(),
       coverPhoto: cover,
       photos: unique,
@@ -2038,6 +2047,21 @@ class BranchSummary {
     }
     final v = (minV ?? maxV)!;
     return '${v.toStringAsFixed(0)} $suffix';
+  }
+
+  String prepayLabel(String lang) {
+    if (!prepaymentEnabled) return '';
+    final mode = (prepaymentMode ?? 'percent').toLowerCase();
+    final v = prepaymentValue ?? 0;
+    if (v <= 0) return '';
+    if (mode == 'amount') {
+      return lang == 'ru'
+          ? 'Предоплата: ${v.toStringAsFixed(0)}'
+          : 'Oldindan to‘lov: ${v.toStringAsFixed(0)}';
+    }
+    return lang == 'ru'
+        ? 'Предоплата: ${v.toStringAsFixed(0)}%'
+        : 'Oldindan to‘lov: ${v.toStringAsFixed(0)}%';
   }
 }
 
