@@ -1503,6 +1503,9 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
     final maxLine = b.maxPrice != null
         ? '${_tr(ru: 'Макс цена', uz: 'Max narx')}: ${_fmtPrice(b.maxPrice!)} so\'m'
         : null;
+    final noPriceLine = (minLine == null && maxLine == null)
+        ? '${_tr(ru: 'Нарх', uz: 'Narx')}: ${_tr(ru: 'По договоренности', uz: 'Kelishiladi')}'
+        : null;
     final prepayLabel = _prepay?.label(_lang) ?? '';
     final hasPrepay = prepayLabel.trim().isNotEmpty && RegExp(r'[1-9]').hasMatch(prepayLabel);
     final photos = b.photos.isNotEmpty
@@ -1618,17 +1621,7 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                     const SizedBox(height: 4),
                     Text(b.address!, style: const TextStyle(color: _textMuted)),
                   ],
-                  if (amenityTags.isNotEmpty) ...[
-                    const SizedBox(height: 6),
-                    GestureDetector(
-                      onTap: () => _showAmenitiesModal(context, b),
-                      child: Text(
-                        _tr(ru: 'Удобства', uz: 'Qulayliklar'),
-                        style: const TextStyle(color: _brandBlue, fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                  ],
-                const SizedBox(height: 8),
+                  const SizedBox(height: 8),
                 Row(
                   children: [
                     Container(
@@ -1642,7 +1635,7 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                     ),
                   ],
                 ),
-                if (minLine != null || maxLine != null) ...[
+                if (minLine != null || maxLine != null || noPriceLine != null) ...[
                   const SizedBox(height: 8),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1664,6 +1657,7 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            if (noPriceLine != null) Text(noPriceLine),
                             if (minLine != null) Text(minLine),
                             if (maxLine != null) Text(maxLine),
                           ],
@@ -1704,6 +1698,20 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                       ),
                     ),
                     const SizedBox(width: 8),
+                    if (amenityTags.isNotEmpty)
+                      SizedBox(
+                        height: 40,
+                        width: 44,
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          onPressed: () => _showAmenitiesModal(context, b),
+                        child: Image.asset('assets/icons/letter-i.png', width: 20, height: 20),
+                        ),
+                      ),
+                    if (amenityTags.isNotEmpty) const SizedBox(width: 8),
                     SizedBox(
                       height: 40,
                       width: 44,
@@ -1713,7 +1721,7 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                         onPressed: () => _openMaps(b),
-                        child: const Icon(Icons.location_on_outlined, size: 20),
+                        child: Image.asset('assets/icons/destination.png', width: 20, height: 20),
                       ),
                     ),
                   ],
@@ -1736,36 +1744,34 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
 
   void _showAmenitiesModal(BuildContext context, BranchSummary b) {
     final tags = _parseAmenities(b.amenities, max: 40);
-    if (tags.isEmpty) return;
-    showModalBottomSheet<void>(
+    showDialog<void>(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
-      ),
-      builder: (_) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      _tr(ru: 'Удобства', uz: 'Qulayliklar'),
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                  IconButton(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.close)),
-                ],
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        titlePadding: const EdgeInsets.fromLTRB(20, 16, 8, 0),
+        contentPadding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                _tr(ru: 'Удобства', uz: 'Qulayliklar'),
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
               ),
-              const SizedBox(height: 8),
-              if ((b.name).trim().isNotEmpty)
-                Text(b.name, style: const TextStyle(color: _textMuted)),
-              const SizedBox(height: 12),
+            ),
+            IconButton(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.close)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 4),
+            if (tags.isEmpty)
+              Text(
+                _tr(ru: 'Информация отсутствует', uz: 'Maʼlumot mavjud emas'),
+                style: const TextStyle(color: _textMuted),
+              )
+            else
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -1786,8 +1792,7 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                     )
                     .toList(),
               ),
-            ],
-          ),
+          ],
         ),
       ),
     );
