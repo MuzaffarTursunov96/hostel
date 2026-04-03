@@ -120,6 +120,10 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
     return _lang == 'ru' ? ru : uz;
   }
 
+  Widget _dropdownPlaceholder(String text) {
+    return Text(text, style: const TextStyle(fontSize: 12, color: _textMuted));
+  }
+
   void _setLang(String lang) {
     setState(() {
       _lang = lang == 'ru' ? 'ru' : 'uz';
@@ -1258,6 +1262,7 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                               Expanded(
                                 child: DropdownButtonFormField<String?>(
                                   value: _regionSlug,
+                                  hint: _dropdownPlaceholder(_tr(ru: 'Все области', uz: 'Barcha viloyatlar')),
                                   decoration: InputDecoration(
                                     hintText: _tr(ru: 'Все области', uz: 'Barcha viloyatlar'),
                                     hintStyle: const TextStyle(fontSize: 12, color: _textMuted),
@@ -1265,6 +1270,8 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                                     fillColor: _card,
                                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                                   ),
+                                  style: const TextStyle(fontSize: 13, color: Color(0xFF0F172A)),
+                                  dropdownColor: _card,
                                   items: _regionItems(),
                                   onChanged: (value) {
                                     setState(() {
@@ -1291,6 +1298,7 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                               Expanded(
                                 child: DropdownButtonFormField<String?>(
                                   value: _cityName,
+                                  hint: _dropdownPlaceholder(_tr(ru: 'Все города', uz: 'Barcha shaharlar')),
                                   decoration: InputDecoration(
                                     hintText: _tr(ru: 'Все города', uz: 'Barcha shaharlar'),
                                     hintStyle: const TextStyle(fontSize: 12, color: _textMuted),
@@ -1299,6 +1307,8 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                                   ),
+                                  style: const TextStyle(fontSize: 13, color: Color(0xFF0F172A)),
+                                  dropdownColor: _card,
                                   items: _cityItems(),
                                   onChanged: (value) {
                                     setState(() {
@@ -1319,6 +1329,7 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                               Expanded(
                                 child: DropdownButtonFormField<String?>(
                                   value: _districtName,
+                                  hint: _dropdownPlaceholder(_tr(ru: 'Все районы', uz: 'Barcha tumanlar')),
                                   decoration: InputDecoration(
                                     hintText: _tr(ru: 'Все районы', uz: 'Barcha tumanlar'),
                                     hintStyle: const TextStyle(fontSize: 12, color: _textMuted),
@@ -1327,6 +1338,8 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                                   ),
+                                  style: const TextStyle(fontSize: 13, color: Color(0xFF0F172A)),
+                                  dropdownColor: _card,
                                   items: _districtItems(),
                                   onChanged: (value) {
                                     setState(() {
@@ -1339,55 +1352,31 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                               ),
                               const SizedBox(width: 12),
                               Expanded(
-                                child: Autocomplete<String>(
-                                  optionsBuilder: (text) {
-                                    if (_roomType != null &&
-                                        _roomTypeCtrl.text.trim().isNotEmpty &&
-                                        text.text.trim() == _roomTypeCtrl.text.trim()) {
-                                      return const Iterable<String>.empty();
-                                    }
-                                    final q = text.text.trim().toLowerCase();
-                                    final all = _roomTypeNames();
-                                    if (q.isEmpty) return all;
-                                    return all.where((e) => e.toLowerCase().contains(q));
-                                  },
-                                  onSelected: (value) {
+                                child: DropdownButtonFormField<String?>(
+                                  value: _roomType,
+                                  hint: _dropdownPlaceholder(_tr(ru: 'Все типы комнат', uz: 'Barcha xona turlari')),
+                                  decoration: InputDecoration(
+                                    hintText: _tr(ru: 'Все типы комнат', uz: 'Barcha xona turlari'),
+                                    hintStyle: const TextStyle(fontSize: 12, color: _textMuted),
+                                    filled: true,
+                                    fillColor: _card,
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                  style: const TextStyle(fontSize: 13, color: Color(0xFF0F172A)),
+                                  dropdownColor: _card,
+                                  items: [
+                                    DropdownMenuItem<String?>(
+                                      value: null,
+                                      child: _dropdownPlaceholder(_tr(ru: 'Все типы комнат', uz: 'Barcha xona turlari')),
+                                    ),
+                                    ..._roomTypeNames().map((e) => DropdownMenuItem<String?>(value: e, child: Text(e))),
+                                  ],
+                                  onChanged: (value) {
                                     setState(() {
                                       _roomType = value;
-                                      _roomTypeCtrl.text = value;
+                                      _roomTypeCtrl.text = value ?? '';
                                     });
                                     _applyClientFilters();
-                                  },
-                                  fieldViewBuilder: (context, controller, focusNode, onSubmit) {
-                                    controller.text = _roomTypeCtrl.text;
-                                    controller.selection = TextSelection.fromPosition(TextPosition(offset: controller.text.length));
-                                    return TextField(
-                                      controller: controller,
-                                      focusNode: focusNode,
-                                      style: const TextStyle(fontSize: 13),
-                                      decoration: InputDecoration(
-                                        hintText: _tr(ru: 'Тип комнаты', uz: 'Xona turi'),
-                                        hintStyle: const TextStyle(fontSize: 12, color: _textMuted),
-                                        filled: true,
-                                        fillColor: _card,
-                                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                                        suffixIcon: _roomTypeCtrl.text.isEmpty
-                                            ? null
-                                            : IconButton(
-                                                onPressed: () {
-                                                  setState(() {
-                                                    _roomType = null;
-                                                    _roomTypeCtrl.clear();
-                                                  });
-                                                  _applyClientFilters();
-                                                },
-                                                icon: Image.asset('assets/icons/clear-filter.png', width: 16, height: 16),
-                                              ),
-                                      ),
-                                      onChanged: (v) {
-                                        _roomTypeCtrl.text = v;
-                                      },
-                                    );
                                   },
                                 ),
                               ),
@@ -1397,42 +1386,26 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                           Row(
                             children: [
                               Expanded(
-                                child: Autocomplete<MapEntry<String, String>>(
-                                  optionsBuilder: (text) {
-                                    final opts = <MapEntry<String, String>>[
-                                      MapEntry('day', _tr(ru: 'Сутки', uz: 'Kunlik')),
-                                      MapEntry('hour', _tr(ru: 'Час', uz: 'Soatlik')),
-                                      MapEntry('month', _tr(ru: 'Месяц', uz: 'Oylik')),
-                                    ];
-                                    final q = text.text.trim().toLowerCase();
-                                    if (q.isEmpty) return opts;
-                                    return opts.where((e) => e.value.toLowerCase().contains(q));
-                                  },
-                                  displayStringForOption: (e) => e.value,
-                                  onSelected: (value) {
-                                    setState(() => _priceMode = value.key);
+                                child: DropdownButtonFormField<String>(
+                                  value: _priceMode,
+                                  decoration: InputDecoration(
+                                    hintText: _tr(ru: 'Режим цены', uz: 'Narx turi'),
+                                    hintStyle: const TextStyle(fontSize: 12, color: _textMuted),
+                                    filled: true,
+                                    fillColor: _card,
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                  style: const TextStyle(fontSize: 13, color: Color(0xFF0F172A)),
+                                  dropdownColor: _card,
+                                  items: [
+                                    DropdownMenuItem(value: 'day', child: Text(_tr(ru: 'Сутки', uz: 'Kunlik'))),
+                                    DropdownMenuItem(value: 'hour', child: Text(_tr(ru: 'Час', uz: 'Soatlik'))),
+                                    DropdownMenuItem(value: 'month', child: Text(_tr(ru: 'Месяц', uz: 'Oylik'))),
+                                  ],
+                                  onChanged: (value) {
+                                    if (value == null) return;
+                                    setState(() => _priceMode = value);
                                     _loadBranches();
-                                  },
-                                  fieldViewBuilder: (context, controller, focusNode, onSubmit) {
-                                    final currentLabel = _priceMode == 'hour'
-                                        ? _tr(ru: 'Час', uz: 'Soatlik')
-                                        : _priceMode == 'month'
-                                            ? _tr(ru: 'Месяц', uz: 'Oylik')
-                                            : _tr(ru: 'Сутки', uz: 'Kunlik');
-                                    controller.text = currentLabel;
-                                    controller.selection = TextSelection.fromPosition(TextPosition(offset: controller.text.length));
-                                    return TextField(
-                                      controller: controller,
-                                      focusNode: focusNode,
-                                      style: const TextStyle(fontSize: 13),
-                                      decoration: InputDecoration(
-                                        hintText: _tr(ru: 'Режим цены', uz: 'Narx turi'),
-                                        hintStyle: const TextStyle(fontSize: 12, color: _textMuted),
-                                        filled: true,
-                                        fillColor: _card,
-                                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                                      ),
-                                    );
                                   },
                                 ),
                               ),
