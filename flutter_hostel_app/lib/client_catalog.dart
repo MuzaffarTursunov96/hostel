@@ -27,6 +27,20 @@ const Color _border = Color(0xFFE2E8F0);
 const Color _brandBlue = Color(0xFF1D4ED8);
 const Color _surfaceSoft = Color(0xFFF7F9FC);
 
+List<String> _parseAmenities(String? raw, {int max = 8}) {
+  final text = (raw ?? '').trim();
+  if (text.isEmpty) return const [];
+  final parts = text.split(RegExp(r'[;,/|]'));
+  final out = <String>[];
+  for (final p in parts) {
+    final v = p.trim();
+    if (v.isEmpty) continue;
+    if (!out.contains(v)) out.add(v);
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
 const List<Map<String, String>> _regionOptions = [
   {'slug': 'andizhanskaya-oblast', 'ru': 'Андижанская область', 'uz': 'Andijon viloyati'},
   {'slug': 'buharskaya-oblast', 'ru': 'Бухарская область', 'uz': 'Buxoro viloyati'},
@@ -1496,6 +1510,7 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
         : (b.coverPhoto != null && b.coverPhoto!.trim().isNotEmpty
             ? <String>[b.coverPhoto!]
             : const <String>[]);
+    final amenityTags = _parseAmenities(b.amenities, max: 6);
     String? distanceLabel;
     if (_distanceKm != null && _catalogUserPos != null && b.latitude != null && b.longitude != null) {
       final d = _distanceKmBetween(_catalogUserPos!, b.latitude!, b.longitude!);
@@ -1603,13 +1618,18 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                     const SizedBox(height: 4),
                     Text(b.address!, style: const TextStyle(color: _textMuted)),
                   ],
-                  if ((b.amenities ?? '').trim().isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      '${_tr(ru: 'Удобства', uz: 'Qulayliklar')}: ${b.amenities!.trim()}',
-                      style: const TextStyle(color: _textMuted),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                  if (amenityTags.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    SizedBox(
+                      height: 32,
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onPressed: () => _showAmenitiesModal(context, b),
+                        child: Text(_tr(ru: 'Удобства', uz: 'Qulayliklar')),
+                      ),
                     ),
                   ],
                 const SizedBox(height: 8),
@@ -1718,6 +1738,65 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
       _showSnack(_tr(ru: 'Не удалось открыть карту.', uz: 'Xaritani ochib bo\'lmadi.'), error: true);
     }
+  }
+
+  void _showAmenitiesModal(BuildContext context, BranchSummary b) {
+    final tags = _parseAmenities(b.amenities, max: 40);
+    if (tags.isEmpty) return;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _tr(ru: 'Удобства', uz: 'Qulayliklar'),
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  IconButton(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.close)),
+                ],
+              ),
+              const SizedBox(height: 8),
+              if ((b.name).trim().isNotEmpty)
+                Text(b.name, style: const TextStyle(color: _textMuted)),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: tags
+                    .map(
+                      (t) => Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: _surfaceSoft,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: _border),
+                        ),
+                        child: Text(
+                          t,
+                          style: const TextStyle(fontSize: 12, color: _textMuted, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -2702,6 +2781,33 @@ class _ClientBranchDetailsScreenState extends State<ClientBranchDetailsScreen> {
                     Text(_branch!.name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
                     const SizedBox(height: 6),
                     Text(_branch!.address ?? '-', style: const TextStyle(color: _textMuted)),
+                    ...(() {
+                      final tags = _parseAmenities(_branch!.amenities, max: 10);
+                      if (tags.isEmpty) return const <Widget>[];
+                      return <Widget>[
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: tags
+                              .map(
+                                (t) => Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: _surfaceSoft,
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(color: _border),
+                                  ),
+                                  child: Text(
+                                    t,
+                                    style: const TextStyle(fontSize: 12, color: _textMuted, fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                        ),
+                      ];
+                    })(),
                     const SizedBox(height: 6),
                     Row(
                       children: [
