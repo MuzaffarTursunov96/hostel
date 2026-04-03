@@ -6,6 +6,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
@@ -28,6 +29,22 @@ String trPair({
 }) {
   return normLang(lang ?? appLang.value) == 'ru' ? ru : uz;
 }
+
+const List<Map<String, String>> _regionOptions = [
+  {'slug': 'andizhanskaya-oblast', 'ru': 'Андижанская область', 'uz': 'Andijon viloyati'},
+  {'slug': 'buharskaya-oblast', 'ru': 'Бухарская область', 'uz': 'Buxoro viloyati'},
+  {'slug': 'dzhizakskaya-oblast', 'ru': 'Джизакская область', 'uz': 'Jizzax viloyati'},
+  {'slug': 'karakalpakstan', 'ru': 'Каракалпакстан', 'uz': "Qoraqalpog'iston"},
+  {'slug': 'kashkadarinskaya-oblast', 'ru': 'Кашкадарьинская область', 'uz': 'Qashqadaryo viloyati'},
+  {'slug': 'navoijskaya-oblast', 'ru': 'Навоийская область', 'uz': 'Navoiy viloyati'},
+  {'slug': 'namanganskaya-oblast', 'ru': 'Наманганская область', 'uz': 'Namangan viloyati'},
+  {'slug': 'samarkandskaya-oblast', 'ru': 'Самаркандская область', 'uz': 'Samarqand viloyati'},
+  {'slug': 'surhandarinskaya-oblast', 'ru': 'Сурхандарьинская область', 'uz': 'Surxondaryo viloyati'},
+  {'slug': 'syrdarinskaya-oblast', 'ru': 'Сырдарьинская область', 'uz': 'Sirdaryo viloyati'},
+  {'slug': 'toshkent-oblast', 'ru': 'Ташкентская область', 'uz': 'Toshkent viloyati'},
+  {'slug': 'ferganskaya-oblast', 'ru': 'Ферганская область', 'uz': "Farg'ona viloyati"},
+  {'slug': 'horezmskaya-oblast', 'ru': 'Хорезмская область', 'uz': 'Xorazm viloyati'},
+];
 
 String friendlyErrorText(String raw, {String? lang}) {
   final l = normLang(lang ?? appLang.value);
@@ -6993,6 +7010,90 @@ class _SettingsPageState extends State<_SettingsPage> {
     return map;
   }
 
+  Future<Map<String, String>> _loadPublicNameSlug(String nameKey, String slugKey) async {
+    try {
+      final uri = Uri.parse('https://hmsuz.com/public-api/branches')
+          .replace(queryParameters: const {'limit': '200'});
+      final res = await http.get(uri, headers: const {'Cache-Control': 'no-cache'});
+      if (res.statusCode != 200) return {};
+      final data = jsonDecode(res.body);
+      if (data is! List) return {};
+      final map = <String, String>{};
+      for (final row in data.whereType<Map>()) {
+        final name = '${row[nameKey] ?? ''}'.trim();
+        final slug = '${row[slugKey] ?? ''}'.trim();
+        if (name.isNotEmpty && slug.isNotEmpty) {
+          map[name] = slug;
+        }
+      }
+      return map;
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Future<Map<String, List<String>>> _loadRegionCitiesAsset() async {
+    try {
+      final raw = await rootBundle.loadString('assets/uz_regions_cities.json');
+      final data = jsonDecode(raw);
+      if (data is! Map) return {};
+      final input = data['regions_cities'];
+      if (input is! Map) return {};
+      final out = <String, List<String>>{};
+      for (final entry in input.entries) {
+        final key = '${entry.key}'.trim();
+        if (key.isEmpty) continue;
+        final list = <String>[];
+        if (entry.value is List) {
+          for (final v in entry.value as List) {
+            final text = '${v ?? ''}'.trim();
+            if (text.isNotEmpty) list.add(text);
+          }
+        }
+        out[key] = list;
+      }
+      return out;
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Future<Map<String, List<String>>> _loadCityDistrictsAsset() async {
+    try {
+      final raw = await rootBundle.loadString('assets/uz_regions_cities.json');
+      final data = jsonDecode(raw);
+      if (data is! Map) return {};
+      final input = data['city_districts'];
+      if (input is! Map) return {};
+      final out = <String, List<String>>{};
+      for (final entry in input.entries) {
+        final key = '${entry.key}'.trim();
+        if (key.isEmpty) continue;
+        final list = <String>[];
+        if (entry.value is List) {
+          for (final v in entry.value as List) {
+            final text = '${v ?? ''}'.trim();
+            if (text.isNotEmpty) list.add(text);
+          }
+        }
+        out[key] = list;
+      }
+      return out;
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Map<String, String> _buildRegionMap() {
+    final map = <String, String>{};
+    for (final e in _regionOptions) {
+      final slug = e['slug']!;
+      map[e['ru']!] = slug;
+      map[e['uz']!] = slug;
+    }
+    return map;
+  }
+
   String _slugify(String input) {
     final raw = input.trim().toLowerCase();
     final slug = raw.replaceAll(RegExp(r'[^a-z0-9]+'), '-').replaceAll(RegExp(r'^-+|-+$'), '');
@@ -7000,9 +7101,34 @@ class _SettingsPageState extends State<_SettingsPage> {
   }
 
   Future<void> _openBranchEditor({Map<String, dynamic>? branch}) async {
-    final regions = _collectNameSlug('region_name', 'region_slug');
-    final cities = _collectNameSlug('city_name', 'city_slug');
-    final districts = _collectNameSlug('district_name', 'district_slug');
+    final regionCities = await _loadRegionCitiesAsset();
+    final cityDistricts = await _loadCityDistrictsAsset();
+
+    var regions = _buildRegionMap();
+    var cities = <String, String>{};
+    var districts = <String, String>{};
+
+    if (regionCities.isNotEmpty) {
+      for (final list in regionCities.values) {
+        for (final name in list) {
+          if (name.trim().isEmpty) continue;
+          cities[name] = _slugify(name);
+        }
+      }
+    }
+    if (cityDistricts.isNotEmpty) {
+      for (final list in cityDistricts.values) {
+        for (final name in list) {
+          if (name.trim().isEmpty) continue;
+          districts[name] = _slugify(name);
+        }
+      }
+    }
+
+    if (cities.isEmpty) cities = _collectNameSlug('city_name', 'city_slug');
+    if (districts.isEmpty) districts = _collectNameSlug('district_name', 'district_slug');
+    if (cities.isEmpty) cities = await _loadPublicNameSlug('city_name', 'city_slug');
+    if (districts.isEmpty) districts = await _loadPublicNameSlug('district_name', 'district_slug');
 
     final ok = await showModalBottomSheet<bool>(
       context: context,
@@ -7018,6 +7144,8 @@ class _SettingsPageState extends State<_SettingsPage> {
         regionMap: regions,
         cityMap: cities,
         districtMap: districts,
+        regionCities: regionCities,
+        cityDistricts: cityDistricts,
         slugify: _slugify,
       ),
     );
@@ -7732,6 +7860,8 @@ class _BranchEditorSheet extends StatefulWidget {
     required this.regionMap,
     required this.cityMap,
     required this.districtMap,
+    required this.regionCities,
+    required this.cityDistricts,
     required this.slugify,
     this.initialBranch,
   });
@@ -7741,6 +7871,8 @@ class _BranchEditorSheet extends StatefulWidget {
   final Map<String, String> regionMap;
   final Map<String, String> cityMap;
   final Map<String, String> districtMap;
+  final Map<String, List<String>> regionCities;
+  final Map<String, List<String>> cityDistricts;
   final String Function(String) slugify;
   final Map<String, dynamic>? initialBranch;
 
@@ -7836,6 +7968,31 @@ class _BranchEditorSheetState extends State<_BranchEditorSheet> {
     return map[trimmed] ?? widget.slugify(trimmed);
   }
 
+  List<String> _regionLabels() {
+    final list = _regionOptions.map((e) => trPair(ru: e['ru']!, uz: e['uz']!)).toList();
+    list.sort();
+    return list;
+  }
+
+  List<String> _citiesForRegion() {
+    if (_regionSlug != null && _regionSlug!.isNotEmpty && widget.regionCities.containsKey(_regionSlug)) {
+      return List<String>.from(widget.regionCities[_regionSlug] ?? const []);
+    }
+    final list = widget.cityMap.keys.toList();
+    list.sort();
+    return list;
+  }
+
+  List<String> _districtsForCity() {
+    final city = _cityCtrl.text.trim();
+    if (city.isNotEmpty && widget.cityDistricts.containsKey(city)) {
+      return List<String>.from(widget.cityDistricts[city] ?? const []);
+    }
+    final list = widget.districtMap.keys.toList();
+    list.sort();
+    return list;
+  }
+
   Future<void> _pickLocation() async {
     final lat = double.tryParse(_latCtrl.text.trim());
     final lng = double.tryParse(_lngCtrl.text.trim());
@@ -7873,10 +8030,6 @@ class _BranchEditorSheetState extends State<_BranchEditorSheet> {
       showAppAlert(context, _t('Выберите область и город', 'Viloyat va shaharni tanlang'), error: true);
       return;
     }
-    if (district.isEmpty) {
-      showAppAlert(context, _t('Выберите район', 'Tumanni tanlang'), error: true);
-      return;
-    }
     if (lat == null || lng == null) {
       showAppAlert(context, _t('Укажите координаты', 'Koordinatalarni kiriting'), error: true);
       return;
@@ -7898,8 +8051,8 @@ class _BranchEditorSheetState extends State<_BranchEditorSheet> {
         'region_slug': _regionSlug,
         'city_name': city,
         'city_slug': _citySlug,
-        'district_name': district,
-        'district_slug': _districtSlug ?? district,
+        'district_name': district.isEmpty ? null : district,
+        'district_slug': district.isEmpty ? null : (_districtSlug ?? district),
         'contact_phone': _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
         'contact_telegram': _telegramCtrl.text.trim().isEmpty ? null : _telegramCtrl.text.trim(),
       };
@@ -8011,78 +8164,51 @@ class _BranchEditorSheetState extends State<_BranchEditorSheet> {
               const SizedBox(height: 8),
               TextField(controller: _nameCtrl, decoration: InputDecoration(hintText: _t('Название *', 'Nomi *'), border: const OutlineInputBorder())),
               const SizedBox(height: 8),
-              Autocomplete<String>(
-                optionsBuilder: (text) {
-                  final q = text.text.trim().toLowerCase();
-                  final all = widget.regionMap.keys.toList();
-                  if (q.isEmpty) return all;
-                  return all.where((e) => e.toLowerCase().contains(q));
-                },
-                onSelected: (value) {
+              DropdownButtonFormField<String>(
+                value: _regionCtrl.text.trim().isEmpty ? null : _regionCtrl.text.trim(),
+                decoration: InputDecoration(hintText: _t('Область *', 'Viloyat *'), border: const OutlineInputBorder()),
+                items: _regionLabels()
+                    .map((e) => DropdownMenuItem<String>(value: e, child: Text(e)))
+                    .toList(),
+                onChanged: (value) {
                   setState(() {
-                    _regionCtrl.text = value;
-                    _regionSlug = widget.regionMap[value] ?? widget.slugify(value);
+                    _regionCtrl.text = value ?? '';
+                    _regionSlug = value == null ? null : (widget.regionMap[value] ?? widget.slugify(value));
+                    _cityCtrl.clear();
+                    _citySlug = null;
+                    _districtCtrl.clear();
+                    _districtSlug = null;
                   });
-                },
-                fieldViewBuilder: (context, controller, focusNode, onSubmit) {
-                  controller.text = _regionCtrl.text;
-                  controller.selection = TextSelection.fromPosition(TextPosition(offset: controller.text.length));
-                  return TextField(
-                    controller: controller,
-                    focusNode: focusNode,
-                    decoration: InputDecoration(hintText: _t('Область *', 'Viloyat *'), border: const OutlineInputBorder()),
-                    onChanged: (v) => _regionCtrl.text = v,
-                  );
                 },
               ),
               const SizedBox(height: 8),
-              Autocomplete<String>(
-                optionsBuilder: (text) {
-                  final q = text.text.trim().toLowerCase();
-                  final all = widget.cityMap.keys.toList();
-                  if (q.isEmpty) return all;
-                  return all.where((e) => e.toLowerCase().contains(q));
-                },
-                onSelected: (value) {
+              DropdownButtonFormField<String>(
+                value: _cityCtrl.text.trim().isEmpty ? null : _cityCtrl.text.trim(),
+                decoration: InputDecoration(hintText: _t('Город *', 'Shahar *'), border: const OutlineInputBorder()),
+                items: _citiesForRegion()
+                    .map((e) => DropdownMenuItem<String>(value: e, child: Text(e)))
+                    .toList(),
+                onChanged: (value) {
                   setState(() {
-                    _cityCtrl.text = value;
-                    _citySlug = widget.cityMap[value] ?? widget.slugify(value);
+                    _cityCtrl.text = value ?? '';
+                    _citySlug = value == null ? null : (widget.cityMap[value] ?? widget.slugify(value));
+                    _districtCtrl.clear();
+                    _districtSlug = null;
                   });
-                },
-                fieldViewBuilder: (context, controller, focusNode, onSubmit) {
-                  controller.text = _cityCtrl.text;
-                  controller.selection = TextSelection.fromPosition(TextPosition(offset: controller.text.length));
-                  return TextField(
-                    controller: controller,
-                    focusNode: focusNode,
-                    decoration: InputDecoration(hintText: _t('Город *', 'Shahar *'), border: const OutlineInputBorder()),
-                    onChanged: (v) => _cityCtrl.text = v,
-                  );
                 },
               ),
               const SizedBox(height: 8),
-              Autocomplete<String>(
-                optionsBuilder: (text) {
-                  final q = text.text.trim().toLowerCase();
-                  final all = widget.districtMap.keys.toList();
-                  if (q.isEmpty) return all;
-                  return all.where((e) => e.toLowerCase().contains(q));
-                },
-                onSelected: (value) {
+              DropdownButtonFormField<String>(
+                value: _districtCtrl.text.trim().isEmpty ? null : _districtCtrl.text.trim(),
+                decoration: InputDecoration(hintText: _t('Район *', 'Tuman *'), border: const OutlineInputBorder()),
+                items: _districtsForCity()
+                    .map((e) => DropdownMenuItem<String>(value: e, child: Text(e)))
+                    .toList(),
+                onChanged: (value) {
                   setState(() {
-                    _districtCtrl.text = value;
-                    _districtSlug = widget.districtMap[value] ?? widget.slugify(value);
+                    _districtCtrl.text = value ?? '';
+                    _districtSlug = value == null ? null : (widget.districtMap[value] ?? widget.slugify(value));
                   });
-                },
-                fieldViewBuilder: (context, controller, focusNode, onSubmit) {
-                  controller.text = _districtCtrl.text;
-                  controller.selection = TextSelection.fromPosition(TextPosition(offset: controller.text.length));
-                  return TextField(
-                    controller: controller,
-                    focusNode: focusNode,
-                    decoration: InputDecoration(hintText: _t('Район *', 'Tuman *'), border: const OutlineInputBorder()),
-                    onChanged: (v) => _districtCtrl.text = v,
-                  );
                 },
               ),
               const SizedBox(height: 8),

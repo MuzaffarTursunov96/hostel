@@ -39,4 +39,5 @@ flutter:
   uses-material-design: true
   assets:
     - assets/icons/
+    - assets/uz_regions_cities.json
     - .env

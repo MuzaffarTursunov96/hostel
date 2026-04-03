@@ -27,6 +27,22 @@ const Color _border = Color(0xFFE2E8F0);
 const Color _brandBlue = Color(0xFF1D4ED8);
 const Color _surfaceSoft = Color(0xFFF7F9FC);
 
+const List<Map<String, String>> _regionOptions = [
+  {'slug': 'andizhanskaya-oblast', 'ru': 'Андижанская область', 'uz': 'Andijon viloyati'},
+  {'slug': 'buharskaya-oblast', 'ru': 'Бухарская область', 'uz': 'Buxoro viloyati'},
+  {'slug': 'dzhizakskaya-oblast', 'ru': 'Джизакская область', 'uz': 'Jizzax viloyati'},
+  {'slug': 'karakalpakstan', 'ru': 'Каракалпакстан', 'uz': 'Qoraqalpog‘iston'},
+  {'slug': 'kashkadarinskaya-oblast', 'ru': 'Кашкадарьинская область', 'uz': 'Qashqadaryo viloyati'},
+  {'slug': 'navoijskaya-oblast', 'ru': 'Навоийская область', 'uz': 'Navoiy viloyati'},
+  {'slug': 'namanganskaya-oblast', 'ru': 'Наманганская область', 'uz': 'Namangan viloyati'},
+  {'slug': 'samarkandskaya-oblast', 'ru': 'Самаркандская область', 'uz': 'Samarqand viloyati'},
+  {'slug': 'surhandarinskaya-oblast', 'ru': 'Сурхандарьинская область', 'uz': 'Surxondaryo viloyati'},
+  {'slug': 'syrdarinskaya-oblast', 'ru': 'Сырдарьинская область', 'uz': 'Sirdaryo viloyati'},
+  {'slug': 'toshkent-oblast', 'ru': 'Ташкентская область', 'uz': 'Toshkent viloyati'},
+  {'slug': 'ferganskaya-oblast', 'ru': 'Ферганская область', 'uz': 'Farg‘ona viloyati'},
+  {'slug': 'horezmskaya-oblast', 'ru': 'Хорезмская область', 'uz': 'Xorazm viloyati'},
+];
+
 class ClientCatalogScreen extends StatefulWidget {
   const ClientCatalogScreen({super.key, required this.lang});
 
@@ -61,6 +77,8 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
   List<BranchSummary> _branches = [];
   List<BranchSummary> _filtered = [];
   BookingPrepayConfig? _prepay;
+  Map<String, List<String>> _regionCities = {};
+  Map<String, List<String>> _cityDistricts = {};
   late String _lang;
   final Map<int, String> _cardTabs = {};
 
@@ -68,6 +86,7 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
   void initState() {
     super.initState();
     _lang = widget.lang;
+    _loadRegionCityAsset();
     _loadAll();
     _searchCtrl.addListener(_applyClientFilters);
   }
@@ -367,48 +386,89 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
   }
 
   List<DropdownMenuItem<String?>> _regionItems() {
-    final map = <String, String>{};
-    for (final b in _branches) {
-      final slug = (b.regionSlug ?? '').trim();
-      final name = (b.regionName ?? '').trim();
-      if (slug.isNotEmpty) map[slug] = name.isEmpty ? slug : name;
-    }
-    final items = map.entries.toList()..sort((a, b) => a.value.compareTo(b.value));
+    final items = _regionOptions
+        .map((e) => MapEntry(e['slug']!, _lang == 'ru' ? e['ru']! : e['uz']!))
+        .toList()
+      ..sort((a, b) => a.value.compareTo(b.value));
     return [
       DropdownMenuItem<String?>(value: null, child: Text(_tr(ru: 'Все области', uz: 'Barcha viloyatlar'))),
       ...items.map((e) => DropdownMenuItem<String?>(value: e.key, child: Text(e.value))),
     ];
   }
 
+  Future<void> _loadRegionCityAsset() async {
+    try {
+      final raw = await rootBundle.loadString('assets/uz_regions_cities.json');
+      final data = jsonDecode(raw);
+      if (data is! Map) return;
+      final rc = data['regions_cities'];
+      final cd = data['city_districts'];
+      Map<String, List<String>> toMap(dynamic input) {
+        final out = <String, List<String>>{};
+        if (input is! Map) return out;
+        for (final entry in input.entries) {
+          final key = '${entry.key}'.trim();
+          if (key.isEmpty) continue;
+          final list = <String>[];
+          if (entry.value is List) {
+            for (final v in entry.value as List) {
+              final text = '${v ?? ''}'.trim();
+              if (text.isNotEmpty) list.add(text);
+            }
+          }
+          out[key] = list;
+        }
+        return out;
+      }
+
+      final regionsCities = toMap(rc);
+      final cityDistricts = toMap(cd);
+      if (!mounted) return;
+      setState(() {
+        _regionCities = regionsCities;
+        _cityDistricts = cityDistricts;
+      });
+    } catch (_) {}
+  }
+
   List<String> _regionNames() {
-    final map = <String, String>{};
-    for (final b in _branches) {
-      final slug = (b.regionSlug ?? '').trim();
-      final name = (b.regionName ?? '').trim();
-      if (slug.isNotEmpty) map[slug] = name.isEmpty ? slug : name;
-    }
-    final names = map.values.toList()..sort();
+    final names = _regionOptions
+        .map((e) => _lang == 'ru' ? e['ru']! : e['uz']!)
+        .toList()
+      ..sort();
     return names;
   }
 
   String? _regionSlugByName(String name) {
-    for (final b in _branches) {
-      final slug = (b.regionSlug ?? '').trim();
-      final label = (b.regionName ?? '').trim();
-      final text = label.isEmpty ? slug : label;
-      if (text == name) return slug;
+    for (final e in _regionOptions) {
+      final text = _lang == 'ru' ? e['ru']! : e['uz']!;
+      if (text == name) return e['slug'];
     }
     return null;
   }
 
   List<DropdownMenuItem<String?>> _cityItems() {
-    final set = <String>{};
-    for (final b in _branches) {
-      if (_regionSlug != null && _regionSlug!.isNotEmpty && b.regionSlug != _regionSlug) continue;
-      final name = (b.cityName ?? '').trim();
-      if (name.isNotEmpty) set.add(name);
+    List<String> list = [];
+    if (_regionCities.isNotEmpty) {
+      if (_regionSlug != null && _regionSlug!.isNotEmpty && _regionCities.containsKey(_regionSlug)) {
+        list = List<String>.from(_regionCities[_regionSlug] ?? const []);
+      } else {
+        final set = <String>{};
+        for (final cities in _regionCities.values) {
+          set.addAll(cities);
+        }
+        list = set.toList();
+      }
+    } else {
+      final set = <String>{};
+      for (final b in _branches) {
+        if (_regionSlug != null && _regionSlug!.isNotEmpty && b.regionSlug != _regionSlug) continue;
+        final name = (b.cityName ?? '').trim();
+        if (name.isNotEmpty) set.add(name);
+      }
+      list = set.toList();
     }
-    final list = set.toList()..sort();
+    list.sort();
     return [
       DropdownMenuItem<String?>(value: null, child: Text(_tr(ru: 'Все города', uz: 'Barcha shaharlar'))),
       ...list.map((e) => DropdownMenuItem<String?>(value: e, child: Text(e))),
@@ -416,25 +476,45 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
   }
 
   List<String> _cityNames() {
-    final set = <String>{};
-    for (final b in _branches) {
-      if (_regionSlug != null && _regionSlug!.isNotEmpty && b.regionSlug != _regionSlug) continue;
-      final name = (b.cityName ?? '').trim();
-      if (name.isNotEmpty) set.add(name);
+    List<String> list = [];
+    if (_regionCities.isNotEmpty) {
+      if (_regionSlug != null && _regionSlug!.isNotEmpty && _regionCities.containsKey(_regionSlug)) {
+        list = List<String>.from(_regionCities[_regionSlug] ?? const []);
+      } else {
+        final set = <String>{};
+        for (final cities in _regionCities.values) {
+          set.addAll(cities);
+        }
+        list = set.toList();
+      }
+    } else {
+      final set = <String>{};
+      for (final b in _branches) {
+        if (_regionSlug != null && _regionSlug!.isNotEmpty && b.regionSlug != _regionSlug) continue;
+        final name = (b.cityName ?? '').trim();
+        if (name.isNotEmpty) set.add(name);
+      }
+      list = set.toList();
     }
-    final list = set.toList()..sort();
+    list.sort();
     return list;
   }
 
   List<DropdownMenuItem<String?>> _districtItems() {
-    final set = <String>{};
-    for (final b in _branches) {
-      if (_regionSlug != null && _regionSlug!.isNotEmpty && b.regionSlug != _regionSlug) continue;
-      if (_cityName != null && _cityName!.isNotEmpty && b.cityName != _cityName) continue;
-      final name = (b.districtName ?? '').trim();
-      if (name.isNotEmpty) set.add(name);
+    List<String> list = [];
+    if (_cityDistricts.isNotEmpty && _cityName != null && _cityName!.isNotEmpty && _cityDistricts.containsKey(_cityName)) {
+      list = List<String>.from(_cityDistricts[_cityName] ?? const []);
+    } else {
+      final set = <String>{};
+      for (final b in _branches) {
+        if (_regionSlug != null && _regionSlug!.isNotEmpty && b.regionSlug != _regionSlug) continue;
+        if (_cityName != null && _cityName!.isNotEmpty && b.cityName != _cityName) continue;
+        final name = (b.districtName ?? '').trim();
+        if (name.isNotEmpty) set.add(name);
+      }
+      list = set.toList();
     }
-    final list = set.toList()..sort();
+    list.sort();
     return [
       DropdownMenuItem<String?>(value: null, child: Text(_tr(ru: 'Все районы', uz: 'Barcha tumanlar'))),
       ...list.map((e) => DropdownMenuItem<String?>(value: e, child: Text(e))),
@@ -442,14 +522,20 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
   }
 
   List<String> _districtNames() {
-    final set = <String>{};
-    for (final b in _branches) {
-      if (_regionSlug != null && _regionSlug!.isNotEmpty && b.regionSlug != _regionSlug) continue;
-      if (_cityName != null && _cityName!.isNotEmpty && b.cityName != _cityName) continue;
-      final name = (b.districtName ?? '').trim();
-      if (name.isNotEmpty) set.add(name);
+    List<String> list = [];
+    if (_cityDistricts.isNotEmpty && _cityName != null && _cityName!.isNotEmpty && _cityDistricts.containsKey(_cityName)) {
+      list = List<String>.from(_cityDistricts[_cityName] ?? const []);
+    } else {
+      final set = <String>{};
+      for (final b in _branches) {
+        if (_regionSlug != null && _regionSlug!.isNotEmpty && b.regionSlug != _regionSlug) continue;
+        if (_cityName != null && _cityName!.isNotEmpty && b.cityName != _cityName) continue;
+        final name = (b.districtName ?? '').trim();
+        if (name.isNotEmpty) set.add(name);
+      }
+      list = set.toList();
     }
-    final list = set.toList()..sort();
+    list.sort();
     return list;
   }
 
@@ -1111,18 +1197,28 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                           Row(
                             children: [
                               Expanded(
-                                child: Autocomplete<String>(
-                                  optionsBuilder: (text) {
-                                    final q = text.text.trim().toLowerCase();
-                                    final all = _regionNames();
-                                    if (q.isEmpty) return all;
-                                    return all.where((e) => e.toLowerCase().contains(q));
-                                  },
-                                  onSelected: (value) {
-                                    final slug = _regionSlugByName(value);
+                                child: DropdownButtonFormField<String?>(
+                                  value: _regionSlug,
+                                  decoration: InputDecoration(
+                                    hintText: _tr(ru: 'Область', uz: 'Viloyat'),
+                                    hintStyle: const TextStyle(fontSize: 12, color: _textMuted),
+                                    filled: true,
+                                    fillColor: _card,
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                  items: _regionItems(),
+                                  onChanged: (value) {
                                     setState(() {
-                                      _regionSlug = slug;
-                                      _regionCtrl.text = value;
+                                      _regionSlug = value;
+                                      if (_regionSlug == null) {
+                                        _regionCtrl.clear();
+                                      } else {
+                                        final name = _regionNames().firstWhere(
+                                          (n) => _regionSlugByName(n) == _regionSlug,
+                                          orElse: () => '',
+                                        );
+                                        _regionCtrl.text = name;
+                                      }
                                       _cityName = null;
                                       _cityCtrl.clear();
                                       _districtName = null;
@@ -1130,114 +1226,29 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                                     });
                                     _applyClientFilters();
                                   },
-                                  fieldViewBuilder: (context, controller, focusNode, onSubmit) {
-                                    controller.text = _regionCtrl.text;
-                                    controller.selection = TextSelection.fromPosition(TextPosition(offset: controller.text.length));
-                                    return TextField(
-                                      controller: controller,
-                                      focusNode: focusNode,
-                                      style: const TextStyle(fontSize: 13),
-                                      decoration: InputDecoration(
-                                        hintText: _tr(ru: 'Область', uz: 'Viloyat'),
-                                        hintStyle: const TextStyle(fontSize: 12, color: _textMuted),
-                                        filled: true,
-                                        fillColor: _card,
-                                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                                        suffixIcon: _regionCtrl.text.isEmpty
-                                            ? null
-                                            : IconButton(
-                                                onPressed: () {
-                                                  setState(() {
-                                                    _regionSlug = null;
-                                                    _regionCtrl.clear();
-                                                    _cityName = null;
-                                                    _cityCtrl.clear();
-                                                    _districtName = null;
-                                                    _districtCtrl.clear();
-                                                  });
-                                                  _applyClientFilters();
-                                                },
-                                                icon: Image.asset('assets/icons/clear-filter.png', width: 16, height: 16),
-                                              ),
-                                      ),
-                                      onChanged: (v) {
-                                        setState(() {
-                                          _regionCtrl.text = v;
-                                          final slug = _regionSlugByName(v);
-                                          if (slug != null) {
-                                            _regionSlug = slug;
-                                          } else {
-                                            _regionSlug = null;
-                                          }
-                                          if (v.isEmpty) {
-                                            _cityName = null;
-                                            _cityCtrl.clear();
-                                            _districtName = null;
-                                            _districtCtrl.clear();
-                                          }
-                                        });
-                                      },
-                                    );
-                                  },
                                 ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
-                                child: Autocomplete<String>(
-                                  optionsBuilder: (text) {
-                                    final q = text.text.trim().toLowerCase();
-                                    final all = _cityNames();
-                                    if (q.isEmpty) return all;
-                                    return all.where((e) => e.toLowerCase().contains(q));
-                                  },
-                                  onSelected: (value) {
+                                child: DropdownButtonFormField<String?>(
+                                  value: _cityName,
+                                  decoration: InputDecoration(
+                                    hintText: _tr(ru: 'Город', uz: 'Shahar'),
+                                    hintStyle: const TextStyle(fontSize: 12, color: _textMuted),
+                                    filled: true,
+                                    fillColor: _card,
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                  ),
+                                  items: _cityItems(),
+                                  onChanged: (value) {
                                     setState(() {
                                       _cityName = value;
-                                      _cityCtrl.text = value;
+                                      _cityCtrl.text = value ?? '';
                                       _districtName = null;
                                       _districtCtrl.clear();
                                     });
                                     _applyClientFilters();
-                                  },
-                                  fieldViewBuilder: (context, controller, focusNode, onSubmit) {
-                                    controller.text = _cityCtrl.text;
-                                    controller.selection = TextSelection.fromPosition(TextPosition(offset: controller.text.length));
-                                    return TextField(
-                                      controller: controller,
-                                      focusNode: focusNode,
-                                      style: const TextStyle(fontSize: 13),
-                                      decoration: InputDecoration(
-                                        hintText: _tr(ru: 'Город', uz: 'Shahar'),
-                                        hintStyle: const TextStyle(fontSize: 12, color: _textMuted),
-                                        filled: true,
-                                        fillColor: _card,
-                                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                                        suffixIcon: _cityCtrl.text.isEmpty
-                                            ? null
-                                            : IconButton(
-                                                onPressed: () {
-                                                  setState(() {
-                                                    _cityName = null;
-                                                    _cityCtrl.clear();
-                                                    _districtName = null;
-                                                    _districtCtrl.clear();
-                                                  });
-                                                  _applyClientFilters();
-                                                },
-                                                icon: Image.asset('assets/icons/clear-filter.png', width: 16, height: 16),
-                                              ),
-                                      ),
-                                      onChanged: (v) {
-                                        setState(() {
-                                          _cityCtrl.text = v;
-                                          _cityName = null;
-                                          if (v.isEmpty) {
-                                            _districtName = null;
-                                            _districtCtrl.clear();
-                                          }
-                                        });
-                                      },
-                                    );
                                   },
                                 ),
                               ),
@@ -1247,53 +1258,23 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                           Row(
                             children: [
                               Expanded(
-                                child: Autocomplete<String>(
-                                  optionsBuilder: (text) {
-                                    final q = text.text.trim().toLowerCase();
-                                    final all = _districtNames();
-                                    if (q.isEmpty) return all;
-                                    return all.where((e) => e.toLowerCase().contains(q));
-                                  },
-                                  onSelected: (value) {
+                                child: DropdownButtonFormField<String?>(
+                                  value: _districtName,
+                                  decoration: InputDecoration(
+                                    hintText: _tr(ru: 'Район', uz: 'Tuman'),
+                                    hintStyle: const TextStyle(fontSize: 12, color: _textMuted),
+                                    filled: true,
+                                    fillColor: _card,
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                  ),
+                                  items: _districtItems(),
+                                  onChanged: (value) {
                                     setState(() {
                                       _districtName = value;
-                                      _districtCtrl.text = value;
+                                      _districtCtrl.text = value ?? '';
                                     });
                                     _applyClientFilters();
-                                  },
-                                  fieldViewBuilder: (context, controller, focusNode, onSubmit) {
-                                    controller.text = _districtCtrl.text;
-                                    controller.selection = TextSelection.fromPosition(TextPosition(offset: controller.text.length));
-                                    return TextField(
-                                      controller: controller,
-                                      focusNode: focusNode,
-                                      style: const TextStyle(fontSize: 13),
-                                      decoration: InputDecoration(
-                                        hintText: _tr(ru: 'Район', uz: 'Tuman'),
-                                        hintStyle: const TextStyle(fontSize: 12, color: _textMuted),
-                                        filled: true,
-                                        fillColor: _card,
-                                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                                        suffixIcon: _districtCtrl.text.isEmpty
-                                            ? null
-                                            : IconButton(
-                                                onPressed: () {
-                                                  setState(() {
-                                                    _districtName = null;
-                                                    _districtCtrl.clear();
-                                                  });
-                                                  _applyClientFilters();
-                                                },
-                                                icon: Image.asset('assets/icons/clear-filter.png', width: 16, height: 16),
-                                              ),
-                                      ),
-                                      onChanged: (v) {
-                                        setState(() {
-                                          _districtCtrl.text = v;
-                                          _districtName = null;
-                                        });
-                                      },
-                                    );
                                   },
                                 ),
                               ),
