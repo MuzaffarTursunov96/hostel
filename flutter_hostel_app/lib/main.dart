@@ -8017,6 +8017,9 @@ class _BranchEditorSheetState extends State<_BranchEditorSheet> {
   final _phoneCtrl = TextEditingController();
   final _telegramCtrl = TextEditingController();
   final _amenitiesCtrl = TextEditingController();
+  bool _prepayEnabled = false;
+  String _prepayMode = 'percent';
+  final _prepayValueCtrl = TextEditingController(text: '0');
 
   String? _regionSlug;
   String? _citySlug;
@@ -8045,6 +8048,9 @@ class _BranchEditorSheetState extends State<_BranchEditorSheet> {
       _phoneCtrl.text = '${b['contact_phone'] ?? ''}';
       _telegramCtrl.text = '${b['contact_telegram'] ?? ''}';
       _amenitiesCtrl.text = '${b['amenities'] ?? ''}';
+      _prepayEnabled = b['prepayment_enabled'] == true;
+      _prepayMode = '${b['prepayment_mode'] ?? 'percent'}';
+      _prepayValueCtrl.text = '${b['prepayment_value'] ?? 0}';
       _regionSlug = '${b['region_slug'] ?? ''}';
       _citySlug = '${b['city_slug'] ?? ''}';
       _districtSlug = '${b['district_slug'] ?? ''}';
@@ -8064,6 +8070,7 @@ class _BranchEditorSheetState extends State<_BranchEditorSheet> {
     _phoneCtrl.dispose();
     _telegramCtrl.dispose();
     _amenitiesCtrl.dispose();
+    _prepayValueCtrl.dispose();
     super.dispose();
   }
 
@@ -8185,6 +8192,9 @@ class _BranchEditorSheetState extends State<_BranchEditorSheet> {
         'contact_phone': _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
         'contact_telegram': _telegramCtrl.text.trim().isEmpty ? null : _telegramCtrl.text.trim(),
         'amenities': _amenitiesCtrl.text.trim().isEmpty ? null : _amenitiesCtrl.text.trim(),
+        'prepayment_enabled': _prepayEnabled,
+        'prepayment_mode': _prepayMode,
+        'prepayment_value': double.tryParse(_prepayValueCtrl.text.trim()) ?? 0,
       };
 
       if (_branchId == null) {
@@ -8366,6 +8376,53 @@ class _BranchEditorSheetState extends State<_BranchEditorSheet> {
                   hintText: _t('Удобства (wifi, теннис, TV...)', 'Qulayliklar (wifi, tennis, TV...)'),
                   border: const OutlineInputBorder(),
                 ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _t('Предоплата', 'Oldindan to‘lov'),
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  Switch(
+                    value: _prepayEnabled,
+                    onChanged: (v) => setState(() => _prepayEnabled = v),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      value: _prepayMode,
+                      decoration: InputDecoration(
+                        hintText: _t('Режим', 'Rejim'),
+                        border: const OutlineInputBorder(),
+                      ),
+                      items: [
+                        DropdownMenuItem(value: 'percent', child: Text(_t('Процент', 'Foiz'))),
+                        DropdownMenuItem(value: 'amount', child: Text(_t('Сумма', 'Summa'))),
+                      ],
+                      onChanged: (v) => setState(() => _prepayMode = v ?? 'percent'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: TextField(
+                      controller: _prepayValueCtrl,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: InputDecoration(
+                        hintText: _prepayMode == 'percent'
+                            ? _t('Значение в %', 'Qiymat %')
+                            : _t('Сумма', 'Summa'),
+                        border: const OutlineInputBorder(),
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
               Text(_t('Основные фото филиала', 'Filial fotosi'), style: const TextStyle(fontWeight: FontWeight.w700)),
