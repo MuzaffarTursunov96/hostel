@@ -75,6 +75,7 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
   bool _loading = false;
   bool _filtersOpen = false;
   bool _filtersActive = false;
+  bool _filtersOpening = false;
   int _page = 1;
   static const int _pageSize = 12;
   String _priceMode = 'day';
@@ -277,6 +278,7 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
     final min = _priceRange.start;
     final max = _priceRange.end;
     final distanceFilter = _distanceKm;
+    final distanceTool = Distance();
     final list = _branches.where((b) {
       if (needle.isNotEmpty) {
         final text = '${b.name} ${b.address ?? ''}'.toLowerCase();
@@ -300,8 +302,7 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
       if (distanceFilter != null) {
         if (b.latitude == null || b.longitude == null) return false;
         if (_catalogUserPos == null) return false;
-        final distance = Distance();
-        final d = distance.as(
+        final d = distanceTool.as(
           LengthUnit.Kilometer,
           _catalogUserPos!,
           LatLng(b.latitude!, b.longitude!),
@@ -310,6 +311,28 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
       }
       return true;
     }).toList();
+    if (_catalogUserPos != null) {
+      final cache = <int, double?>{};
+      double? distFor(BranchSummary b) {
+        if (b.latitude == null || b.longitude == null) return null;
+        return cache.putIfAbsent(
+          b.id,
+          () => distanceTool.as(
+            LengthUnit.Kilometer,
+            _catalogUserPos!,
+            LatLng(b.latitude!, b.longitude!),
+          ),
+        );
+      }
+      list.sort((a, b) {
+        final da = distFor(a);
+        final db = distFor(b);
+        if (da == null && db == null) return a.name.compareTo(b.name);
+        if (da == null) return 1;
+        if (db == null) return -1;
+        return da.compareTo(db);
+      });
+    }
     setState(() {
       _filtered = list;
       _filtersActive = _hasActiveFilters(includeSearch: false);
@@ -318,7 +341,21 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
   }
 
   void _toggleFilters() {
-    setState(() => _filtersOpen = !_filtersOpen);
+    if (_filtersOpen) {
+      setState(() {
+        _filtersOpen = false;
+        _filtersOpening = false;
+      });
+      return;
+    }
+    setState(() => _filtersOpening = true);
+    Future.delayed(const Duration(milliseconds: 180), () {
+      if (!mounted) return;
+      setState(() {
+        _filtersOpen = true;
+        _filtersOpening = false;
+      });
+    });
   }
 
   bool _hasActiveFilters({bool includeSearch = true}) {
@@ -1177,6 +1214,14 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                   ),
               ],
             ),
+            if (_filtersOpening)
+              Positioned.fill(
+                child: Container(
+                  color: Colors.black.withOpacity(0.15),
+                  alignment: Alignment.center,
+                  child: const CircularProgressIndicator(),
+                ),
+              ),
             if (_filtersOpen)
               Positioned.fill(
                 child: GestureDetector(
@@ -1214,7 +1259,7 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                                 child: DropdownButtonFormField<String?>(
                                   value: _regionSlug,
                                   decoration: InputDecoration(
-                                    hintText: _tr(ru: 'Область', uz: 'Viloyat'),
+                                    hintText: _tr(ru: 'Все области', uz: 'Barcha viloyatlar'),
                                     hintStyle: const TextStyle(fontSize: 12, color: _textMuted),
                                     filled: true,
                                     fillColor: _card,
@@ -1247,7 +1292,7 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                                 child: DropdownButtonFormField<String?>(
                                   value: _cityName,
                                   decoration: InputDecoration(
-                                    hintText: _tr(ru: 'Город', uz: 'Shahar'),
+                                    hintText: _tr(ru: 'Все города', uz: 'Barcha shaharlar'),
                                     hintStyle: const TextStyle(fontSize: 12, color: _textMuted),
                                     filled: true,
                                     fillColor: _card,
@@ -1275,7 +1320,7 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                                 child: DropdownButtonFormField<String?>(
                                   value: _districtName,
                                   decoration: InputDecoration(
-                                    hintText: _tr(ru: 'Район', uz: 'Tuman'),
+                                    hintText: _tr(ru: 'Все районы', uz: 'Barcha tumanlar'),
                                     hintStyle: const TextStyle(fontSize: 12, color: _textMuted),
                                     filled: true,
                                     fillColor: _card,
@@ -1617,11 +1662,21 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                       ),
                   ],
                 ),
-                  if ((b.address ?? '').trim().isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(b.address!, style: const TextStyle(color: _textMuted)),
-                  ],
-                  const SizedBox(height: 8),
+                const SizedBox(height: 4),
+                Text(
+                  () {
+                    final parts = [
+                      (b.regionName ?? '').trim(),
+                      (b.cityName ?? '').trim(),
+                      (b.districtName ?? '').trim(),
+                    ].where((e) => e.isNotEmpty).toList();
+                    if (parts.isNotEmpty) return parts.join(', ');
+                    if ((b.address ?? '').trim().isNotEmpty) return b.address!.trim();
+                    return _tr(ru: 'Адрес не указан', uz: 'Manzil ko\'rsatilmagan');
+                  }(),
+                  style: const TextStyle(color: _textMuted),
+                ),
+                const SizedBox(height: 8),
                 Row(
                   children: [
                     Container(
@@ -2496,8 +2551,20 @@ class _ClientMapScreenState extends State<ClientMapScreen> {
 
   void _setDistance(double? km) {
     setState(() => _distanceKm = km);
-    _refreshMarkers();
-    _drawRadius();
+    if (_userPos == null && _map != null) {
+      _map!.getCameraState().then((state) {
+        if (!mounted || _userPos != null) return;
+        final center = state.center.coordinates;
+        setState(() => _userPos = LatLng(center.lat.toDouble(), center.lng.toDouble()));
+        _centerOnUser();
+        _refreshMarkers();
+        _drawRadius();
+      });
+    } else {
+      _centerOnUser();
+      _refreshMarkers();
+      _drawRadius();
+    }
   }
 
   void _togglePickLocation() async {
@@ -2537,7 +2604,7 @@ class _ClientMapScreenState extends State<ClientMapScreen> {
     await _map!.setCamera(
       mb.CameraOptions(
         center: mb.Point(coordinates: mb.Position(_userPos!.longitude, _userPos!.latitude)),
-        zoom: 12.5,
+        zoom: 13.2,
       ),
     );
   }
@@ -2568,10 +2635,10 @@ class _ClientMapScreenState extends State<ClientMapScreen> {
                       key: const ValueKey('client_map'),
                       styleUri: mb.MapboxStyles.STANDARD,
                       cameraOptions: _userPos == null
-                          ? mb.CameraOptions(center: mb.Point(coordinates: mb.Position(69.2797, 41.3111)), zoom: 11)
+                          ? mb.CameraOptions(center: mb.Point(coordinates: mb.Position(69.2797, 41.3111)), zoom: 11.5)
                           : mb.CameraOptions(
                               center: mb.Point(coordinates: mb.Position(_userPos!.longitude, _userPos!.latitude)),
-                              zoom: 12.5,
+                              zoom: 13.2,
                             ),
                       onMapCreated: _setupMap,
                       onStyleLoadedListener: _onStyleLoaded,
