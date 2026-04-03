@@ -1620,15 +1620,11 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                   ],
                   if (amenityTags.isNotEmpty) ...[
                     const SizedBox(height: 6),
-                    SizedBox(
-                      height: 32,
-                      child: OutlinedButton(
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                        onPressed: () => _showAmenitiesModal(context, b),
-                        child: Text(_tr(ru: 'Удобства', uz: 'Qulayliklar')),
+                    GestureDetector(
+                      onTap: () => _showAmenitiesModal(context, b),
+                      child: Text(
+                        _tr(ru: 'Удобства', uz: 'Qulayliklar'),
+                        style: const TextStyle(color: _brandBlue, fontWeight: FontWeight.w600),
                       ),
                     ),
                   ],
@@ -1668,16 +1664,8 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            if (minLine != null)
-                              Text(
-                                minLine,
-                                style: const TextStyle(fontWeight: FontWeight.w600),
-                              ),
-                            if (maxLine != null)
-                              Text(
-                                maxLine,
-                                style: const TextStyle(fontWeight: FontWeight.w600),
-                              ),
+                            if (minLine != null) Text(minLine),
+                            if (maxLine != null) Text(maxLine),
                           ],
                         ),
                       ),
@@ -1716,10 +1704,16 @@ class _ClientCatalogScreenState extends State<ClientCatalogScreen> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Expanded(
-                      child: FilledButton(
+                    SizedBox(
+                      height: 40,
+                      width: 44,
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
                         onPressed: () => _openMaps(b),
-                        child: Text(_tr(ru: 'Маршрут', uz: 'Yo\'nalish')),
+                        child: const Icon(Icons.location_on_outlined, size: 20),
                       ),
                     ),
                   ],
