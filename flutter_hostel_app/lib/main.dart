@@ -7212,10 +7212,9 @@ class _SettingsPageState extends State<_SettingsPage> {
             final m = Map<String, dynamic>.from(row);
             final id = _toInt(m['id'] ?? m['branch_id']);
             if (id == null) continue;
-            out.add({
-              'id': id,
-              'name': '${m['name'] ?? m['branch_name'] ?? id}',
-            });
+            m['id'] = id;
+            m['name'] = '${m['name'] ?? m['branch_name'] ?? id}';
+            out.add(m);
           }
           if (out.isNotEmpty) return out;
         }
