@@ -7437,6 +7437,23 @@ class _SettingsPageState extends State<_SettingsPage> {
     }
   }
 
+  Future<void> _openBranchImagesModal() async {
+    if (_selectedBranchId == null) return;
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (_) => _BranchImagesSheet(
+        api: widget.api,
+        branchId: _selectedBranchId!,
+        title: _t('Основные фото филиала', 'Filial fotosi'),
+      ),
+    );
+  }
+
   Future<void> _loadSelectedUserNotify() async {
     if (!_canManage || _selectedUserId == null) return;
     try {
@@ -7820,6 +7837,14 @@ class _SettingsPageState extends State<_SettingsPage> {
                   const SizedBox(height: 8),
                   SizedBox(
                     width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: _selectedBranchId == null ? null : _openBranchImagesModal,
+                      child: Text(_t('Фото филиала', 'Filial fotosi')),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
                     child: FilledButton(
                       style: FilledButton.styleFrom(backgroundColor: const Color(0xFF3B82F6)),
                       onPressed: () => _openBranchEditor(),
@@ -8057,6 +8082,189 @@ class _BranchEditorSheet extends StatefulWidget {
 
   @override
   State<_BranchEditorSheet> createState() => _BranchEditorSheetState();
+}
+
+class _BranchImagesSheet extends StatefulWidget {
+  const _BranchImagesSheet({
+    required this.api,
+    required this.branchId,
+    required this.title,
+  });
+
+  final _ApiClient api;
+  final int branchId;
+  final String title;
+
+  @override
+  State<_BranchImagesSheet> createState() => _BranchImagesSheetState();
+}
+
+class _BranchImagesSheetState extends State<_BranchImagesSheet> {
+  final ImagePicker _picker = ImagePicker();
+  List<Map<String, dynamic>> _images = [];
+  bool _loading = false;
+  bool _uploading = false;
+
+  String _imgUrl(dynamic imagePath) {
+    final raw = '${imagePath ?? ''}'.trim();
+    if (raw.isEmpty) return '';
+    if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+    if (raw.startsWith('/')) return 'https://hmsuz.com$raw';
+    return 'https://hmsuz.com/$raw';
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadImages();
+  }
+
+  Future<void> _loadImages() async {
+    setState(() => _loading = true);
+    try {
+      final rows = await widget.api.listBranchImages(widget.branchId);
+      if (!mounted) return;
+      setState(() => _images = rows);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _images = []);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _pickAndUpload() async {
+    if (_images.length >= 6) {
+      showAppAlert(context, trPair(ru: 'Максимум 6 фото', uz: 'Maksimum 6 foto'), error: true);
+      return;
+    }
+    final picked = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 88,
+      maxWidth: 1800,
+    );
+    if (picked == null) return;
+    setState(() => _uploading = true);
+    try {
+      await widget.api.uploadBranchImage(widget.branchId, filePath: picked.path, isCover: _images.isEmpty);
+      await _loadImages();
+      showAppAlert(context, trPair(ru: 'Фото загружено', uz: 'Rasm yuklandi'));
+    } catch (e) {
+      showAppAlert(context, '$e', error: true);
+    } finally {
+      if (mounted) setState(() => _uploading = false);
+    }
+  }
+
+  Future<void> _setCover(Map<String, dynamic> img) async {
+    final imgId = img['id'] is int ? img['id'] as int : int.tryParse('${img['id']}');
+    if (imgId == null) return;
+    await widget.api.setBranchImageCover(widget.branchId, imgId);
+    await _loadImages();
+  }
+
+  Future<void> _deleteImage(Map<String, dynamic> img) async {
+    final imgId = img['id'] is int ? img['id'] as int : int.tryParse('${img['id']}');
+    if (imgId == null) return;
+    await widget.api.deleteBranchImage(widget.branchId, imgId);
+    await _loadImages();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: 16,
+          right: 16,
+          top: 16,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(widget.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                  ),
+                  IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  FilledButton(
+                    onPressed: _uploading ? null : _pickAndUpload,
+                    child: _uploading
+                        ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                        : Text(trPair(ru: 'Загрузить', uz: 'Yuklash')),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(trPair(ru: 'Максимум 6 фото', uz: 'Maksimum 6 foto'), style: const TextStyle(color: Color(0xFF64748B))),
+                ],
+              ),
+              const SizedBox(height: 8),
+              if (_loading)
+                const Center(child: CircularProgressIndicator())
+              else if (_images.isEmpty)
+                Text(trPair(ru: 'Фото пока нет', uz: 'Hali rasm yo‘q'), style: const TextStyle(color: Color(0xFF64748B)))
+              else
+                Column(
+                  children: _images.map((img) {
+                    final isCover = img['is_cover'] == true;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: Column(
+                          children: [
+                            ClipRRect(
+                              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                              child: Image.network(
+                                _imgUrl(img['image_path']),
+                                height: 160,
+                                width: double.infinity,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.all(8),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: FilledButton(
+                                      onPressed: isCover ? null : () => _setCover(img),
+                                      child: Text(isCover ? trPair(ru: 'Основное', uz: 'Asosiy') : trPair(ru: 'Сделать основным', uz: 'Asosiy qilish')),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: OutlinedButton(
+                                      onPressed: () => _deleteImage(img),
+                                      child: Text(trPair(ru: 'Удалить', uz: "O'chirish")),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _BranchEditorSheetState extends State<_BranchEditorSheet> {
@@ -8477,76 +8685,6 @@ class _BranchEditorSheetState extends State<_BranchEditorSheet> {
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
-              Text(_t('Основные фото филиала', 'Filial fotosi'), style: const TextStyle(fontWeight: FontWeight.w700)),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  FilledButton(
-                    onPressed: _uploadingImage ? null : _pickAndUploadImage,
-                    child: _uploadingImage
-                        ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                        : Text(_t('Загрузить', 'Yuklash')),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(_t('Максимум 3 фото', 'Maksimum 3 foto'), style: const TextStyle(color: Color(0xFF64748B))),
-                ],
-              ),
-              const SizedBox(height: 8),
-              if (_loadingImages)
-                const Center(child: CircularProgressIndicator())
-              else if (_images.isEmpty)
-                Text(_t('Фото пока нет', 'Hali rasm yo‘q'), style: const TextStyle(color: Color(0xFF64748B)))
-              else
-                Column(
-                  children: _images.map((img) {
-                    final isCover = img['is_cover'] == true;
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF8FAFC),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFE2E8F0)),
-                        ),
-                        child: Column(
-                          children: [
-                            ClipRRect(
-                              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                              child: Image.network(
-                                _imgUrl(img['image_path']),
-                                height: 160,
-                                width: double.infinity,
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.all(8),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: FilledButton(
-                                      onPressed: isCover ? null : () => _setCover(img),
-                                      child: Text(isCover ? _t('Основное', 'Asosiy') : _t('Сделать основным', 'Asosiy qilish')),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: OutlinedButton(
-                                      onPressed: () => _deleteImage(img),
-                                      child: Text(_t('Удалить', "O'chirish")),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              const SizedBox(height: 12),
               Row(
                 children: [
                   Expanded(

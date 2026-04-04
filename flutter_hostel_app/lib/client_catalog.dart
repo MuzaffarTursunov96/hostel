@@ -2746,6 +2746,8 @@ class _ClientBranchDetailsScreenState extends State<ClientBranchDetailsScreen> {
   BranchSummary? _branch;
   List<RoomSummary> _rooms = [];
   bool _loading = true;
+  final Map<int, PageController> _roomPageCtrls = {};
+  final Map<int, int> _roomImageIndex = {};
 
   String _tr(String ru, String uz) => widget.lang == 'ru' ? ru : uz;
 
@@ -2778,6 +2780,14 @@ class _ClientBranchDetailsScreenState extends State<ClientBranchDetailsScreen> {
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    for (final c in _roomPageCtrls.values) {
+      c.dispose();
+    }
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -3006,6 +3016,12 @@ class _ClientBranchDetailsScreenState extends State<ClientBranchDetailsScreen> {
       final bedHourly = _fmtMinMaxPrice(r.minBedHourlyPrice, r.maxBedHourlyPrice, 'hour');
       final bedMonthly = _fmtMinMaxPrice(r.minBedMonthlyPrice, r.maxBedMonthlyPrice, 'month');
       final label = r.roomName ?? r.roomNumber ?? '-';
+      final roomId = r.id ?? r.roomNumber.hashCode;
+      final images = r.images.isNotEmpty
+          ? r.images
+          : (r.coverImage != null && r.coverImage!.isNotEmpty ? [r.coverImage!] : <String>[]);
+      final controller = _roomPageCtrls.putIfAbsent(roomId, () => PageController());
+      final currentIdx = _roomImageIndex[roomId] ?? 0;
       final status = _occupancyLabel(r.occupancyStatus);
       return Container(
         margin: const EdgeInsets.only(bottom: 12),
@@ -3018,74 +3034,110 @@ class _ClientBranchDetailsScreenState extends State<ClientBranchDetailsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: GestureDetector(
-                    onTap: r.coverImage != null && r.coverImage!.isNotEmpty
-                        ? () => _openImageZoom(r.coverImage!)
-                        : null,
-                    child: r.coverImage != null && r.coverImage!.isNotEmpty
-                        ? Image.network(
-                            r.coverImage!,
-                            width: 90,
-                            height: 90,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
-                              width: 90,
-                              height: 90,
-                              color: _surfaceSoft,
-                              alignment: Alignment.center,
-                              child: const Icon(Icons.image_not_supported_outlined),
-                            ),
-                          )
-                        : Container(
-                            width: 90,
-                            height: 90,
+            ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: Stack(
+                children: [
+                  SizedBox(
+                    height: 190,
+                    width: double.infinity,
+                    child: images.isEmpty
+                        ? Container(
                             color: _surfaceSoft,
                             alignment: Alignment.center,
                             child: const Icon(Icons.image_not_supported_outlined),
+                          )
+                        : PageView.builder(
+                            controller: controller,
+                            itemCount: images.length,
+                            onPageChanged: (idx) {
+                              setState(() => _roomImageIndex[roomId] = idx);
+                            },
+                            itemBuilder: (_, i) => GestureDetector(
+                              onTap: () => _openImageZoom(images[i]),
+                              child: Image.network(
+                                images[i],
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Container(
+                                  color: _surfaceSoft,
+                                  alignment: Alignment.center,
+                                  child: const Icon(Icons.image_not_supported_outlined),
+                                ),
+                              ),
+                            ),
                           ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              label,
-                              style: const TextStyle(fontWeight: FontWeight.w700),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFEFF6FF),
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: _border),
-                            ),
-                            child: Text(status, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                          ),
-                        ],
+                  Positioned(
+                    top: 10,
+                    right: 10,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: _border),
                       ),
-                      const SizedBox(height: 8),
-                      _factRow(_tr('Xona turlari', 'Xona turlari'), _roomTypeLabel(r.roomType)),
-                      _factRow(_tr('Kravatlar', 'Kravatlar'), _bedBreakdown(r)),
-                      _factRow(_tr('Bo\'sh o\'rin', 'Bo\'sh o\'rin'), (r.availableBeds ?? 0).toString()),
-                      _factRow(_tr('Bron rejimi', 'Bron rejimi'), _bookingModeLabel(r.bookingMode)),
-                    ],
+                      child: Text(status, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
+            if (images.length > 1) ...[
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 54,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: images.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemBuilder: (_, i) {
+                    final active = i == currentIdx;
+                    return GestureDetector(
+                      onTap: () {
+                        controller.animateToPage(
+                          i,
+                          duration: const Duration(milliseconds: 250),
+                          curve: Curves.easeOut,
+                        );
+                        setState(() => _roomImageIndex[roomId] = i);
+                      },
+                      child: Container(
+                        width: 68,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: active ? const Color(0xFF2563EB) : _border, width: active ? 2 : 1),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(
+                            images[i],
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              color: _surfaceSoft,
+                              alignment: Alignment.center,
+                              child: const Icon(Icons.image_not_supported_outlined, size: 18),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+            const SizedBox(height: 10),
+            Text(
+              label,
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 8),
+            _factRow(_tr('Xona turlari', 'Xona turlari'), _roomTypeLabel(r.roomType)),
+            _factRow(_tr('Kravatlar', 'Kravatlar'), _bedBreakdown(r)),
+            _factRow(_tr('Bo\'sh o\'rin', 'Bo\'sh o\'rin'), (r.availableBeds ?? 0).toString()),
+            _factRow(_tr('Bron rejimi', 'Bron rejimi'), _bookingModeLabel(r.bookingMode)),
             const SizedBox(height: 10),
             Container(
               padding: const EdgeInsets.all(6),
@@ -3481,9 +3533,11 @@ class _BookingRequestScreenState extends State<BookingRequestScreen> {
 
 class RoomSummary {
   RoomSummary({
+    this.id,
     this.roomName,
     this.roomNumber,
     this.coverImage,
+    this.images = const [],
     this.occupancyStatus,
     this.roomType,
     this.bedCount,
@@ -3503,9 +3557,11 @@ class RoomSummary {
     this.maxBedMonthlyPrice,
   });
 
+  final int? id;
   final String? roomName;
   final String? roomNumber;
   final String? coverImage;
+  final List<String> images;
   final String? occupancyStatus;
   final String? roomType;
   final int? bedCount;
@@ -3537,9 +3593,16 @@ class RoomSummary {
       return '$_publicHost/$raw';
     }
     return RoomSummary(
+      id: _int(json['id'] ?? json['room_id']),
       roomName: json['room_name']?.toString(),
       roomNumber: json['room_number']?.toString(),
       coverImage: _photo(json['cover_image'] ?? json['photo']),
+      images: (json['images'] as List?)
+              ?.map((e) => _photo(e)?.toString())
+              .whereType<String>()
+              .where((e) => e.isNotEmpty)
+              .toList() ??
+          const [],
       occupancyStatus: json['occupancy_status']?.toString(),
       roomType: json['room_type']?.toString(),
       bedCount: _int(json['bed_count'] ?? json['total_beds']),
