@@ -2259,7 +2259,7 @@ class ClientMapScreen extends StatefulWidget {
   State<ClientMapScreen> createState() => _ClientMapScreenState();
 }
 
-class _ClientMapScreenState extends State<ClientMapScreen> {
+class _ClientMapScreenState extends State<ClientMapScreen> with WidgetsBindingObserver {
   mb.MapboxMap? _map;
   mb.PointAnnotationManager? _pointManager;
   mb.CircleAnnotationManager? _circleManager;
@@ -2281,20 +2281,31 @@ class _ClientMapScreenState extends State<ClientMapScreen> {
   double? _lastRadiusZoom;
   StreamSubscription<geo.Position>? _posSub;
   bool _pickLocation = false;
+  bool _needsLocationRetry = false;
 
   String _tr(String ru, String uz) => widget.lang == 'ru' ? ru : uz;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _ensureLocation();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _posSub?.cancel();
     _pulseTimer?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && (_needsLocationRetry || _userPos == null)) {
+      _needsLocationRetry = false;
+      _ensureLocation();
+    }
   }
 
   Future<void> _ensureLocation() async {
@@ -2303,6 +2314,7 @@ class _ClientMapScreenState extends State<ClientMapScreen> {
       final serviceEnabled = await geo.Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         await geo.Geolocator.openLocationSettings();
+        _needsLocationRetry = true;
         setState(() => _error = _tr('Включите GPS.', 'GPS yoqing.'));
         return;
       }
@@ -2314,6 +2326,7 @@ class _ClientMapScreenState extends State<ClientMapScreen> {
         if (permission == geo.LocationPermission.deniedForever) {
           await geo.Geolocator.openAppSettings();
         }
+        _needsLocationRetry = true;
         setState(() => _error = _tr('Нет доступа к GPS.', 'GPS ruxsati berilmadi.'));
         return;
       }
