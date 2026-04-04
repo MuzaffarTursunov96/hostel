@@ -6019,6 +6019,15 @@ def get_public_branch_details_db(branch_id: int):
                     ORDER BY ri.is_cover DESC, ri.created_at DESC, ri.id DESC
                     LIMIT 1
                 ) AS cover_image
+                ,
+                (
+                    SELECT COALESCE(
+                        array_agg(ri.image_path ORDER BY ri.is_cover DESC, ri.created_at DESC, ri.id DESC),
+                        ARRAY[]::text[]
+                    )
+                    FROM room_images ri
+                    WHERE ri.room_id = r.id
+                ) AS images
             FROM rooms r
             LEFT JOIN beds b
               ON b.room_id = r.id
