@@ -2782,6 +2782,30 @@ class _ClientBranchDetailsScreenState extends State<ClientBranchDetailsScreen> {
     _load();
   }
 
+  Widget _infoTile(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 11.5, color: _textMuted)),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   void dispose() {
     for (final c in _roomPageCtrls.values) {
@@ -3134,10 +3158,21 @@ class _ClientBranchDetailsScreenState extends State<ClientBranchDetailsScreen> {
               overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 8),
-            _factRow(_tr('Xona turlari', 'Xona turlari'), _roomTypeLabel(r.roomType)),
-            _factRow(_tr('Kravatlar', 'Kravatlar'), _bedBreakdown(r)),
-            _factRow(_tr('Bo\'sh o\'rin', 'Bo\'sh o\'rin'), (r.availableBeds ?? 0).toString()),
-            _factRow(_tr('Bron rejimi', 'Bron rejimi'), _bookingModeLabel(r.bookingMode)),
+            Row(
+              children: [
+                Expanded(child: _infoTile(_tr('Xona turi', 'Xona turi'), _roomTypeLabel(r.roomType))),
+                const SizedBox(width: 8),
+                Expanded(child: _infoTile(_tr('Bron rejimi', 'Bron rejimi'), _bookingModeLabel(r.bookingMode))),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(child: _infoTile(_tr('Kravatlar', 'Kravatlar'), _bedBreakdown(r))),
+                const SizedBox(width: 8),
+                Expanded(child: _infoTile(_tr('Bo\'sh o\'rin', 'Bo\'sh o\'rin'), (r.availableBeds ?? 0).toString())),
+              ],
+            ),
             const SizedBox(height: 10),
             Container(
               padding: const EdgeInsets.all(6),
@@ -3658,57 +3693,91 @@ class _RoomPriceTabsState extends State<_RoomPriceTabs> {
     return _tr('Kunlik', 'Kunlik');
   }
 
+  Widget _priceRow(String label, String value) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: _border),
+      ),
+      child: Row(
+        children: [
+          Expanded(child: Text(label, style: const TextStyle(fontSize: 12, color: _textMuted))),
+          const SizedBox(width: 8),
+          Text(value, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: GestureDetector(
-                onTap: () => setState(() => _tab = 'room'),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  decoration: BoxDecoration(
-                    color: _tab == 'room' ? const Color(0xFFEFF6FF) : Colors.transparent,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    _tr('Xona narxi', 'Xona narxi'),
-                    style: TextStyle(fontWeight: FontWeight.w600, color: _tab == 'room' ? _brandBlue : _textMuted),
-                  ),
-                ),
-              ),
-            ),
-            Expanded(
-              child: GestureDetector(
-                onTap: () => setState(() => _tab = 'bed'),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  decoration: BoxDecoration(
-                    color: _tab == 'bed' ? const Color(0xFFEFF6FF) : Colors.transparent,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    _tr('Kravat narxi', 'Kravat narxi'),
-                    style: TextStyle(fontWeight: FontWeight.w600, color: _tab == 'bed' ? _brandBlue : _textMuted),
+        Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _tab = 'room'),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      color: _tab == 'room' ? Colors.white : Colors.transparent,
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: _tab == 'room'
+                          ? const [BoxShadow(color: Color(0x22000000), blurRadius: 6, offset: Offset(0, 2))]
+                          : const [],
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      _tr('Xona narxi', 'Xona narxi'),
+                      style: TextStyle(fontWeight: FontWeight.w600, color: _tab == 'room' ? _brandBlue : _textMuted),
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _tab = 'bed'),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      color: _tab == 'bed' ? Colors.white : Colors.transparent,
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: _tab == 'bed'
+                          ? const [BoxShadow(color: Color(0x22000000), blurRadius: 6, offset: Offset(0, 2))]
+                          : const [],
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      _tr('Kravat narxi', 'Kravat narxi'),
+                      style: TextStyle(fontWeight: FontWeight.w600, color: _tab == 'bed' ? _brandBlue : _textMuted),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 8),
         if (_tab == 'room') ...[
-          Text('${_label("day")}: ${widget.roomDaily}'),
-          Text('${_label("hour")}: ${widget.roomHourly}'),
-          Text('${_label("month")}: ${widget.roomMonthly}'),
+          _priceRow(_label("day"), widget.roomDaily),
+          _priceRow(_label("hour"), widget.roomHourly),
+          _priceRow(_label("month"), widget.roomMonthly),
         ] else ...[
-          Text('${_label("day")}: ${widget.bedDaily}'),
-          Text('${_label("hour")}: ${widget.bedHourly}'),
-          Text('${_label("month")}: ${widget.bedMonthly}'),
+          _priceRow(_label("day"), widget.bedDaily),
+          _priceRow(_label("hour"), widget.bedHourly),
+          _priceRow(_label("month"), widget.bedMonthly),
         ],
       ],
     );
