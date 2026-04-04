@@ -98,10 +98,37 @@ def inject_globals():
 
 
 
+def _bearer_user():
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer "):
+        return None
+    token = auth.split(" ", 1)[1].strip()
+    if not token:
+        return None
+    try:
+        resp = requests.get(
+            f"{API_URL}/auth/me",
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=(5, 10),
+        )
+        if resp.status_code != 200:
+            return None
+        data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else None
+        if not isinstance(data, dict):
+            return None
+        data["_bearer_token"] = token
+        return data
+    except Exception:
+        return None
+
+
 def login_required(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
-        if "access_token" not in session:
+        if "access_token" in session:
+            return f(*args, **kwargs)
+        user = _bearer_user()
+        if user is None:
             return redirect("/login")
         return f(*args, **kwargs)
     return wrapper
@@ -114,11 +141,18 @@ def is_logged_in_session():
 def require_login_json():
     if is_logged_in_session():
         return None
+    if _bearer_user() is not None:
+        return None
     return jsonify({"ok": False, "error": "Login required"}), 401
 
 
 def is_root_admin_session():
-    return bool(session.get("is_admin")) and int(session.get("telegram_id") or 0) == ROOT_TELEGRAM_ID
+    if bool(session.get("is_admin")) and int(session.get("telegram_id") or 0) == ROOT_TELEGRAM_ID:
+        return True
+    user = _bearer_user()
+    if not user:
+        return False
+    return bool(user.get("is_admin")) and int(user.get("telegram_id") or 0) == ROOT_TELEGRAM_ID
 
 
 def _normalize_email(value):

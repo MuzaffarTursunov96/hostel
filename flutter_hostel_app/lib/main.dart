@@ -9042,6 +9042,11 @@ class _RootAdminSheetState extends State<_RootAdminSheet> {
   final _newTg = TextEditingController();
   final _newName = TextEditingController();
   final _newPass = TextEditingController();
+  final _marketingCtrl = TextEditingController();
+  bool _marketingLoading = false;
+  String _marketingStatus = '';
+  bool _leadsLoading = false;
+  List<Map<String, dynamic>> _leads = [];
   String _t(String ru, String uz) => trPair(ru: ru, uz: uz, lang: appLang.value);
 
   @override
@@ -9056,6 +9061,7 @@ class _RootAdminSheetState extends State<_RootAdminSheet> {
     _newTg.dispose();
     _newName.dispose();
     _newPass.dispose();
+    _marketingCtrl.dispose();
     super.dispose();
   }
 
@@ -9199,10 +9205,82 @@ class _RootAdminSheetState extends State<_RootAdminSheet> {
         _cronEnabled = cronEnabled;
         _cronForceNext = cronForceNext;
       });
+      await _loadMarketing();
+      await _loadLeads();
     } catch (e) {
       setState(() => _error = friendlyErrorText('$e'));
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _loadMarketing() async {
+    setState(() {
+      _marketingLoading = true;
+      _marketingStatus = _t('Загрузка контента...', 'Kontent yuklanmoqda...');
+    });
+    try {
+      final res = await http.get(
+        Uri.parse('https://hmsuz.com/root-marketing-content'),
+        headers: {'Authorization': 'Bearer ${widget.api.token}'},
+      );
+      if (res.statusCode != 200) {
+        throw Exception('status ${res.statusCode}: ${res.body}');
+      }
+      final map = jsonDecode(res.body) as Map<String, dynamic>;
+      final content = map['content'] ?? {};
+      _marketingCtrl.text = const JsonEncoder.withIndent('  ').convert(content);
+      setState(() => _marketingStatus = _t('Контент загружен', 'Kontent yuklandi'));
+    } catch (e) {
+      setState(() => _marketingStatus = friendlyErrorText('$e'));
+    } finally {
+      if (mounted) setState(() => _marketingLoading = false);
+    }
+  }
+
+  Future<void> _saveMarketing() async {
+    setState(() {
+      _marketingLoading = true;
+      _marketingStatus = _t('Сохранение...', 'Saqlanmoqda...');
+    });
+    try {
+      final content = jsonDecode(_marketingCtrl.text);
+      final res = await http.post(
+        Uri.parse('https://hmsuz.com/root-marketing-content'),
+        headers: {
+          'Authorization': 'Bearer ${widget.api.token}',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'content': content}),
+      );
+      if (res.statusCode < 200 || res.statusCode >= 300) {
+        throw Exception('status ${res.statusCode}: ${res.body}');
+      }
+      setState(() => _marketingStatus = _t('Контент сохранен', 'Kontent saqlandi'));
+    } catch (e) {
+      setState(() => _marketingStatus = friendlyErrorText('$e'));
+    } finally {
+      if (mounted) setState(() => _marketingLoading = false);
+    }
+  }
+
+  Future<void> _loadLeads() async {
+    setState(() => _leadsLoading = true);
+    try {
+      final res = await http.get(
+        Uri.parse('https://hmsuz.com/root-leads'),
+        headers: {'Authorization': 'Bearer ${widget.api.token}'},
+      );
+      if (res.statusCode != 200) {
+        throw Exception('status ${res.statusCode}: ${res.body}');
+      }
+      final map = (jsonDecode(res.body) as Map).cast<String, dynamic>();
+      final list = (map['leads'] as List?) ?? [];
+      setState(() => _leads = list.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList());
+    } catch (_) {
+      setState(() => _leads = []);
+    } finally {
+      if (mounted) setState(() => _leadsLoading = false);
     }
   }
 
@@ -9428,6 +9506,7 @@ class _RootAdminSheetState extends State<_RootAdminSheet> {
 
   Widget _adminCard(Map<String, dynamic> a) {
     final exp = '${a['admin_expires_at'] ?? ''}';
+    final expDate = exp.isEmpty ? '-' : exp.split('T').first;
     return _Card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -9440,15 +9519,45 @@ class _RootAdminSheetState extends State<_RootAdminSheet> {
           ),
           Text('Telegram: ${a['telegram_id'] ?? ''}'),
           Text('Filiallar: ${_branchNames(a['branches'])}'),
-          Text('Expiry: ${exp.isEmpty ? '-' : exp.split('T').first}'),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Text(
+                _t('Дата окончания', 'Tugash sanasi'),
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: InkWell(
+                  onTap: () => _setExpiry(a),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: const Color(0xFFE5E7EB)),
+                      borderRadius: BorderRadius.circular(8),
+                      color: const Color(0xFFF8FAFC),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(expDate),
+                        const Icon(Icons.calendar_month_outlined, size: 16, color: Color(0xFF64748B)),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton(onPressed: () => _clearExpiry(a), child: Text(_t('Очистить', 'Tozalash'))),
+            ],
+          ),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
               OutlinedButton(onPressed: () => _setBranches(a), child: const Text('Filiallar')),
-              OutlinedButton(onPressed: () => _setExpiry(a), child: const Text('Saqlash')),
-              OutlinedButton(onPressed: () => _clearExpiry(a), child: const Text('Tozalash')),
               OutlinedButton(onPressed: () => _resetPassword(a), child: const Text('Parolni tiklash')),
               FilledButton(
                 style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE5534B)),
@@ -9581,6 +9690,118 @@ class _RootAdminSheetState extends State<_RootAdminSheet> {
                               if (rows.isEmpty)
                                 Text(_t('Админы не найдены', "Adminlar topilmadi"), style: const TextStyle(color: Colors.grey)),
                               ...rows.map(_adminCard),
+                              const SizedBox(height: 12),
+                              _Card(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            _t('Маркетинг контент (сайт)', 'Marketing kontent (sayt)'),
+                                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                                          ),
+                                        ),
+                                        OutlinedButton(
+                                          onPressed: _marketingLoading ? null : _loadMarketing,
+                                          child: Text(_t('Обновить', 'Yangilash')),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        FilledButton(
+                                          onPressed: _marketingLoading ? null : _saveMarketing,
+                                          child: Text(_t('Сохранить', 'Saqlash')),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      _t(
+                                        'Редактируйте JSON с ценами, видео и карточками контента для hmsuz.com',
+                                        'hmsuz.com uchun narx, video va kontent kartalari JSON',
+                                      ),
+                                      style: const TextStyle(color: Colors.grey),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    TextField(
+                                      controller: _marketingCtrl,
+                                      minLines: 8,
+                                      maxLines: 16,
+                                      decoration: const InputDecoration(border: OutlineInputBorder()),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      _marketingStatus,
+                                      style: TextStyle(color: _marketingStatus.contains('Ошибка') ? Colors.red : Colors.grey),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              _Card(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            _t('Заявки клиентов', 'Mijoz arizalari'),
+                                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                                          ),
+                                        ),
+                                        OutlinedButton(
+                                          onPressed: _leadsLoading ? null : _loadLeads,
+                                          child: Text(_t('Обновить', 'Yangilash')),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    if (_leadsLoading)
+                                      const Center(child: CircularProgressIndicator())
+                                    else if (_leads.isEmpty)
+                                      Text(_t('Пока нет заявок', 'Hozircha arizalar yo‘q'), style: const TextStyle(color: Colors.grey))
+                                    else
+                                      Column(
+                                        children: _leads.map((lead) {
+                                          final created = '${lead['created_at'] ?? ''}';
+                                          final name = '${lead['manager_name'] ?? ''}';
+                                          final phone = '${lead['phone'] ?? ''}';
+                                          final property = '${lead['property_name'] ?? ''}';
+                                          final city = '${lead['city'] ?? ''}';
+                                          final rooms = '${lead['rooms'] ?? ''}';
+                                          final time = '${lead['preferred_time'] ?? ''}';
+                                          final note = '${lead['note'] ?? ''}';
+                                          return Container(
+                                            width: double.infinity,
+                                            margin: const EdgeInsets.only(bottom: 10),
+                                            padding: const EdgeInsets.all(10),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFF8FAFC),
+                                              borderRadius: BorderRadius.circular(12),
+                                              border: Border.all(color: const Color(0xFFE5E7EB)),
+                                            ),
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(created, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                                const SizedBox(height: 6),
+                                                Text('${_t('Имя', 'Ism')}: $name'),
+                                                Text('${_t('Телефон', 'Telefon')}: $phone'),
+                                                Text('${_t('Объект', 'Obyekt')}: $property'),
+                                                Text('${_t('Город', 'Shahar')}: $city'),
+                                                Text('${_t('Комнаты', 'Xonalar')}: $rooms'),
+                                                Text('${_t('Удобное время', 'Qulay vaqt')}: $time'),
+                                                if (note.isNotEmpty)
+                                                  Text('${_t('Комментарий', 'Izoh')}: $note'),
+                                              ],
+                                            ),
+                                          );
+                                        }).toList(),
+                                      ),
+                                  ],
+                                ),
+                              ),
                             ],
                           ),
               ),
